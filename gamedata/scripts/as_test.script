@@ -1,23 +1,33 @@
---- as_test: AlifeSpooks playtest harness. Console-invoked via run_string, inert otherwise.
+--- as_test: AlifeSpooks dev harness. Console helpers plus the atmosphere probe collector.
+--- Console helpers are inert until called (run_string as_test.dev_setup()). The probe key
+--- (INSERT -> note box -> snapshot) is active only while debug tracing is on (as_debug.on()),
+--- so it never fires for players.
 
 as_test = as_test or {}
 
+local pairs, tostring = pairs, tostring
+local table_concat, table_sort = table.concat, table.sort
+local RegisterScriptCallback, GetEvent = RegisterScriptCallback, GetEvent
 local news_manager, ui_options, game_fast_travel = news_manager, ui_options, game_fast_travel
+
+local INSERT_KEY = 210
 
 local function _tip(msg)
     local actor = db.actor
     if actor then news_manager.send_tip(actor, msg, nil, nil, 4000) end
 end
 
+-- ---- dev helpers ----------------------------------------------------------
+
 --- Unlock all fast-travel waypoints
-function as_test.travel()
+function as_test.unlock_travel()
     ui_options.set("gameplay/fast_travel/state", 2)
     game_fast_travel.update_settings()
     _tip("fast travel: all waypoints unlocked")
 end
 
 --- Give money (default 100000)
-function as_test.money(amount)
+function as_test.give_money(amount)
     local actor = db.actor
     if not actor then return end
     actor:give_money(amount or 100000)
@@ -25,7 +35,7 @@ function as_test.money(amount)
 end
 
 --- Disable the northern psy fields so Radar / Red Forest are walkable
-function as_test.north()
+function as_test.open_north()
     local actor = db.actor
     if not actor then return end
     actor:give_info_portion("bar_deactivate_radar_done")
@@ -33,9 +43,171 @@ function as_test.north()
     _tip("north opened: psy fields off (reload the level to apply)")
 end
 
---- Unlock travel, give money, open the north
-function as_test.all()
-    as_test.travel()
-    as_test.money(100000)
-    as_test.north()
+--- One-shot dev setup: travel, money, north
+function as_test.dev_setup()
+    as_test.unlock_travel()
+    as_test.give_money(100000)
+    as_test.open_north()
+end
+
+-- ---- atmosphere probe collector -------------------------------------------
+
+local _log = nil
+local function _logger()
+    if not _log and xlog then
+        _log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+    end
+    return _log
+end
+
+local function _count(t)
+    local total = 0
+    for _ in pairs(t or {}) do total = total + 1 end
+    return total
+end
+
+local function _fmt(t)
+    local parts = {}
+    for k, v in pairs(t) do parts[#parts + 1] = k .. ":" .. v end
+    table_sort(parts)
+    return table_concat(parts, ", ")
+end
+
+local function _add_online(obj, species)
+    if xcreature.is_mutant(obj) then
+        local sp = xcreature.get_mutant_species(obj) or "unknown"
+        species[sp] = (species[sp] or 0) + 1
+        return 0
+    end
+    return xcreature.is_stalker(obj) and 1 or 0
+end
+
+local function _snap_combat(log)
+    local fw = xr_combat_ignore and xr_combat_ignore.fighting_with_actor_npcs
+    log.info("COMBAT fighting_with_actor_npcs=%d", fw and _count(fw) or -1)
+end
+
+local function _snap_online(log, actor_id)
+    local species, humans = {}, 0
+    for id, st in pairs(db.storage) do
+        local obj = (id ~= actor_id) and st and st.object
+        if obj then humans = humans + _add_online(obj, species) end
+    end
+    log.info("ONLINE-NEAR humans=%d mutants={%s}", humans, _fmt(species))
+end
+
+local function _bright_day(hour, weather, rain)
+    local wl = weather:lower()
+    local overcast = wl:find("storm") or wl:find("rain") or wl:find("fog") or wl:find("cloud") or wl:find("dark") or wl:find("partly")
+    return (hour >= 7 and hour < 19) and (rain < 0.1) and not overcast and true or false
+end
+
+local function _snap_place(log, apos)
+    local enclosed = xcombat.is_indoor(apos)
+    local static_ug = (xcombat.INDOOR_LEVELS and xcombat.INDOOR_LEVELS[level.name()]) and true or false
+    log.info("PLACE enclosed=%s static_underground=%s pos=%.0f,%.0f,%.0f",
+        tostring(enclosed), tostring(static_ug), apos.x, apos.y, apos.z)
+    if not level.present() then return end
+    local hour = level.get_time_hours()
+    local weather = tostring(level.get_weather())
+    local rain = level.rain_factor()
+    local sun = (not enclosed) and _bright_day(hour, weather, rain) and true or false
+    log.info("ATMO hour=%d weather=%s rain=%.2f sun_visible=%s safe_cover=%s underground_event=%s",
+        hour, weather, rain, tostring(sun),
+        tostring(GetEvent("current_safe_cover") and true or false),
+        tostring(GetEvent("underground") and true or false))
+end
+
+local function _add_smart_species(smart, level_id, species)
+    if xlevel.get_level_id(smart) ~= level_id then return end
+    local squads = xsmart.get_smart_squads(smart.id)
+    if not squads then return end
+    for sqid in pairs(squads) do
+        local sp = xcreature.get_mutant_species(sqid)
+        if sp then species[sp] = (species[sp] or 0) + 1 end
+    end
+end
+
+local function _snap_level_species(log, level_id)
+    local species = {}
+    for smart in xsmart.smart_iter() do _add_smart_species(smart, level_id, species) end
+    log.info("LEVEL-SPECIES {%s}", _fmt(species))
+end
+
+--- Log one atmosphere snapshot with a note. Cheap; run on demand only, never per frame.
+function as_test.snapshot(note)
+    local log = _logger()
+    local actor = db.actor
+    if not (log and xcreature and xsmart and xlevel and xcombat and actor and level.present()) then return end
+    log.info("=== SNAPSHOT note=[%s] level=%s ===", tostring(note or "?"), tostring(level.name()))
+    _snap_combat(log)
+    _snap_online(log, actor:id())
+    _snap_place(log, actor:position())
+    _snap_level_species(log, xlevel.get_actor_level_id())
+    log.flush()
+end
+
+-- ---- note box + probe key (debug-gated) -----------------------------------
+
+class "as_test_note_box" (CUIScriptWnd)
+
+function as_test_note_box:__init() super()
+    self:SetWndRect(Frect():set(0, 0, 1024, 768))
+    self:SetAutoDelete(true)
+    local xml = CScriptXmlInit()
+    xml:ParseFile("ui_items_backpack.xml")
+    self.dialog = xml:InitStatic("backpack", self)
+    xml:InitStatic("backpack:background", self.dialog)
+    self.input = xml:InitEditBox("backpack:input", self.dialog)
+    self:Register(self.input, "fld_input")
+    local ok = xml:Init3tButton("backpack:btn_ok", self.dialog)
+    self:Register(ok, "btn_ok")
+    local cancel = xml:Init3tButton("backpack:btn_cancel", self.dialog)
+    self:Register(cancel, "btn_cancel")
+    self:AddCallback("btn_ok", ui_events.BUTTON_CLICKED, self.OnAccept, self)
+    self:AddCallback("btn_cancel", ui_events.BUTTON_CLICKED, self.OnClose, self)
+    self.input:SetText("")
+    self.input:CaptureFocus(true)
+end
+
+function as_test_note_box:OnAccept()
+    if self._done then return end
+    self._done = true
+    local txt = self.input:GetText()
+    self:OnClose()
+    local note = (txt and txt ~= "") and txt or "no-note"
+    as_test.snapshot(note)
+    _tip("probe saved: " .. note)
+end
+
+function as_test_note_box:OnClose()
+    self:HideDialog()
+    Unregister_UI("as_test_note_box")
+end
+
+function as_test_note_box:OnKeyboard(dik, action)
+    local res = CUIScriptWnd.OnKeyboard(self, dik, action)
+    if action ~= ui_events.WINDOW_KEY_PRESSED then return res end
+    if dik == DIK_keys.DIK_ESCAPE then self:OnClose() end
+    if dik == DIK_keys.DIK_RETURN then self:OnAccept() end
+    return res
+end
+
+local _box = nil
+
+local function _open_note_box()
+    if _box and _box:IsShown() then return end
+    _box = as_test_note_box()
+    _box:ShowDialog(true)
+    Register_UI("as_test_note_box", "as_test", _box)
+end
+
+local function _on_key(key)
+    if key == INSERT_KEY and db.actor and as_debug and as_debug.on() then
+        _open_note_box()
+    end
+end
+
+function on_game_start()
+    RegisterScriptCallback("on_key_press", _on_key)
 end
