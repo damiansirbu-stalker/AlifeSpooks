@@ -36,7 +36,7 @@ local function _placement()
         _place_ini = ini_file("scripts\\as_placement.ltx")
         as_debug.dbg("placement file %s", _place_ini
             and "loaded (scripts\\as_placement.ltx)"
-            or "MISSING (scripts\\as_placement.ltx) - no aa_ channels will be injected")
+            or "MISSING (scripts\\as_placement.ltx) - no as_ channels will be injected")
     end
     return _place_ini
 end
@@ -101,7 +101,7 @@ local function reset_settings(level_name, ambient)
             entry.periods = { _period(ini_snd:r_float_ex(ch, "period0")), _period(ini_snd:r_float_ex(ch, "period1")),
                               _period(ini_snd:r_float_ex(ch, "period2")), _period(ini_snd:r_float_ex(ch, "period3")) }
             entry.sounds = sounds
-            entry.layer = ini_lay and ini_lay:r_string_ex("aa_channel_layers", ch)
+            entry.layer = ini_lay and ini_lay:r_string_ex("as_channel_layers", ch)
             snd_chanels[#snd_chanels + 1] = entry
         end
     end

@@ -612,7 +612,7 @@ def _clean(d):
 
 # ----------------------------------------------------------------------------
 # The shipped model: two layers over the untouched engine bed.
-#   LOOP - looped continuous beds, one at a time by context (aa_loop.script).
+#   LOOP - looped continuous beds, one at a time by context (as_loop.script).
 #   EFFECT  - dynamic one-shots on the engine's own channels, enrich/restore/define
 #             (see _channel_routing); grouped into 11 LAYERS for volume + density.
 # Role is MEASURED per file (classify); the layer comes from layer_of.
@@ -947,7 +947,7 @@ def _band_blobs(root):
 
 
 # Each effect channel keeps its VERBATIM source settings - no median. Channels are grouped
-# by (mood, exact-settings-tuple): one deployed channel aa_eff_<mood>_<n> per distinct tuple,
+# by (mood, exact-settings-tuple): one deployed channel as_eff_<mood>_<n> per distinct tuple,
 # so a source channel's period/distance/indoor/height survive exactly (provenance-faithful).
 # The mood is only a tag for the MCM knobs; as_effect reads it off the <mood> in the name.
 def _chan_settings(lines):
@@ -995,7 +995,7 @@ LAYER_ORDER = ["spooks", "screams", "mutants", "ambience", "underground", "fores
 
 def layer_of(ch):
     c = ch.lower()
-    if c.startswith("aa_"):        # deployed define channels are aa_<source>; layer by the source
+    if c.startswith("as_"):        # deployed define channels are as_<source>; layer by the source
         c = c[3:]
     if c.startswith("ugrnd_") or c == "x18" or c == "inside_noise" or "underground_background" in c:
         return "underground"
@@ -1030,7 +1030,7 @@ def _channel_routing(mc, cls):
       enrich  - a channel BOTH installs play: append our net-new sounds to it (deployed =
                 the base name), NO preset change (it already plays where the base plays it).
       restore - a strip-4 channel: define fully + re-add to presets (deployed = base name).
-      define  - a purpose no live base channel provides: our own aa_<ch> (deployed = aa_ch).
+      define  - a purpose no live base channel provides: our own as_<ch> (deployed = as_ch).
     Beds (loop role) are not routed here - the deploy sends them to the bed pools."""
     have_effect = {r["ch"] for r in cls if r["role"] != "loop"}
     both = _active_channels(VAN_CFG) & _active_channels(GAMMA_WINNER)
@@ -1051,13 +1051,13 @@ def _channel_routing(mc, cls):
         else:
             # no channel both installs run (wind_dark absent on GAMMA, or a pack refinement
             # like out_day_spoops) -> our own self-contained channel, defined + placed
-            routing[ch] = (f"aa_{ch}", "define", lay)
+            routing[ch] = (f"as_{ch}", "define", lay)
     return routing
 
 
 def effect_group_map(cls):
     """(ch -> deployed channel, deployed channel -> settings key), derived from the
-    routing. Deployed name = the base channel (enrich/restore) or aa_<ch> (define).
+    routing. Deployed name = the base channel (enrich/restore) or as_<ch> (define).
     Kept as the shared entry point for _build_layers, deploy and provenance."""
     mc = json.loads((HERE / "merged_channels.json").read_text())
     routing = _channel_routing(mc, cls)
@@ -1118,7 +1118,7 @@ def deploy_loop(root, loops):
             continue
         for i, e in enumerate(entries, 1):
             _emit_audio(e, snd / "loop" / bed / f"{i}.ogg")
-        names = [f"aa_loop_{bed}_{i}" for i in range(1, len(entries) + 1)]
+        names = [f"as_loop_{bed}_{i}" for i in range(1, len(entries) + 1)]
         for i, nm in enumerate(names, 1):
             themes += [f"[{nm}]", "type = looped", f"path = zs\\loop\\{bed}\\{i}", ""]
         beds_cfg += [f"\n[{bed}]", "themes = " + ", ".join(names)]
@@ -1150,7 +1150,7 @@ def cmd_deploy(a):
     # define channel additionally carries its settings and a seeding `sounds =` line.
     # ONE sound per line - a single long `sounds = a,b,c,...` overflows the engine's fixed
     # LTX read buffer (IReader::r_string, FS.cpp) and CTDs at load.
-    chan_lines, layer_lines = [HDR], [HDR, "[aa_channel_layers]"]
+    chan_lines, layer_lines = [HDR], [HDR, "[as_channel_layers]"]
     for dep in sorted(effects):
         entries = effects[dep]
         if not entries:
