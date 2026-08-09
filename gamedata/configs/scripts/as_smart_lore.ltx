@@ -1,0 +1,188 @@
+; AlifeSpooks smart-terrain lore classification (hand-curated).
+; The director reads this at the actor's current smart: smart:name() -> [smart_class] class (+ [smart_flavor]);
+; if the smart is not listed, it falls back to [level_default] by level.name().
+; class:  safe den psy lab ruin eerie mundane      flavor: species/descriptor (dens + psy)
+; Sources: configs/misc/simulation_objects_props.ltx (props), configs/text/eng/st_land_names.xml (real names),
+;          S.T.A.L.K.E.R. canon. Mundane wildlife lairs default to their level; generic anomalies are handled
+;          at runtime by xsmart.has_anomaly (only the ominously-named anomaly spots are overridden below).
+
+[level_default]
+l01_escape              = mundane
+l02_garbage             = mundane
+l03_agroprom            = mundane
+l03u_agr_underground    = eerie
+k01_darkscape           = eerie
+l04_darkvalley          = mundane
+l05_bar                 = mundane
+l06_rostok              = mundane
+l07_military            = mundane
+l08_yantar              = psy
+l08u_brainlab           = lab
+l04u_labx18             = lab
+labx8                   = lab
+l09_deadcity            = ruin
+l10_red_forest          = psy
+l10_radar               = psy
+l10_limansk             = ruin
+l10u_bunker             = eerie
+l11_hospital            = ruin
+l11_pripyat             = ruin
+pripyat                 = ruin
+l12_stancia             = psy
+l12_stancia_2           = psy
+l12u_sarcofag           = lab
+l12u_control_monolith   = lab
+l13_generators          = psy
+l13u_warlab             = lab
+zaton                   = eerie
+jupiter                 = mundane
+jupiter_underground     = eerie
+k02_trucks_cemetery     = eerie
+k00_marsh               = eerie
+
+[smart_class]
+; --- Agroprom Underground: bloodsucker warren ---
+agr_u_bloodsucker           = den
+agr_u_bloodsucker_2         = den
+agr_u_monsters              = den
+; --- Darkscape: poltergeist/snork/zombie ---
+dar_control_poltergeist     = psy
+dar_poltergeist_ring        = psy
+dar_poltergeist_tele        = psy
+dar_poltergeist_tele_round  = psy
+dar_smart_snork             = den
+zombie_smart_ds_mlr_1       = den
+zombie_smart_ds_mlr_2       = den
+; --- Bar / Rostok: safe Duty hub + a poltergeist/snork ---
+bar_dolg_bunker             = safe
+bar_dolg_general            = safe
+bar_visitors                = safe
+bar_zastava                 = safe
+bar_zastava_2               = safe
+ros_smart_stalker1          = safe
+ros_smart_stalker_killers1  = safe
+ros_smart_poltergeist2      = psy
+ros_smart_snork1            = den
+; --- Yantar: Brain-Scorcher psi belt, ecologist base ---
+yan_smart_terrain_3_6       = safe
+yan_smart_terrain_5_5       = safe
+yan_smart_terrain_6_4       = safe
+yan_smart_terrain_zombi_spawn = den
+yan_smart_terrain_snork_u   = den
+; --- Lab X16: experiment horrors ---
+x162_st_burer               = psy
+x162_st_gigant              = den
+x162_st_snork               = den
+x162_st_poltergeist         = psy
+; --- Dead City: merc ruin + sewers ---
+cit_kanaliz1                = den
+cit_kanaliz2                = den
+; --- Red Forest: Monolith psi ---
+red_smart_terrain_monsters  = den
+red_smart_terrain_monsters_2 = den
+red_smart_terrain_monsters_3 = den
+; --- Radar: peak psi, Monolith antennas, horror dens ---
+rad_antenna_monolith        = psy
+rad_antenna_camper          = psy
+rad_antenna_patrol          = psy
+rad_bloodsucker             = den
+rad_snork1                  = den
+rad_snork2                  = den
+rad_zombied1                = den
+rad_zombied2                = den
+; --- Bunker: bloodsucker nests ---
+bun_krovosos_nest           = den
+bun2_st_bloodsucker         = den
+; --- Pripyat: ghost-city ruin, Monolith, lairs ---
+pri_monolith                = psy
+pri_smart_monolith_stalker2 = psy
+pri_smart_monolith_stalker3 = psy
+pri_smart_monolith_stalker4 = psy
+pri_smart_bloodsucker_lair1 = den
+pri_smart_controler_lair1   = psy
+pri_smart_controler_lair2   = psy
+pri_smart_giant_lair1       = den
+pri_smart_snork_lair1       = den
+pri_smart_snork_lair2       = den
+; --- NPP / Stancia: Monolith reactor ---
+aes_smart_terrain_monolit_blockpost  = psy
+aes_smart_terrain_monolit_blockpost2 = psy
+aes_smart_terrain_monolit_blockpost4 = psy
+aes2_monolith_camp1         = psy
+aes2_monolith_camp2         = psy
+aes2_monolith_camp3         = psy
+aes2_monolith_camp4         = psy
+aes_smart_terrain_monsters1 = den
+aes_smart_terrain_monsters2 = den
+aes_smart_terrain_monsters3 = den
+aes_smart_terrain_monsters4 = den
+monolith_snipers_smart_1_mlr = psy
+; --- Sarcophagus: C-Consciousness horrors ---
+sar_monolith_poltergeists   = psy
+sar_monolith_bloodsuckers   = den
+sar_monolith_zombies        = den
+; --- Generators / Warlab: lab entrances ---
+gen_smart_terrain_lab_entrance   = lab
+gen_smart_terrain_lab_entrance_2 = lab
+warlab_common_consciousness_smart_terrain = lab
+katacomb_smart_terrain      = lab
+; --- Zaton: eerie wetland, Skadovsk safe, Sawmill zombies ---
+zat_stalker_base_smart      = safe
+zat_b104_zombied            = den
+; --- Jupiter: Yanov safe hub ---
+jup_a6                      = safe
+jup_b6                      = safe
+; --- Marsh: Clear Sky doctor base ---
+mar_smart_terrain_base      = safe
+mar_smart_terrain_doc       = safe
+mar_smart_terrain_doc_2     = safe
+; --- Ominously-named anomaly spots (name upgrades unease -> psy/death) ---
+rad_2c_01                   = psy
+rad_2c_02                   = psy
+gen_2c_01                   = psy
+yan_smart_terrain_5_3       = psy
+trc_sim_13                  = psy
+esc_smart_terrain_5_4       = anomaly
+mil_smart_terrain_4_7       = anomaly
+red_smart_terrain_3_2       = anomaly
+gen_smart_terrain_urod      = anomaly
+
+[smart_flavor]
+agr_u_bloodsucker           = bloodsucker
+agr_u_bloodsucker_2         = bloodsucker
+dar_control_poltergeist     = poltergeist
+dar_poltergeist_ring        = poltergeist
+dar_poltergeist_tele        = poltergeist
+dar_poltergeist_tele_round  = poltergeist
+dar_smart_snork             = snork
+zombie_smart_ds_mlr_1       = zombie
+zombie_smart_ds_mlr_2       = zombie
+ros_smart_poltergeist2      = poltergeist
+ros_smart_snork1            = snork
+yan_smart_terrain_zombi_spawn = zombie
+yan_smart_terrain_snork_u   = snork
+x162_st_burer               = burer
+x162_st_gigant              = pseudogiant
+x162_st_snork               = snork
+x162_st_poltergeist         = poltergeist
+rad_bloodsucker             = bloodsucker
+rad_snork1                  = snork
+rad_snork2                  = snork
+rad_zombied1                = zombie
+rad_zombied2                = zombie
+bun_krovosos_nest           = bloodsucker
+bun2_st_bloodsucker         = bloodsucker
+pri_smart_bloodsucker_lair1 = bloodsucker
+pri_smart_controler_lair1   = controller
+pri_smart_controler_lair2   = controller
+pri_smart_giant_lair1       = pseudogiant
+pri_smart_snork_lair1       = snork
+pri_smart_snork_lair2       = snork
+sar_monolith_poltergeists   = poltergeist
+sar_monolith_bloodsuckers   = bloodsucker
+sar_monolith_zombies        = zombie
+zat_b104_zombied            = zombie
+esc_smart_terrain_5_4       = death
+mil_smart_terrain_4_7       = death
+red_smart_terrain_3_2       = death
+gen_smart_terrain_urod      = death

@@ -3,89 +3,33 @@
   <string id="ui_mcm_menu_as">
     <text>AlifeSpooks</text>
   </string>
-  <string id="ui_mcm_menu_atmosphere">
-    <text>Atmosphere</text>
+  <string id="ui_mcm_menu_spooks">
+    <text>Spooks</text>
+  </string>
+  <string id="ui_mcm_menu_visuals">
+    <text>Visuals</text>
   </string>
   <string id="ui_mcm_menu_development">
     <text>Development</text>
   </string>
-  <string id="ui_mcm_as_desc">
-    <text>Dark ambient overlay. Every control at 1.0 means no change from the base soundscape; move one and the runtime layer takes over the dynamic ambient to apply it.</text>
+  <string id="ui_mcm_as_title">
+    <text>AlifeSpooks</text>
   </string>
-  <string id="ui_mcm_as_hdr_layers">
-    <text>Effect volume by layer</text>
+
+  <string id="ui_mcm_as_spooks_desc">
+    <text>The spook layer. It stays silent in safe and mundane places and, only where a place is genuinely unsettling, fires curated spook one-shots that grow closer and denser the worse it gets. It plays nothing else - no weather, no nature - and never replaces the base ambience.</text>
   </string>
   <string id="ui_mcm_as_vol_global">
-    <text>Effect volume (all)</text>
+    <text>Overall volume</text>
   </string>
   <string id="ui_mcm_as_vol_global_desc">
-    <text>Volume multiplier for every dynamic ambient one-shot.</text>
+    <text>Volume multiplier for every spook one-shot.</text>
   </string>
-  <string id="ui_mcm_as_vol_spooks">
-    <text>Spooks volume</text>
+  <string id="ui_mcm_as_sensitivity">
+    <text>Spook sensitivity</text>
   </string>
-  <string id="ui_mcm_as_vol_spooks_desc">
-    <text>Volume of spook effects: whispers, presence, footsteps.</text>
-  </string>
-  <string id="ui_mcm_as_vol_screams">
-    <text>Screams volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_screams_desc">
-    <text>Volume of distant human and creature screams.</text>
-  </string>
-  <string id="ui_mcm_as_vol_mutants">
-    <text>Mutants volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_mutants_desc">
-    <text>Volume of distant mutant calls and growls.</text>
-  </string>
-  <string id="ui_mcm_as_vol_ambience">
-    <text>Dark ambience volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_ambience_desc">
-    <text>Volume of low dread pads and drones.</text>
-  </string>
-  <string id="ui_mcm_as_vol_machines">
-    <text>Machines volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_machines_desc">
-    <text>Volume of distant gunfire, drones, industry and radio.</text>
-  </string>
-  <string id="ui_mcm_as_vol_forest">
-    <text>Forest volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_forest_desc">
-    <text>Volume of branch snaps, foliage rustle and woods startle.</text>
-  </string>
-  <string id="ui_mcm_as_vol_storm">
-    <text>Storm volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_storm_desc">
-    <text>Volume of thunder and storm effects.</text>
-  </string>
-  <string id="ui_mcm_as_vol_wind">
-    <text>Wind volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_wind_desc">
-    <text>Volume of wind and creeping gusts.</text>
-  </string>
-  <string id="ui_mcm_as_vol_rain">
-    <text>Rain volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_rain_desc">
-    <text>Volume of rain effects.</text>
-  </string>
-  <string id="ui_mcm_as_vol_wildlife">
-    <text>Wildlife volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_wildlife_desc">
-    <text>Volume of crow, dog and owl effects.</text>
-  </string>
-  <string id="ui_mcm_as_vol_underground">
-    <text>Underground volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_underground_desc">
-    <text>Volume of tunnel and lab effects: rats, metal, drips, machinery.</text>
+  <string id="ui_mcm_as_sensitivity_desc">
+    <text>Scales the whole spook response. Higher makes places read as unsettling sooner and reach peak more often; lower keeps spooks rarer and milder.</text>
   </string>
   <string id="ui_mcm_as_hdr_feel">
     <text>Frequency and distance</text>
@@ -94,37 +38,36 @@
     <text>Rarity</text>
   </string>
   <string id="ui_mcm_as_rarity_desc">
-    <text>Wait between effects. Higher plays them less often.</text>
+    <text>Wait between one-shots. Higher plays them less often.</text>
   </string>
   <string id="ui_mcm_as_distance">
     <text>Distance</text>
   </string>
   <string id="ui_mcm_as_distance_desc">
-    <text>How far effects spawn. Higher is farther and quieter.</text>
+    <text>How far the one-shots spawn. Higher is farther and quieter.</text>
   </string>
-  <string id="ui_mcm_as_loop_volume">
-    <text>Loop bed volume</text>
+
+  <string id="ui_mcm_as_visuals_page_desc">
+    <text>At peak spook, in the worst places, a brief and subtle screen distortion.</text>
   </string>
-  <string id="ui_mcm_as_loop_volume_desc">
-    <text>Loudness of the continuous looped bed under everything.</text>
+  <string id="ui_mcm_as_visuals">
+    <text>Distortion at peak spook</text>
   </string>
-  <string id="ui_mcm_as_variety">
-    <text>No-repeat variety</text>
+  <string id="ui_mcm_as_visuals_desc">
+    <text>In the worst places, a brief, subtle screen distortion that lasts a couple of seconds. Off disables the visual layer entirely; sound is unaffected.</text>
   </string>
-  <string id="ui_mcm_as_variety_desc">
-    <text>Never replay a channel's recent sound, so its full variety is heard instead of the same few on repeat. Off falls back to the base random pick.</text>
-  </string>
+
   <string id="ui_mcm_as_development_desc">
-    <text>Tracing for diagnosing the soundscape. No effect on gameplay.</text>
+    <text>Tracing and the debug HUD for tuning the spook layer. No effect on gameplay.</text>
   </string>
   <string id="ui_mcm_as_hdr_logging">
     <text>Logging</text>
   </string>
   <string id="ui_mcm_as_log_level">
-    <text>Ambient trace</text>
+    <text>Spook trace</text>
   </string>
   <string id="ui_mcm_as_log_level_desc">
-    <text>Records each ambient play to alifespooks.log with channel, mood, file, distance, volume and context. Use to diagnose the soundscape.</text>
+    <text>Records the spook score, grade and each one-shot to alifespooks.log with place and context. Use to diagnose the soundscape.</text>
   </string>
   <string id="as_development_log_level_lst_error">
     <text>Error</text>
@@ -144,6 +87,24 @@
   <string id="ui_mcm_as_log_flush_desc">
     <text>Write every line immediately. Slower; use only when hunting a crash.</text>
   </string>
+
+  <string id="ui_mcm_as_hud_hdr">
+    <text>Debug HUD</text>
+  </string>
+  <string id="ui_mcm_as_development_hud_position">
+    <text>Spook HUD</text>
+  </string>
+  <string id="ui_mcm_as_development_hud_position_desc">
+    <text>A live on-screen breakdown of the spook calculation - grade, score, place, what is playing, each term and the gates - for tuning. Refreshes twice per second, hides while the PDA is open. Pick a corner to show it; Off hides it. Players never see it unless enabled here.</text>
+  </string>
+  <string id="as_development_hud_position_lst_off"><text>Off</text></string>
+  <string id="as_development_hud_position_lst_topleft"><text>Top Left</text></string>
+  <string id="as_development_hud_position_lst_topright"><text>Top Right</text></string>
+  <string id="as_development_hud_position_lst_centerleft"><text>Center Left</text></string>
+  <string id="as_development_hud_position_lst_centerright"><text>Center Right</text></string>
+  <string id="as_development_hud_position_lst_bottomleft"><text>Bottom Left</text></string>
+  <string id="as_development_hud_position_lst_bottomright"><text>Bottom Right</text></string>
+
   <string id="ui_mcm_as_development_btn_reset_all">
     <text>Reset to defaults</text>
   </string>
@@ -155,8 +116,5 @@
   </string>
   <string id="st_as_reset_all_done">
     <text>AlifeSpooks: all settings restored to defaults.</text>
-  </string>
-  <string id="ui_mcm_as_title">
-    <text>AlifeSpooks</text>
   </string>
 </string_table>

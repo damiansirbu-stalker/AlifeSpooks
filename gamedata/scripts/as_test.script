@@ -134,16 +134,82 @@ local function _snap_level_species(log, level_id)
     log.info("LEVEL-SPECIES {%s}", _fmt(species))
 end
 
+-- ---- crystallization probes (raw numbers to fit the director thresholds) ----
+
+-- Raw roof/wall hit-distances from xcombat.get_enclosure, to validate tight/huge/building/tunnel/ruin cutoffs.
+local function _snap_enclosure(log, apos)
+    local enc = xcombat.get_enclosure(apos)
+    if not enc then log.info("ENCLOSURE-RAW none"); return end
+    local walls = enc.walls
+    log.info("ENCLOSURE-RAW roof=%.1f walls=%.1f,%.1f,%.1f,%.1f nearest=%.1f count=%d",
+        enc.roof or -1, walls[1] or -1, walls[2] or -1, walls[3] or -1, walls[4] or -1,
+        enc.nearest_wall or -1, enc.wall_count)
+end
+
+-- Nearest smart id/name/distance + props, to fit the place-identity distance gate.
+local function _snap_smart(log)
+    local ns = smart_terrain and smart_terrain.nearest_to_actor_smart
+    if not (ns and ns.id) then log.info("SMART none"); return end
+    local smart = alife_object(ns.id)
+    if not smart then log.info("SMART id=%s dist=%.1f unresolved", tostring(ns.id), ns.dist or -1); return end
+    log.info("SMART id=%s name=%s dist=%.1f lair=%s base=%s",
+        tostring(ns.id), smart:name(), ns.dist or -1,
+        tostring(xsmart.is_lair(smart)), tostring(xsmart.is_base(smart)))
+end
+
+-- Bump a { b25, b50, all } triple by one for a distance.
+local function _bump(triple, dist)
+    triple.all = triple.all + 1
+    if dist < 50 then triple.b50 = triple.b50 + 1 end
+    if dist < 25 then triple.b25 = triple.b25 + 1 end
+end
+
+-- Classify one online object into the human or mutant band triple.
+local function _band_one(obj, apos, humans, mutants)
+    local dist = apos:distance_to(obj:position())
+    if xcreature.is_stalker(obj) then _bump(humans, dist)
+    elseif xcreature.is_mutant(obj) then _bump(mutants, dist) end
+end
+
+-- Online creature counts in distance bands, to fit the local-presence radius.
+local function _snap_bands(log, actor, apos)
+    local actor_id = actor:id()
+    local humans = { b25 = 0, b50 = 0, all = 0 }
+    local mutants = { b25 = 0, b50 = 0, all = 0 }
+    for id, st in pairs(db.storage) do
+        local obj = (id ~= actor_id) and st and st.object
+        if obj then _band_one(obj, apos, humans, mutants) end
+    end
+    log.info("PRESENCE-BANDS humans<25=%d <50=%d all=%d | mutants<25=%d <50=%d all=%d",
+        humans.b25, humans.b50, humans.all, mutants.b25, mutants.b50, mutants.all)
+end
+
+-- Actor height above the AI-mesh ground, to explore basement/floor feasibility.
+local function _snap_vertical(log, actor, apos)
+    local lvid = actor:level_vertex_id()
+    local gy = -1
+    if lvid and level.vertex_position then
+        local gp = level.vertex_position(lvid)
+        if gp then gy = gp.y end
+    end
+    log.info("VERTICAL actor_y=%.1f ai_ground_y=%.1f y_above_ground=%.1f", apos.y, gy, apos.y - gy)
+end
+
 --- Log one atmosphere snapshot with a note. Cheap; run on demand only, never per frame.
 function as_test.snapshot(note)
     local log = _logger()
     local actor = db.actor
     if not (log and xcreature and xsmart and xlevel and xcombat and actor and level.present()) then return end
     log.info("=== SNAPSHOT note=[%s] level=%s ===", tostring(note or "?"), tostring(level.name()))
+    local apos = actor:position()
     _snap_combat(log)
     _snap_online(log, actor:id())
-    _snap_place(log, actor:position())
+    _snap_place(log, apos)
     _snap_level_species(log, xlevel.get_actor_level_id())
+    _snap_enclosure(log, apos)
+    _snap_smart(log)
+    _snap_bands(log, actor, apos)
+    _snap_vertical(log, actor, apos)
     log.flush()
 end
 

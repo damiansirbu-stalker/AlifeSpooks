@@ -1,4 +1,4 @@
---- as_mcm: MCM config for AlifeSpooks. Two tabs (Atmosphere, Development), mirrors at_mcm.
+--- as_mcm: MCM config for AlifeSpooks. Three systems (Spooks, Visuals, Development), mirrors at_mcm.
 
 as_mcm = as_mcm or {}
 
@@ -8,26 +8,24 @@ if not xmcm then
 end
 
 local defaults = {
-    vol_global = 1.0,
-    vol_spooks = 1.0, vol_screams = 1.0, vol_mutants = 1.0, vol_ambience = 1.0,
-    vol_machines = 1.0, vol_forest = 1.0, vol_storm = 1.0, vol_wind = 1.0,
-    vol_rain = 1.0, vol_wildlife = 1.0, vol_underground = 1.0,
-    rarity = 1.0, distance = 1.0, loop_volume = 0.55, variety = true,
-    log_level = "WARN", log_flush = false,
+    vol_global   = 1.0,
+    sensitivity  = 1.0,
+    rarity       = 1.0,
+    distance     = 1.0,
+    visuals      = true,
+    hud_position = "off",
+    log_level    = "WARN", log_flush = false,
 }
 
 local _key_to_tab = {
-    vol_global = "atmosphere", vol_spooks = "atmosphere", vol_screams = "atmosphere",
-    vol_mutants = "atmosphere", vol_ambience = "atmosphere", vol_machines = "atmosphere",
-    vol_forest = "atmosphere", vol_storm = "atmosphere", vol_wind = "atmosphere",
-    vol_rain = "atmosphere", vol_wildlife = "atmosphere", vol_underground = "atmosphere",
-    rarity = "atmosphere", distance = "atmosphere", loop_volume = "atmosphere",
-    variety = "atmosphere", log_level = "development", log_flush = "development",
+    vol_global = "spooks", sensitivity = "spooks", rarity = "spooks", distance = "spooks",
+    visuals = "visuals",
+    hud_position = "development", log_level = "development", log_flush = "development",
     btn_reset_all = "development",
 }
 
 local function path_builder(key)
-    return "as/" .. (_key_to_tab[key] or "atmosphere") .. "/" .. key
+    return "as/" .. (_key_to_tab[key] or "spooks") .. "/" .. key
 end
 
 cfg, get_config, load_config = xmcm.create_config("as", defaults, path_builder)
@@ -56,58 +54,64 @@ function btn_reset_all(gui)
 end
 
 local GREY = {255, 200, 200, 200}
-local function vol_track(id)
-    return { id = id, type = "track", val = 2, min = 0.0, max = 5.0, step = 0.05, def = 1.0, hint = "as_" .. id }
+
+local function _title()
+    return { id = "title", type = "slide", link = "as_mcm_banner",
+             text = "ui_mcm_as_title", size = {512, 50}, spacing = 20 }
 end
 
---- Atmosphere tab: per-layer volume, rarity, distance, loop volume, variety
-local function atmosphere_page()
+--- Spooks: overall volume, spook sensitivity, rarity, distance
+local function spooks_page()
     return {
-        id = "atmosphere", sh = true,
+        id = "spooks", sh = true,
         gr = {
-            { id = "title", type = "slide", link = "as_mcm_banner",
-                text = "ui_mcm_as_title", size = {512, 50}, spacing = 20 },
-            { id = "desc", type = "desc", text = "ui_mcm_as_desc" },
-            { id = "vol_global", type = "track", val = 2, min = 0.0, max = 5.0, step = 0.05, def = 1.0, hint = "as_vol_global" },
-
-            { id = "div_layers", type = "line" },
-            { id = "hdr_layers", type = "desc", text = "ui_mcm_as_hdr_layers", clr = GREY },
-            vol_track("vol_spooks"),
-            vol_track("vol_screams"),
-            vol_track("vol_mutants"),
-            vol_track("vol_ambience"),
-            vol_track("vol_machines"),
-            vol_track("vol_forest"),
-            vol_track("vol_storm"),
-            vol_track("vol_wind"),
-            vol_track("vol_rain"),
-            vol_track("vol_wildlife"),
-            vol_track("vol_underground"),
+            _title(),
+            { id = "desc", type = "desc", text = "ui_mcm_as_spooks_desc" },
+            { id = "vol_global",  type = "track", val = 2, min = 0.0, max = 5.0, step = 0.05, def = 1.0, hint = "as_vol_global" },
+            { id = "sensitivity", type = "track", val = 2, min = 0.0, max = 2.0, step = 0.05, def = 1.0, hint = "as_sensitivity" },
 
             { id = "div_feel", type = "line" },
             { id = "hdr_feel", type = "desc", text = "ui_mcm_as_hdr_feel", clr = GREY },
             { id = "rarity",   type = "track", val = 2, min = 0.5, max = 3.0, step = 0.05, def = 1.0, hint = "as_rarity" },
             { id = "distance", type = "track", val = 2, min = 0.5, max = 2.0, step = 0.05, def = 1.0, hint = "as_distance" },
-            { id = "loop_volume", type = "track", val = 2, min = 0.0, max = 2.0, step = 0.05, def = 0.55, hint = "as_loop_volume" },
-            { id = "variety", type = "check", val = 1, def = true, hint = "as_variety" },
         },
     }
 end
 
---- Development tab: trace log level, flush, reset-to-defaults
+--- Visuals: the subtle screen distortion at peak spook
+local function visuals_page()
+    return {
+        id = "visuals", sh = true,
+        gr = {
+            _title(),
+            { id = "desc", type = "desc", text = "ui_mcm_as_visuals_page_desc" },
+            { id = "visuals", type = "check", val = 1, def = true, hint = "as_visuals" },
+        },
+    }
+end
+
+--- Development: trace log level, flush, the debug HUD, reset-to-defaults
 local function development_page()
     return {
         id = "development", sh = true,
         gr = {
-            { id = "title", type = "slide", link = "as_mcm_banner",
-                text = "ui_mcm_as_title", size = {512, 50}, spacing = 20 },
+            _title(),
             { id = "dev_desc", type = "desc", text = "ui_mcm_as_development_desc" },
+
             { id = "div_logging", type = "line" },
             { id = "hdr_logging", type = "desc", text = "ui_mcm_as_hdr_logging", clr = GREY },
             { id = "log_level", type = "list", val = 0, def = "WARN", hint = "as_log_level", content = {
                 {"ERROR", "error"}, {"WARN", "warn"}, {"INFO", "info"}, {"DEBUG", "debug"},
               } },
             { id = "log_flush", type = "check", val = 1, def = false, hint = "as_log_flush" },
+
+            { id = "div_hud", type = "line" },
+            { id = "hdr_hud", type = "desc", text = "ui_mcm_as_hud_hdr", clr = GREY },
+            { id = "hud_position", type = "list", val = 0, def = "off", content = {
+                {"off", "off"}, {"top_left", "topleft"}, {"top_right", "topright"},
+                {"center_left", "centerleft"}, {"center_right", "centerright"},
+                {"bottom_left", "bottomleft"}, {"bottom_right", "bottomright"},
+              } },
 
             { id = "div_reset", type = "line" },
             { id = "warn_reset", type = "desc", text = "ui_mcm_as_development_reset_warning", clr = {255, 240, 200, 80} },
@@ -120,7 +124,8 @@ function on_mcm_load()
     return {
         id = "as",
         gr = {
-            atmosphere_page(),
+            spooks_page(),
+            visuals_page(),
             development_page(),
         },
     }

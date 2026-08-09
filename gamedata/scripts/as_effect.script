@@ -1,125 +1,403 @@
---- as_effect: dynamic effect layer. Clones sound_ambient.update_ambient and owns the slot while a knob or trace is active.
+--- as_effect: additive spook director. Reads a place-driven spook score from cheap engine-native
+--- signals, sorts it into a five-step ladder, and fires curated spook one-shots through xsound.play
+--- only when a place is genuinely unsettling -- denser, closer, louder as the score climbs. Purely
+--- additive over the base soundscape: owns no channels, never touches update_ambient, plays no
+--- weather/nature. Place is the base; safety (allied base, allied company, sunny) carves it back.
 
-local math_random, math_rad, math_cos, math_sin = math.random, math.rad, math.cos, math.sin
-local table_remove, table_concat = table.remove, table.concat
-local ini_file, parse_list, time_global = ini_file, parse_list, time_global
-local GetEvent, sound_object, vector = GetEvent, sound_object, vector
-local RegisterScriptCallback = RegisterScriptCallback
+local math_random, math_rad = math.random, math.rad
+local math_cos, math_sin = math.cos, math.sin
+local math_max, math_floor = math.max, math.floor
+local ini_file, parse_list = ini_file, parse_list
+local time_global, vector = time_global, vector
+local table_remove, string_format, RegisterScriptCallback = table.remove, string.format, RegisterScriptCallback
+local pairs, tostring, next, ipairs = pairs, tostring, next, ipairs
 
-local LAYERS = { "spooks", "screams", "mutants", "ambience", "machines",
-                 "forest", "storm", "wind", "rain", "wildlife", "underground" }
+local LORE_FILE       = "scripts\\as_smart_lore.ltx"
+local CHANNELS_FILE   = "environment\\sound_channels.ltx"
+local SEC_SMART_CLASS = "smart_class"
+local SEC_LEVEL       = "level_default"
+local NO_SOUND        = "ambient\\no_sound"
 
-local snd_chanels = {}
-local tot_size = 0
-local next_idx = 0
-local last_hour = nil
-local last_ambient = nil
-local last_level = nil
+-- =========================================================================
+-- Categories: the fixed palette. Deployed channel names (DLTX-merged sound_channels.ltx),
+-- a firing gate, spook(rises with score) vs texture(rises with calm), a base weight, and a
+-- per-category minimum interval so screams stay rare against drone density. Whisper content
+-- rides out_spooks (pipeline routing). Per-channel distance/height come from the LTX at init.
+-- gates: always | mutants (real mutant on level/online) | enclosed (is_indoor)
+-- =========================================================================
+local CATEGORIES = {
+    { name = "drone",       gate = "always",   spook = false, weight = 1.0, floor = 12000,
+      channels = { "as_dark_signal", "as_out_dark_amb", "as_out_night_amb" } },
+    { name = "spook",       gate = "always",   spook = true,  weight = 1.0, floor = 8000,
+      channels = { "as_out_spooks", "as_out_day_spoops", "as_out_night_spoops",
+                   "as_urban_spoops_night", "as_crows_spook", "as_foliage_spook" } },
+    { name = "scream",      gate = "always",   spook = true,  weight = 0.5, floor = 90000,
+      channels = { "as_out_screams" } },
+    { name = "growl",       gate = "mutants",  spook = true,  weight = 1.0, floor = 60000,
+      channels = { "as_out_mutants" } },
+    { name = "machine",     gate = "enclosed", spook = true,  weight = 0.8, floor = 20000,
+      channels = { "as_day_drones", "as_drones", "as_urban_drones", "as_urban_debris" } },
+    { name = "gunfire",     gate = "always",   spook = true,  weight = 0.3, floor = 45000,
+      channels = { "as_out_gunfire" } },
+    { name = "underground", gate = "enclosed", spook = true,  weight = 1.0, floor = 15000,
+      channels = { "as_ugrnd_banging", "as_ugrnd_drip", "as_ugrnd_drone", "as_ugrnd_lab",
+                   "as_ugrnd_metal", "as_ugrnd_noise", "as_ugrnd_rats", "as_ugrnd_ambient_new" } },
+    { name = "wind_creep",  gate = "always",   spook = false, weight = 0.8, floor = 20000,
+      channels = { "as_wind_creep", "as_wind_creep_urban" } },
+    { name = "animals",     gate = "always",   spook = false, weight = 0.7, floor = 25000, night = true,
+      channels = { "as_crows", "as_crows_retune", "as_crows_forest", "as_dogs", "as_owls" } },
+}
+
+-- REAL_MUTANT: species that count for the growl-plausibility exclusion; trash tier excluded.
+local REAL_MUTANT = { bloodsucker = true, psysucker = true, controller = true, burer = true,
+                      poltergeist = true, psy_dog = true, chimera = true, snork = true,
+                      gigant = true, pseudogiant = true, zombie = true, fracture = true }
+
+-- Place spook by lore class (as_smart_lore.ltx). safe = 0 (allied base carves to nothing).
+local CLASS_SPOOK = { safe = 0.00, mundane = 0.10, eerie = 0.35, ruin = 0.35,
+                      anomaly = 0.45, den = 0.55, lab = 0.55, psy = 0.60 }
+
+-- Signal constants, all tunable from the trace.
+-- PLACE_RADIUS: a smart farther than this doesn't set place. INDOOR_ADD: building/underground raises
+-- spook when alone. NIGHT_MILD: night nudge, deliberately small. HEALTH_AMP: low health amplifies.
+-- ALLIED_EASE: per-friendly comfort. ALLIED_FLOOR: comfort cap. SUNNY_MULT: suppressor. CTX_PERIOD:
+-- score-refresh interval (ms). CELL_M: is_indoor cache cell size.
+local PLACE_RADIUS = 150
+local INDOOR_ADD   = 0.20
+local NIGHT_MILD   = 0.10
+local HEALTH_AMP   = 0.30
+local ALLIED_EASE  = 0.20
+local ALLIED_FLOOR = 0.30
+local SUNNY_MULT   = 0.40
+local CTX_PERIOD   = 3000
+local CELL_M       = 4
+
+-- Ladder. GRADE names; grade boundaries on the final score; SPOOK_ON/OFF is the gate hysteresis
+-- (SPOOK_ON is also the none->LOW edge).
+local GRADE = { NONE = 0, LOW = 1, MED = 2, HIGH = 3, INSANE = 4 }
+local GRADE_NAME = { [0] = "none", [1] = "LOW", [2] = "MED", [3] = "HIGH", [4] = "INSANE" }
+local G_MED, G_HIGH, G_INSANE = 0.40, 0.62, 0.82
+local SPOOK_ON, SPOOK_OFF = 0.20, 0.14
+
+-- Director pacing. SPARSE_MS/DENSE_MS: play spacing lerped by score. VOL_MIN/MAX: volume lerped by
+-- score. NO_REPEAT: per-channel no-repeat ring depth. RECENT_MAX: recent-category ring. SPOOK_FLOOR:
+-- keeps a category from fully vanishing at its off end. COMBAT_MUTE: mute during an active firefight.
+local TICK_S      = 1
+local SPARSE_MS   = 40000
+local DENSE_MS    = 6000
+local VOL_MIN     = 0.70
+local VOL_MAX     = 1.00
+local NO_REPEAT   = 8
+local RECENT_MAX  = 3
+local SPOOK_FLOOR = 0.05
+local COMBAT_MUTE = true
+
+-- Visual layer: at INSANE only, a subtle 2-3s distortion pulse (never persistent). Dwell-gated so a
+-- momentary spike never flashes, >=50% random so it isn't mechanical, cooldown so pulses stay
+-- occasional, muted during combat. Effectors from the auditioned non-colored set, factor kept subtle.
+-- Via xlibs xpp (engine-smoothed, cleared on load).
+local VIS_PPE         = { "blur.ppe", "total_recall.ppe", "steam_mine.ppe" }
+local VIS_FACTOR      = 0.25
+local VIS_DWELL_MS    = 4000
+local VIS_COOLDOWN_MS = 30000
+local VIS_HOLD_S      = 1.2
+local VIS_SMOOTH      = 1.5
+local VIS_CHANCE      = 0.5
+
+-- MCM knobs (1.0 neutral).
+local sensitivity        = 1
+local rarity             = 1
+local distance           = 1
+local base_volume        = 1
 local opt_ambient_volume = 1
 
-local vol = { global = 1, spooks = 1, screams = 1, mutants = 1, ambience = 1, machines = 1,
-              forest = 1, storm = 1, wind = 1, rain = 1, wildlife = 1, underground = 1 }
-local rarity = 1
-local distance = 1
-local variety = true
+-- Runtime state.
+local _channels = {}
+local _cats     = {}
+local ctx       = { score = 0, grade = 0, mutants_ok = false, enclosed = false }
+local _ctx_next = 0
+local _next_play = 0
+local _gate_open = false
+local _loaded   = false
+local _recent, _recent_set = {}, {}
+-- is_indoor cache (level + position cell)
+local _enc = { level = nil, cx = nil, cz = nil, val = false }
+-- visual-pulse state
+local _vis = { insane_since = nil, next_ok = 0, handle = nil }
+local visuals_on = true
+-- last spook one-shot fired (category + channel), for the HUD
+local _last_play = "-"
+-- structured {label, value} readout rows for the HUD
+local _rows = {}
 
---- Floor a nil/zero period so ch.next never fires every tick
-local function _period(v)
-    return (v and v > 0) and v or 20000
+local function _lerp(from, to, frac)
+    return from + (to - from) * frac
 end
 
-local _place_ini, _place_loaded = nil, false
---- Load the per-level placement map (as_placement.ltx), once
-local function _placement()
-    if not _place_loaded then
-        _place_loaded = true
-        _place_ini = ini_file("scripts\\as_placement.ltx")
-        as_debug.dbg("placement file %s", _place_ini
-            and "loaded (scripts\\as_placement.ltx)"
-            or "MISSING (scripts\\as_placement.ltx) - no as_ channels will be injected")
-    end
-    return _place_ini
-end
+-- ---- sound bank load ----------------------------------------------------
 
---- Why a channel did not build: nodef (no def) or empty (no sounds)
-local function _drop_reason(ini_snd, ch)
-    return ini_snd:section_exist(ch) and (ch .. "(empty)") or (ch .. "(nodef)")
-end
-
---- Channels in the list that did not build, with reasons (trace only)
-local function _dropped(channels, cached, ini_snd)
+--- Strip the muted placeholder stem so a play is never spent on silence
+local function _audible(list)
     local out = {}
-    for i = 1, #channels do
-        local ch = channels[i]
-        local built = cached[ch]
-        if not built then out[#out + 1] = _drop_reason(ini_snd, ch) end
+    for _, name in ipairs(list) do
+        if name ~= NO_SOUND then out[#out + 1] = name end
     end
     return out
 end
 
---- Clone of sound_ambient.reset_settings: build snd_chanels for (level, section) and inject placement
-local function reset_settings(level_name, ambient)
-    snd_chanels = {}
-    if not (level_name and ambient and ambient ~= "") then
-        as_debug.dbg("reset SKIP: no level/ambient (lvl=%s amb=%s)",
-            as_debug.show(level_name), as_debug.show(ambient))
-        return false
+--- Build one channel's record (sounds + distance/height) from the LTX, cached; nil if empty/absent
+local function _build_channel(ini, channel)
+    if _channels[channel] then return _channels[channel] end
+    if not ini:section_exist(channel) then return nil end
+    local raw = parse_list(ini, channel, "sounds")
+    local sounds = raw and #raw > 0 and _audible(raw) or nil
+    if not (sounds and #sounds > 0) then return nil end
+    _channels[channel] = {
+        sounds   = sounds,
+        max_dist = ini:r_float_ex(channel, "max_distance") or 80,
+        min_dist = ini:r_float_ex(channel, "min_distance") or 45,
+        height   = ini:r_float_ex(channel, "height") or 0,
+    }
+    return _channels[channel]
+end
+
+--- The channels of one category that actually built (have audible sounds)
+local function _build_category(ini, def)
+    local built = {}
+    for _, channel in ipairs(def.channels) do
+        if _build_channel(ini, channel) then built[#built + 1] = channel end
     end
-    local ini_lvl = ini_file("environment\\ambients\\" .. level_name .. ".ltx")
-    if not ini_lvl then
-        as_debug.dbg("reset SKIP lvl=%s: no environment\\ambients\\%s.ltx", level_name, level_name)
-        return false
+    return built
+end
+
+--- Load every category's channels from the DLTX-merged sound_channels.ltx, once.
+local function _load_channels()
+    if _loaded then return end
+    _loaded = true
+    local ini = ini_file(CHANNELS_FILE)
+    if not ini then as_debug.warn("as_effect: sound_channels.ltx missing - director inert"); return end
+    for _, def in ipairs(CATEGORIES) do
+        local built = _build_category(ini, def)
+        _cats[def.name] = { def = def, chans = built, next_ok = 0 }
+        as_debug.dbg("as_effect: category %s built %d/%d channels", def.name, #built, #def.channels)
     end
-    local channels = parse_list(ini_lvl, ambient, "sound_channels_dynamic")
-    local base_n = #channels
-    local place = _placement()
-    local n_ours, placed_str = 0, ""
-    if place and place:section_exist(level_name) and place:line_exist(level_name, ambient) then
-        local ours = parse_list(place, level_name, ambient)
-        n_ours = #ours
-        placed_str = table_concat(ours, ",")
-        for i = 1, #ours do channels[#channels + 1] = ours[i] end
+end
+
+-- ---- signals (cheap, engine-native) -------------------------------------
+
+--- True if an online object is a real-threat mutant (excludes the trash tier)
+local function _real_mutant(obj)
+    if not xcreature.is_mutant(obj) then return false end
+    local species = xcreature.get_mutant_species(obj)
+    return species and REAL_MUTANT[species] or false
+end
+
+--- Tally one online object into counts: an allied stalker, or a real mutant. Enemies never count.
+local function _classify(obj, counts)
+    if xcreature.is_stalker(obj) then
+        if not xcreature.is_enemy_to_actor(obj) then counts.allied = counts.allied + 1 end
+    elseif _real_mutant(obj) then
+        counts.mutants = counts.mutants + 1
     end
-    if #channels == 0 then
-        as_debug.dbg("reset lvl=%s amb=%s: no channels (base=0, no placement)", level_name, ambient)
-        return false
-    end
-    local cached = {}
-    local ini_snd = ini_file("environment\\sound_channels.ltx")
-    local ini_lay = ini_file("environment\\as_channel_layers.ltx")
-    for i = 1, #channels do
-        local ch = channels[i]
-        local sounds = (not cached[ch]) and ini_snd:section_exist(ch) and parse_list(ini_snd, ch, "sounds")
-        if sounds and #sounds > 0 then
-            cached[ch] = true
-            local entry = {}
-            entry.name = ch
-            entry.max_dist = ini_snd:r_float_ex(ch, "max_distance") or 80
-            entry.min_dist = ini_snd:r_float_ex(ch, "min_distance") or 45
-            entry.height = ini_snd:r_float_ex(ch, "height") or 0
-            entry.indoor = ini_snd:r_bool_ex(ch, "indoor") or false
-            entry.periods = { _period(ini_snd:r_float_ex(ch, "period0")), _period(ini_snd:r_float_ex(ch, "period1")),
-                              _period(ini_snd:r_float_ex(ch, "period2")), _period(ini_snd:r_float_ex(ch, "period3")) }
-            entry.sounds = sounds
-            entry.layer = ini_lay and ini_lay:r_string_ex("as_channel_layers", ch)
-            snd_chanels[#snd_chanels + 1] = entry
+end
+
+--- Allied humans and real mutants near the actor. Enemies are never counted (by design).
+--- @return allied_count, mutant_count
+local function _presence(actor)
+    if not xcreature then return 0, 0 end
+    local apos, actor_id = actor:position(), actor:id()
+    local radius_sqr = PLACE_RADIUS * PLACE_RADIUS
+    local counts = { allied = 0, mutants = 0 }
+    for object_id, storage in pairs(db.storage) do
+        local obj = (object_id ~= actor_id) and storage and storage.object
+        if obj and apos:distance_to_sqr(obj:position()) <= radius_sqr then
+            _classify(obj, counts)
         end
     end
-    tot_size = #snd_chanels
-    if as_debug.on() then
-        local dropped = _dropped(channels, cached, ini_snd)
-        as_debug.dbg("reset lvl=%s amb=%s base=%d placed[%d]=%s built=%d drop[%d]=%s",
-            level_name, ambient, base_n, n_ours, placed_str, tot_size, #dropped, table_concat(dropped, ","))
+    return counts.allied, counts.mutants
+end
+
+--- Place spook from the governing smart terrain. is_base / safe class carve to zero (allied hub);
+--- den/psy/lab/eerie/ruin/anomaly set the base; a smart out of range or unlisted falls to the level
+--- default. Reads the curated as_smart_lore.ltx (no is_lair, no name-matching tricks).
+--- @return spook_base, place_desc (smart:class or level:class(lvl)), is_safe (allied base/safe class)
+local _lore, _lore_loaded = nil, false
+local function _place()
+    if not _lore_loaded then _lore_loaded = true; _lore = ini_file(LORE_FILE) end
+    local ini = _lore
+    local level_name = level.name()
+    local smart = xsmart and xsmart.get_actor_smart and xsmart.get_actor_smart()
+    local data = smart_terrain and smart_terrain.nearest_to_actor_smart
+    if smart and data and data.dist and data.dist <= PLACE_RADIUS then
+        local smart_name = smart:name()
+        if xsmart.is_base and xsmart.is_base(smart) then return 0, smart_name .. ":base", true end
+        local class = ini and (ini:r_string_ex(SEC_SMART_CLASS, smart_name)
+                      or ini:r_string_ex(SEC_LEVEL, level_name)) or "mundane"
+        if class == "safe" then return 0, smart_name .. ":safe", true end
+        return CLASS_SPOOK[class] or CLASS_SPOOK.mundane, smart_name .. ":" .. class, false
     end
+    local class = ini and ini:r_string_ex(SEC_LEVEL, level_name) or "mundane"
+    return CLASS_SPOOK[class] or CLASS_SPOOK.mundane, level_name .. ":" .. class .. "(lvl)", false
+end
+
+--- Enclosure via xcombat.is_indoor, cached by (level, position cell) so the raycast fires only on a
+--- cell change, never per tick. Instant-true on underground levels, roof+wall raycast on surface.
+local function _enclosed(actor)
+    if not xcombat or not xcombat.is_indoor then return false end
+    local pos = actor:position()
+    local level_name = level.name()
+    local cell_x, cell_z = math_floor(pos.x / CELL_M), math_floor(pos.z / CELL_M)
+    if _enc.level ~= level_name or _enc.cx ~= cell_x or _enc.cz ~= cell_z then
+        _enc.level, _enc.cx, _enc.cz = level_name, cell_x, cell_z
+        _enc.val = xcombat.is_indoor(pos)
+    end
+    return _enc.val
+end
+
+--- True if hour reads night/dusk (kept mild, and a soft lean for the animals category)
+local function _is_night(hour)
+    return not hour or hour < 7 or hour >= 20
+end
+
+--- Nice sunny daylight: a suppressor only (never adds spook). Day, no rain, clear weather.
+local function _sunny(hour)
+    if not (hour and hour >= 7 and hour < 19) then return false end
+    if (level.rain_factor() or 0) >= 0.1 then return false end
+    local weather = level.get_weather()
+    if not weather then return true end
+    weather = weather:lower()
+    return not (weather:find("storm") or weather:find("rain") or weather:find("fog")
+             or weather:find("tuman") or weather:find("cloud") or weather:find("dark")
+             or weather:find("partly"))
+end
+
+--- Map the final score to a grade
+local function _grade(score)
+    if score < SPOOK_ON  then return GRADE.NONE end
+    if score < G_MED     then return GRADE.LOW end
+    if score < G_HIGH    then return GRADE.MED end
+    if score < G_INSANE  then return GRADE.HIGH end
+    return GRADE.INSANE
+end
+
+--- Recompute the cached spook score: place is the base, safety subtracts, enclosure/night/health
+--- adjust. A safe place (allied base) skips the enclosure/night adds, so an empty base building never
+--- creeps above the gate. Mutant presence is not a source -- it only gates the growl palette. Builds
+--- the HUD rows (structured label/value) and, under DEBUG, the log breakdown.
+local function _score(actor, hour)
+    local allied, mutants = _presence(actor)
+    local base, place, is_safe = _place()
+    local enclosed = _enclosed(actor)
+    local health = actor.health or 1
+
+    local score = base
+    local indoor_on = (not is_safe) and enclosed and allied == 0
+    if indoor_on then score = score + INDOOR_ADD end
+    local night_on = (not is_safe) and _is_night(hour)
+    if night_on then score = score + NIGHT_MILD end
+    local health_mult = 1 + (1 - health) * HEALTH_AMP
+    score = score * health_mult
+    local allied_mult = (allied > 0) and math_max(ALLIED_FLOOR, 1 - allied * ALLIED_EASE) or 1
+    score = score * allied_mult
+    local sunny_on = _sunny(hour)
+    if sunny_on then score = score * SUNNY_MULT end
+    score = score * sensitivity
+    if score < 0 then score = 0 elseif score > 1 then score = 1 end
+
+    ctx.score = score
+    ctx.grade = _grade(score)
+    ctx.mutants_ok = mutants > 0
+    ctx.enclosed = enclosed
+    _rows = {
+        { "SPOOK",    string_format("%-6s %.2f", GRADE_NAME[ctx.grade], score) },
+        { "place",    place },
+        { "playing",  _last_play },
+        { "base",     string_format("%.2f", base) },
+        { "indoor",   indoor_on and string_format("+%.2f", INDOOR_ADD) or "-" },
+        { "night",    night_on and string_format("+%.2f", NIGHT_MILD) or "-" },
+        { "health",   string_format("x%.2f  (%d%%)", health_mult, math_floor(health * 100)) },
+        { "allies",   string_format("x%.2f  (%d)", allied_mult, allied) },
+        { "sunny",    sunny_on and string_format("x%.2f", SUNNY_MULT) or "-" },
+        { "mutants",  string_format("%d  %s", mutants, ctx.mutants_ok and "growl" or "-") },
+        { "enclosed", enclosed and "Y" or "-" },
+    }
+    if as_debug.on() then
+        as_debug.dbg("spook %s %.2f | %s base=%.2f ind=%s nt=%s sun=%s allies=%d mut=%d hp=%.2f",
+            GRADE_NAME[ctx.grade], score, place, base, tostring(indoor_on), tostring(night_on),
+            tostring(sunny_on), allied, mutants, health)
+    end
+end
+
+-- ---- gates --------------------------------------------------------------
+
+--- True during an active firefight (a loud signal; subtle spooks are lost under it)
+local function _in_combat()
+    return xr_combat_ignore and next(xr_combat_ignore.fighting_with_actor_npcs) ~= nil
+end
+
+--- True if a category's gate passes now
+local function _gate_ok(def)
+    if def.gate == "mutants"  then return ctx.mutants_ok end
+    if def.gate == "enclosed" then return ctx.enclosed end
     return true
 end
 
-local NO_REPEAT = 8
---- Pick a sound, avoiding recent repeats when variety is on
-local function pick_sound(ch)
+-- ---- selection ----------------------------------------------------------
+
+local function _in_recent(name)
+    for i = 1, #_recent do
+        if _recent[i] == name then return true end
+    end
+    return false
+end
+
+local function _note_recent(name)
+    _recent[#_recent + 1] = name
+    _recent_set[name] = true
+    if #_recent > RECENT_MAX then
+        local dropped = table_remove(_recent, 1)
+        if not _in_recent(dropped) then _recent_set[dropped] = nil end
+    end
+end
+
+--- Weight one category: 0 if gated out or on its rarity floor, else spook-vs-texture tilt by score,
+--- times its base weight, boosted at night for animals, penalised if recently played.
+local function _category_weight(cat, score, hour, tg)
+    local def = cat.def
+    if #cat.chans == 0 or tg < cat.next_ok or not _gate_ok(def) then return 0 end
+    local tilt = def.spook and (SPOOK_FLOOR + score * score) or (SPOOK_FLOOR + (1 - score) * (1 - score))
+    local weight = def.weight * tilt
+    if def.night and _is_night(hour) then weight = weight * 1.5 end
+    if _recent_set[def.name] then weight = weight * 0.3 end
+    return weight
+end
+
+--- Weighted-random category among those eligible now
+local function _pick_category(score, hour, tg)
+    local total = 0
+    for _, cat in pairs(_cats) do
+        cat._w = _category_weight(cat, score, hour, tg)
+        total = total + cat._w
+    end
+    if total <= 0 then return nil end
+    local roll = math_random() * total
+    for _, cat in pairs(_cats) do
+        roll = roll - cat._w
+        if cat._w > 0 and roll <= 0 then return cat end
+    end
+    return nil
+end
+
+local function _pick_channel(cat)
+    local count = #cat.chans
+    return count > 0 and cat.chans[math_random(count)] or nil
+end
+
+--- No-repeat sound pick within a channel
+local function _pick_sound(channel)
+    local ch = _channels[channel]
     local count = #ch.sounds
     if count <= 1 then return ch.sounds[1] end
-    if not variety then return ch.sounds[math_random(count)] end
     local avoid = (NO_REPEAT < count) and NO_REPEAT or (count - 1)
     local seen, ring = ch.seen, ch.ring
     if not seen then seen = {}; ring = {}; ch.seen = seen; ch.ring = ring end
@@ -127,136 +405,138 @@ local function pick_sound(ch)
     repeat idx = math_random(count) until not seen[idx]
     seen[idx] = true
     ring[#ring + 1] = idx
-    if #ring > avoid then
-        seen[table_remove(ring, 1)] = nil
-    end
+    if #ring > avoid then seen[table_remove(ring, 1)] = nil end
     return ch.sounds[idx]
 end
 
---- Spawn one channel's sound around the actor with the volume/distance/rarity knobs
-local function play_channel(ch, tg)
+--- Place and fire one sound: closer as the score rises (within the channel's authored range, scaled
+--- by the distance knob), louder as the score rises. Fire-and-forget via xsound.play.
+local function _play(channel, file, score)
     local actor = db.actor
     if not actor then return end
-    local inside = GetEvent("current_safe_cover")
-    local underground = GetEvent("underground")
+    local ch = _channels[channel]
     local pos = actor:position()
-    local max_dist = ch.max_dist
-    local min_dist = underground and ch.min_dist or ((max_dist + ch.min_dist) / 2)
-    if min_dist > max_dist then min_dist = max_dist end
-    local dist = (math_random(min_dist, max_dist) / 2) * distance
-    local angle_rad = math_rad(math_random(0, 359))
-    local vec = vector():set(pos.x + math_cos(angle_rad) * dist, pos.y + ch.height,
-                             pos.z + math_sin(angle_rad) * dist)
-
-    local file = pick_sound(ch)
-    ch.snd = sound_object(file)
-    ch.snd:play_at_pos(actor, vec)
-
-    local level_vol
-    if underground or inside then
-        level_vol = ch.indoor and 1 or 0.3
-    else
-        level_vol = ch.indoor and 0 or 1
-    end
-    level_vol = level_vol * opt_ambient_volume * (ch.layer and vol[ch.layer] or vol.global)
-    ch.snd.volume = level_vol
-
-    local period = ch.periods[math_random(4)] * rarity
-    ch.next = tg + period
-
+    local dist = (ch.min_dist + (ch.max_dist - ch.min_dist) * (1 - score)) * distance
+    local angle = math_rad(math_random(0, 359))
+    local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + ch.height, pos.z + math_sin(angle) * dist)
+    local vol = _lerp(VOL_MIN, VOL_MAX, score) * base_volume * opt_ambient_volume
+    xsound.play(file, { position = vec, volume = vol })
     if as_debug.on() then
-        as_debug.dbg("effect lvl=%s pos=%.0f,%.0f,%.0f hour=%s amb=%s ch=%s layer=%s file=%s dist=%.1f max=%.0f per=%.0f vol=%.2f ug=%s inside=%s",
-            as_debug.show(level.name()), pos.x, pos.y, pos.z, as_debug.show(last_hour),
-            as_debug.show(last_ambient), ch.name, as_debug.show(ch.layer), file, dist, ch.max_dist, period, level_vol,
-            as_debug.show(underground), as_debug.show(inside))
+        as_debug.dbg("play ch=%s file=%s dist=%.1f vol=%.2f score=%.2f", channel, file, dist, vol, score)
     end
 end
 
---- Clone of sound_ambient.update_ambient: reset on context change, else round-robin one play
-local function update_ambient_owned()
-    ResetTimeEvent("sound_channels", "update_ambient", 1)
+-- ---- visual layer -------------------------------------------------------
 
+--- Fire one subtle distortion pulse: acquire a cyclic effector, drive its factor to VIS_FACTOR
+--- (engine-smoothed fade-in), then release after a short hold (fade-out) -> ~2-3s total, self-ending.
+local function _vis_pulse()
+    if not xpp then return end
+    local ppe = VIS_PPE[math_random(#VIS_PPE)]
+    if _vis.handle and xpp.is_active(_vis.handle) then xpp.release(_vis.handle) end
+    local handle = xpp.acquire(ppe, { cyclic = true, smoothing = VIS_SMOOTH })
+    _vis.handle = handle
+    if handle then
+        xpp.set_target(handle, VIS_FACTOR, VIS_SMOOTH)
+        CreateTimeEvent("as_effect", "vis_release", VIS_HOLD_S, function()
+            if xpp.is_active(handle) then xpp.release(handle) end
+            if _vis.handle == handle then _vis.handle = nil end
+            return true
+        end)
+    end
+    if as_debug.on() then as_debug.dbg("visual pulse %s factor=%.2f", ppe, VIS_FACTOR) end
+end
+
+--- INSANE-only visual gate: require sustained INSANE (dwell), then once per cooldown roll >=50% to
+--- pulse. Leaving INSANE (or combat) resets the dwell so it must be re-earned.
+local function _visual_tick(tg)
+    if not (visuals_on and xpp) or ctx.grade < GRADE.INSANE then
+        _vis.insane_since = nil
+        return
+    end
+    if not _vis.insane_since then _vis.insane_since = tg; return end
+    if tg < _vis.next_ok or tg - _vis.insane_since < VIS_DWELL_MS then return end
+    _vis.next_ok = tg + VIS_COOLDOWN_MS
+    if math_random() < VIS_CHANCE then _vis_pulse() end
+end
+
+-- ---- tick ---------------------------------------------------------------
+
+--- The director tick: refresh the cached score on a slow interval, gate on combat + hysteresis, then
+--- one throttled context-weighted one-shot. Spacing lerps SPARSE->DENSE with the score.
+local function spook_tick()
+    ResetTimeEvent("as_effect", "spook_tick", TICK_S)
     if not level.present() then return false end
-    local next_hour = level.get_time_hours()
-    local next_level = level.name()
-    local wm = level_weathers.get_weather_manager()
-    local ambient = wm and wm:get_curr_ambient()
-    if next_hour ~= last_hour or next_level ~= last_level or ambient ~= last_ambient then
-        last_hour = next_hour
-        last_level = next_level
-        last_ambient = ambient
-        next_idx = 0
-        reset_settings(next_level, ambient)
-        return false
-    end
-
-    next_idx = next_idx + 1
-    if next_idx > tot_size then next_idx = 1 end
-
+    local actor = db.actor
+    if not actor then return false end
     local tg = time_global()
-    local ch = snd_chanels[next_idx]
-    if not ch then return false end
-    if not ch.next then
-        ch.next = tg + math_random(1, (ch.periods[math_random(4)] + 1))
+    local hour = level.get_time_hours()
+
+    if tg >= _ctx_next then _score(actor, hour); _ctx_next = tg + CTX_PERIOD end
+
+    if COMBAT_MUTE and _in_combat() then
+        _gate_open = false; _vis.insane_since = nil
         return false
     end
 
-    if ch.next <= tg then
-        play_channel(ch, tg)
-    end
+    _visual_tick(tg)
 
-    return false
-end
-
-local _owned = false
-
---- True when any knob is non-neutral or trace is on
-local function _feature_active()
-    if as_debug.on() then return true end
-    if variety then return true end
-    if rarity ~= 1 or distance ~= 1 or vol.global ~= 1 then return true end
-    for i = 1, #LAYERS do if vol[LAYERS[i]] ~= 1 then return true end end
-    return false
-end
-
---- Take or release the update_ambient slot to match feature-active state
-local function _apply_owned()
-    local want = _feature_active()
-    if want == _owned then return end
-    _owned = want
-    if _owned then
-        RemoveTimeEvent("sound_channels", "update_ambient")
-        CreateTimeEvent("sound_channels", "update_ambient", 1, update_ambient_owned)
-        last_hour = nil
-        last_level = nil
-        last_ambient = nil
-        next_idx = 0
-        as_debug.info("as_effect: owning update_ambient (a control feature is active)")
+    local score = ctx.score
+    if _gate_open then
+        if score < SPOOK_OFF then _gate_open = false; return false end
     else
-        if db.actor then
-            local wm = level_weathers.get_weather_manager()
-            local ambient = wm and wm:get_curr_ambient()
-            if ambient then sound_ambient.reset_settings(level.name(), ambient) end
-        end
-        RemoveTimeEvent("sound_channels", "update_ambient")
-        CreateTimeEvent("sound_channels", "update_ambient", 1, sound_ambient.update_ambient)
-        as_debug.info("as_effect: released update_ambient back to vanilla (neutral)")
+        if score < SPOOK_ON then return false end
+        _gate_open = true
     end
+
+    if tg < _next_play then return false end
+    local cat = _pick_category(score, hour, tg)
+    if not cat then return false end
+    local channel = _pick_channel(cat)
+    local file = channel and _pick_sound(channel)
+    if file then
+        _play(channel, file, score)
+        cat.next_ok = tg + cat.def.floor
+        _note_recent(cat.def.name)
+        _last_play = string_format("%s  %s", cat.def.name, channel)
+    end
+    _next_play = tg + math_floor(_lerp(SPARSE_MS, DENSE_MS, score) * rarity)
+    return false
 end
 
---- Snapshot the MCM knobs, then apply ownership
+-- ---- lifecycle ----------------------------------------------------------
+
 local function refresh()
-    vol.global = as_mcm.get_config("vol_global") or 1
-    for i = 1, #LAYERS do vol[LAYERS[i]] = as_mcm.get_config("vol_" .. LAYERS[i]) or 1 end
-    rarity = as_mcm.get_config("rarity") or 1
-    distance = as_mcm.get_config("distance") or 1
-    variety = as_mcm.get_config("variety") ~= false
+    sensitivity        = as_mcm.get_config("sensitivity") or 1
+    rarity             = as_mcm.get_config("rarity") or 1
+    distance           = as_mcm.get_config("distance") or 1
+    base_volume        = as_mcm.get_config("vol_global") or 1
     opt_ambient_volume = (ui_options and ui_options.get("sound/environment/ambient_volume")) or 1
-    _apply_owned()
+    local wanted = as_mcm.get_config("visuals")
+    visuals_on = (wanted == nil) or wanted
+end
+
+--- Load banks and arm the tick. Runs on every actor_on_first_update, so a save load re-arms the
+--- (load-cleared) time event. Inert without xlibs (xsound), the play primitive.
+local function _on_first_update()
+    refresh()
+    if not xsound then as_debug.warn("as_effect: xlibs (xsound) absent - spook director inert"); return end
+    _load_channels()
+    _next_play, _ctx_next, _gate_open = 0, 0, false
+    if _vis.handle and level then level.remove_pp_effector(_vis.handle) end
+    _vis.insane_since, _vis.next_ok, _vis.handle = nil, 0, nil
+    RemoveTimeEvent("as_effect", "spook_tick")
+    CreateTimeEvent("as_effect", "spook_tick", TICK_S, spook_tick)
+    as_debug.info("as_effect: spook director armed")
+end
+
+--- The spook readout rows ({label, value}: grade/score, place, playing, each term, gates) for the HUD.
+function get_hud_rows()
+    return _rows
 end
 
 function on_game_start()
-    RegisterScriptCallback("actor_on_first_update",      refresh)
+    RegisterScriptCallback("actor_on_first_update",      _on_first_update)
     RegisterScriptCallback("on_option_change",           refresh)
     RegisterScriptCallback("mcm_option_restore_default", refresh)
 end

@@ -1,0 +1,154 @@
+--- as_hud: live debug HUD - the AlifeSpooks spook readout (grade/score, place, what's playing, each
+--- term's contribution, gates) from as_effect.get_hud_rows(), laid out on a fixed two-column grid
+--- (label | value) so everything aligns by construction. Mirrors at_hud: a CUIScriptWnd built once
+--- and shown via AddDialogToRender, a self-rearming, visibility-gated refresh, position from the MCM
+--- hud_position preset. Off by default; players never see it. Inert without xmcm or as_effect.
+
+local RegisterScriptCallback, math_floor = RegisterScriptCallback, math.floor
+
+local REFRESH_SEC = 0.5
+local MARGIN   = 15
+local PAD      = 6
+-- ROW_H matches at_hud (letterica16); CHAR_W is that font's approximate pixel advance.
+local ROW_H    = 13
+local COL_GAP  = 8
+local CHAR_W   = 6
+local CELL_PAD = 2
+local MAX_ROWS = 12
+
+-- Fixed-char column widths: label then value. Two cells per row at fixed x, so text aligns by column.
+local LABEL_W = 9  * CHAR_W + CELL_PAD
+local VALUE_W = 30 * CHAR_W + CELL_PAD
+local PANEL_W = LABEL_W + COL_GAP + VALUE_W + PAD * 2
+local PANEL_H = MAX_ROWS * ROW_H + PAD * 2
+
+local function _pos_key()
+    return (as_mcm and as_mcm.get_config and as_mcm.get_config("hud_position")) or "off"
+end
+
+local function _calc_position(key)
+    local right = 1024 - PANEL_W - MARGIN
+    local bottom = 768 - PANEL_H - MARGIN
+    local middle = math_floor((768 - PANEL_H) / 2)
+    local presets = {
+        top_left     = { MARGIN, MARGIN },
+        top_right    = { right,  MARGIN },
+        center_left  = { MARGIN, middle },
+        center_right = { right,  middle },
+        bottom_left  = { MARGIN, bottom },
+        bottom_right = { right,  bottom },
+    }
+    return presets[key] or presets.top_left
+end
+
+-- =========================================================================
+-- UISpookHUD: a two-column grid (label | value) built once; refresh only rewrites text.
+-- =========================================================================
+
+class "UISpookHUD" (CUIScriptWnd)
+
+function UISpookHUD:_cell(xml, cell_x, cell_y, cell_w)
+    local static = xml:InitStatic("line", self)
+    static:SetWndPos(vector2():set(cell_x, cell_y))
+    static:SetWndSize(vector2():set(cell_w, ROW_H))
+    return static:TextControl()
+end
+
+function UISpookHUD:__init() super()
+    self:SetAutoDelete(true)
+    local pos = _calc_position(_pos_key())
+    self:SetWndPos(vector2():set(pos[1], pos[2]))
+    self:SetWndSize(vector2():set(PANEL_W, PANEL_H))
+    local xml = CScriptXmlInit()
+    xml:ParseFile("ui_as_stats.xml")
+    self.lab, self.val = {}, {}
+    for row = 1, MAX_ROWS do
+        local row_y = PAD + (row - 1) * ROW_H
+        self.lab[row] = self:_cell(xml, PAD, row_y, LABEL_W)
+        self.val[row] = self:_cell(xml, PAD + LABEL_W + COL_GAP, row_y, VALUE_W)
+    end
+    self.used = 0
+end
+
+--- Rewrite each row's label + value cell; blank only what the previous refresh used.
+function UISpookHUD:set_rows(rows)
+    local count = #rows
+    if count > MAX_ROWS then count = MAX_ROWS end
+    for row = 1, count do
+        self.lab[row]:SetText(rows[row][1] or "")
+        self.val[row]:SetText(rows[row][2] or "")
+    end
+    for row = count + 1, self.used do
+        self.lab[row]:SetText("")
+        self.val[row]:SetText("")
+    end
+    self.used = count
+end
+
+function UISpookHUD:__finalize() end
+
+-- =========================================================================
+-- Lifecycle: visibility-gated refresh (REFRESH_SEC) via a self-rearming event
+-- =========================================================================
+
+local _hud, _shown, _active = nil, false, false
+
+local function _wanted()
+    return _pos_key() ~= "off"
+end
+
+local function _hide()
+    if _hud and _shown then get_hud():RemoveDialogToRender(_hud); _shown = false end
+end
+
+--- Drop the window entirely (position change, actor teardown); the next refresh rebuilds it.
+local function _drop()
+    _hide(); _hud = nil
+end
+
+local function _is_visible()
+    if not main_hud_shown() then return false end
+    local pda = ActorMenu and ActorMenu.get_pda_menu and ActorMenu.get_pda_menu()
+    return not (pda and pda:IsShown())
+end
+
+local function _refresh()
+    if not _wanted() then return end
+    if not _hud then _hud = UISpookHUD() end
+    if not _shown then get_hud():AddDialogToRender(_hud); _shown = true end
+    _hud:set_rows((as_effect and as_effect.get_hud_rows and as_effect.get_hud_rows()) or {})
+end
+
+--- Re-arm FIRST: an expired event that errored would re-fire every frame and starve all time events.
+local function _tick()
+    if not _active then _hide(); return true end
+    ResetTimeEvent("as_hud", "tick", REFRESH_SEC)
+    if _is_visible() then _refresh() else _hide() end
+    return false
+end
+
+local function _start()
+    if _active then return end
+    _active = true
+    RemoveTimeEvent("as_hud", "tick")
+    CreateTimeEvent("as_hud", "tick", REFRESH_SEC, _tick)
+end
+
+local function _stop()
+    _active = false
+    RemoveTimeEvent("as_hud", "tick")
+    _drop()
+end
+
+--- Position preset changed or actor (re)spawned: rebuild and (dis)arm to match the current setting.
+local function _apply()
+    _drop()
+    if _wanted() then _start() else _stop() end
+end
+
+function on_game_start()
+    RegisterScriptCallback("actor_on_first_update",      _apply)
+    RegisterScriptCallback("actor_on_net_destroy",       _stop)
+    RegisterScriptCallback("on_option_change",           _apply)
+    RegisterScriptCallback("mcm_option_restore_default", _apply)
+end

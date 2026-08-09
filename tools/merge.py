@@ -1042,16 +1042,11 @@ def _channel_routing(mc, cls):
         if all(v == 0 for v in _chan_settings(mc[ch].get("settings"))["p"]):
             continue    # a bed (all periods 0) is a continuous loop -> the loop layer, never an effect
         lay = layer_of(ch)
-        if ch in STRIP4 and ch in gam_defined:
-            # stripped from the winner's presets but still DEFINED -> re-activate + enrich it
-            routing[ch] = (ch, "restore", lay)
-        elif ch in both:
-            # a channel both installs actively play -> append our net-new sounds in place
-            routing[ch] = (ch, "enrich", lay)
-        else:
-            # no channel both installs run (wind_dark absent on GAMMA, or a pack refinement
-            # like out_day_spoops) -> our own self-contained channel, defined + placed
-            routing[ch] = (f"as_{ch}", "define", lay)
+        # AlifeSpooks is a standalone director now: every channel deploys as our OWN as_<ch>, never
+        # enriching/restoring a base channel, so the vanilla ambient system never plays our sounds -
+        # only as_effect does. (Old enrich/restore leaked our sounds through out_spooks/out_mutants/...)
+        deployed = ch if ch.startswith("as_") else f"as_{ch}"
+        routing[ch] = (deployed, "define", lay)
     return routing
 
 
@@ -1184,29 +1179,11 @@ def cmd_deploy(a):
     (env / "mod_sound_channels_alifespooks.ltx").write_text("\n".join(chan_lines), encoding="utf-8")
     (env / "as_channel_layers.ltx").write_text("\n".join(layer_lines) + "\n", encoding="utf-8")
 
-    deploy_loop(root, loops)
-    write_placement(env, routing)
     _band_blobs(root)
-    # placement guard: every restore/define channel must be placed for >=1 (level, section),
-    # else it ships content that never plays (enrich channels are intentionally not placed -
-    # they play via the base). Surfaced as a warning so a routing/evidence gap is not silent.
-    placed = set()
-    pf = env.parent / "scripts" / "as_placement.ltx"
-    if pf.exists():
-        for line in pf.read_text(encoding="utf-8", errors="replace").splitlines():
-            m = re.match(r"\s*\w+\s*=\s*(.+)", line)
-            if m:
-                for c in m.group(1).split(","):
-                    placed.add(c.strip())
-    dead = sorted(d for d in effects
-                  if effects[d] and dep_mode.get(d) in ("restore", "define") and d not in placed)
-    if dead:
-        print(f"  WARNING unplaced restore/define channels (ship sounds that never play): {dead}")
-    counts = collections.Counter(dep_mode[d] for d in effects if effects[d])
+    # Standalone director: no loop layer, no preset placement. Every channel is our own as_<ch>,
+    # played only by as_effect; the vanilla ambient system never references them.
     print(f"deployed to {root}")
-    print(f"  effect channels: enrich {counts['enrich']}, restore {counts['restore']}, "
-          f"define {counts['define']}; {sum(len(v) for v in effects.values())} sounds")
-    print(f"  loops: " + ", ".join(f"{b} {len(loops[b])}" for b in BEDS))
+    print(f"  effect channels: {len(effects)} define; {sum(len(v) for v in effects.values())} sounds")
 
 
 # --- distribution: which channel plays in which (level, time, weather) section -----
