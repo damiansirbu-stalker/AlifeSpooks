@@ -14,11 +14,11 @@ local ROW_H    = 13
 local COL_GAP  = 8
 local CHAR_W   = 6
 local CELL_PAD = 2
-local MAX_ROWS = 12
+local MAX_ROWS = 26
 
 -- Fixed-char column widths: label then value. Two cells per row at fixed x, so text aligns by column.
-local LABEL_W = 9  * CHAR_W + CELL_PAD
-local VALUE_W = 30 * CHAR_W + CELL_PAD
+local LABEL_W = 11 * CHAR_W + CELL_PAD
+local VALUE_W = 40 * CHAR_W + CELL_PAD
 local PANEL_W = LABEL_W + COL_GAP + VALUE_W + PAD * 2
 local PANEL_H = MAX_ROWS * ROW_H + PAD * 2
 
