@@ -803,6 +803,19 @@ def _emit_audio(entry, dst):
     sh.copy2(entry["abs"], dst)
 
 
+def _dep_names(entries):
+    """Deployed file names, preserving the ORIGINAL name and path (entry stem = the
+    source-relative path). A stem a pack shipped twice under one path (two distinct recordings
+    PCM proved different) gets a __N suffix so the second never overwrites the first. Slashes
+    stay posix here; callers backslash them for the LTX sounds= / path= references."""
+    seen, names = {}, []
+    for e in entries:
+        stem = e["stem"]
+        seen[stem] = seen.get(stem, 0) + 1
+        names.append(stem if seen[stem] == 1 else f"{stem}__{seen[stem]}")
+    return names
+
+
 # --- n108: X-Ray ogg comment blob (per-file min/max distance + base_volume) ------------
 # The engine reads the FIRST vorbis comment of an ogg as a binary struct (version 0x0003:
 # u32 ver, f32 min, f32 max, f32 base_volume, u32 game_type, f32 max_ai) and applies
@@ -1111,11 +1124,12 @@ def deploy_loop(root, loops):
         entries = loops[bed]
         if not entries:
             continue
-        for i, e in enumerate(entries, 1):
-            _emit_audio(e, snd / "loop" / bed / f"{i}.ogg")
+        fnames = _dep_names(entries)
+        for e, fnm in zip(entries, fnames):
+            _emit_audio(e, snd / "loop" / bed / (fnm + ".ogg"))
         names = [f"as_loop_{bed}_{i}" for i in range(1, len(entries) + 1)]
-        for i, nm in enumerate(names, 1):
-            themes += [f"[{nm}]", "type = looped", f"path = zs\\loop\\{bed}\\{i}", ""]
+        for nm, fnm in zip(names, fnames):
+            themes += [f"[{nm}]", "type = looped", "path = zs\\loop\\" + bed + "\\" + fnm.replace("/", "\\"), ""]
         beds_cfg += [f"\n[{bed}]", "themes = " + ", ".join(names)]
     (root / "configs/misc/sound/mod_script_sound_as.ltx").write_text("\n".join(themes), encoding="utf-8")
     (root / "configs/scripts/as_loop_beds.ltx").write_text("\n".join(beds_cfg) + "\n", encoding="utf-8")
@@ -1150,19 +1164,20 @@ def cmd_deploy(a):
         entries = effects[dep]
         if not entries:
             continue
-        for i, e in enumerate(entries, 1):
-            _emit_audio(e, snd / dep / f"{i}.ogg")
+        names = _dep_names(entries)
+        for e, nm in zip(entries, names):
+            _emit_audio(e, snd / dep / (nm + ".ogg"))
         chan_lines.append(f"@[{dep}]")
         if dep_mode[dep] == "define":
             durs = sorted(e["dur"] for e in entries)
             dur_ms = int(durs[len(durs) // 2] * 1000) if durs else 0
             chan_lines.extend(_effect_settings(group_key[dep], dur_ms, len(entries)))
-            chan_lines.append(f"sounds = zs\\{dep}\\1")
-            start = 2
+            chan_lines.append("sounds = zs\\" + dep + "\\" + names[0].replace("/", "\\"))
+            rest = names[1:]
         else:                       # enrich / restore: append only, inherit the base settings
-            start = 1
-        for i in range(start, len(entries) + 1):
-            chan_lines.append(f">sounds = zs\\{dep}\\{i}")
+            rest = names
+        for nm in rest:
+            chan_lines.append(">sounds = zs\\" + dep + "\\" + nm.replace("/", "\\"))
         chan_lines.append("")
         layer_lines.append(f"{dep} = {dep_layer[dep]}")
     # Also map the base's OWN dark channels (the install plays them, we ship no content for
@@ -1462,11 +1477,12 @@ def cmd_provenance(a):
     rows, verify_ok, verify_bad = [], 0, 0
     def add(entries, layer, group, reldir):
         nonlocal verify_ok, verify_bad
-        for i, e in enumerate(entries, 1):
-            dep = f"zs\\{reldir}\\{i}"
+        names = _dep_names(entries)
+        for e, nm in zip(entries, names):
+            dep = "zs\\" + reldir + "\\" + nm.replace("/", "\\")
             s = settings.get(e["ch"], {})
             stem = e["stem"]
-            dfile = zs / Path(reldir.replace("\\", "/")) / f"{i}.ogg"
+            dfile = zs / Path(reldir.replace("\\", "/")) / (nm + ".ogg")
             # n107/n108: every file ships audio-verbatim; a blob write touches only the
             # comment header. Record the DEPLOYED base_volume and self-verify by AUDIO.
             bv = ""
