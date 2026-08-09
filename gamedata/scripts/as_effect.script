@@ -51,17 +51,18 @@ local CATEGORIES = {
 -- REAL_MUTANT: species that count for the growl-plausibility exclusion; trash tier excluded.
 local REAL_MUTANT = { bloodsucker = true, psysucker = true, controller = true, burer = true,
                       poltergeist = true, psy_dog = true, chimera = true, snork = true,
-                      gigant = true, pseudogiant = true, zombie = true, fracture = true }
+                      gigant = true, zombie = true, fracture = true, karlik = true, lurker = true }
 
--- Place spook by lore class (as_smart_lore.ltx). safe = 0 (allied base carves to nothing).
-local CLASS_SPOOK = { safe = 0.00, mundane = 0.10, eerie = 0.35, ruin = 0.35,
-                      anomaly = 0.45, den = 0.55, lab = 0.55, psy = 0.60 }
+-- Place spook by lore class (as_smart_lore.ltx). No safe class: safety is the runtime allied-base cutout.
+local CLASS_SPOOK = { mundane = 0.10, eerie = 0.35, ruin = 0.35,
+                      den = 0.55, lab = 0.55, psy = 0.60 }
 
 -- Signal constants, all tunable from the trace.
 -- PLACE_RADIUS: a smart farther than this doesn't set place. INDOOR_ADD: building/underground raises
 -- spook when alone. NIGHT_MILD: night nudge, deliberately small. HEALTH_AMP: low health amplifies.
--- ALLIED_EASE: per-friendly comfort. ALLIED_FLOOR: comfort cap. SUNNY_MULT: suppressor. CTX_PERIOD:
--- score-refresh interval (ms). CELL_M: is_indoor cache cell size.
+-- ALLIED_EASE: per-friendly comfort. ALLIED_FLOOR: comfort cap. HOSTILE_ADD: enemy-faction ground.
+-- ENEMY_ADD: live hostile near. BASE_AMP: is_base amplifier. DREAD_FLOOR: minimum dread off the cutout.
+-- CTX_PERIOD: score-refresh interval (ms). CELL_M: is_indoor cache cell size.
 local PLACE_RADIUS = 150
 local MUT_SPOOK    = 0.30
 local MUT_CAP      = 2
@@ -71,7 +72,10 @@ local LONELY_ADD   = 0.12
 local HEALTH_AMP   = 0.30
 local ALLIED_EASE  = 0.20
 local ALLIED_FLOOR = 0.30
-local SUNNY_MULT   = 0.40
+local HOSTILE_ADD  = 0.20
+local ENEMY_ADD    = 0.20
+local BASE_AMP     = 1.4
+local DREAD_FLOOR  = 0.16
 local CTX_PERIOD   = 3000
 local CELL_M       = 4
 
@@ -222,11 +226,29 @@ local function _presence(actor)
     return counts.allied, counts.enemy, counts.mutants
 end
 
---- Place spook from the governing smart terrain. The curated "safe" class (real allied bases) carves
---- to zero; den/psy/lab/eerie/ruin/anomaly set the base; a smart out of range or unlisted falls to the
---- level default. is_base alone is NOT safe (a mutant-infested or enemy base carries the engine base
---- prop too) - only the curated safe class is. Reads as_smart_lore.ltx (no is_lair, no name tricks).
---- @return spook_base, place_desc, is_safe, smart (or nil), class, dist
+--- True if the smart is possibly hostile: any faction it can host is enemy to the player's community.
+--- Cached per (smart.id, player community); Anomaly base ownership is fixed so the verdict is stable.
+local _hostile_cache, _hostile_comm = {}, nil
+local function _possibly_hostile(smart)
+    if not (smart and xsmart and xsmart.get_declared_factions and game_relations) then return false end
+    local actor = db.actor
+    local comm = actor and xcreature and xcreature.community and xcreature.community(actor)
+    if comm ~= _hostile_comm then _hostile_cache, _hostile_comm = {}, comm end
+    if not comm then return false end
+    local cached = _hostile_cache[smart.id]
+    if cached ~= nil then return cached end
+    local result = false
+    for faction in pairs(xsmart.get_declared_factions(smart)) do
+        if game_relations.is_factions_enemies(comm, faction) then result = true; break end
+    end
+    _hostile_cache[smart.id] = result
+    return result
+end
+
+--- Place spook from the governing smart terrain: den/psy/lab/eerie/ruin set the base, a smart out of
+--- range or unlisted falls to the level default. Also returns is_base (engine base prop, used only to
+--- amplify, never to set safety). Reads as_smart_lore.ltx.
+--- @return spook_base, place_desc, smart (or nil), class, dist, is_base
 local _lore, _lore_loaded = nil, false
 local function _place()
     if not _lore_loaded then _lore_loaded = true; _lore = ini_file(LORE_FILE) end
@@ -239,12 +261,12 @@ local function _place()
         local smart_name = smart:name()
         local class = ini and (ini:r_string_ex(SEC_SMART_CLASS, smart_name)
                       or ini:r_string_ex(SEC_LEVEL, level_name)) or "mundane"
-        local is_safe = class == "safe"
-        local base = is_safe and 0 or (CLASS_SPOOK[class] or CLASS_SPOOK.mundane)
-        return base, smart_name .. ":" .. class, is_safe, smart, class, dist
+        local base = CLASS_SPOOK[class] or CLASS_SPOOK.mundane
+        local is_base = xsmart and xsmart.is_base and xsmart.is_base(smart) or false
+        return base, smart_name .. ":" .. class, smart, class, dist, is_base
     end
     local class = ini and ini:r_string_ex(SEC_LEVEL, level_name) or "mundane"
-    return CLASS_SPOOK[class] or CLASS_SPOOK.mundane, level_name .. ":" .. class .. "(lvl)", false, nil, class, -1
+    return CLASS_SPOOK[class] or CLASS_SPOOK.mundane, level_name .. ":" .. class .. "(lvl)", nil, class, -1, false
 end
 
 --- Enclosure via xcombat.is_indoor, cached by (level, position cell) so the raycast fires only on a
@@ -264,18 +286,6 @@ end
 --- True if hour reads night/dusk (kept mild, and a soft lean for the animals category)
 local function _is_night(hour)
     return not hour or hour < 7 or hour >= 20
-end
-
---- Nice sunny daylight: a suppressor only (never adds spook). Day, no rain, clear weather.
-local function _sunny(hour)
-    if not (hour and hour >= 7 and hour < 19) then return false end
-    if (level.rain_factor() or 0) >= 0.1 then return false end
-    local weather = level.get_weather()
-    if not weather then return true end
-    weather = weather:lower()
-    return not (weather:find("storm") or weather:find("rain") or weather:find("fog")
-             or weather:find("tuman") or weather:find("cloud") or weather:find("dark")
-             or weather:find("partly"))
 end
 
 --- "Y" / "-" for a boolean, for the debug readout
@@ -298,25 +308,39 @@ end
 --- the HUD rows (structured label/value) and, under DEBUG, the log breakdown.
 local function _score(actor, hour)
     local allied, enemy, mutants = _presence(actor)
-    local base, place, is_safe, smart, class, dist = _place()
+    local base, place, smart, class, dist, is_base = _place()
+    local possibly_hostile = _possibly_hostile(smart)
     local enclosed = _enclosed(actor)
     local health = actor.health or 1
+    local day = not _is_night(hour)
 
-    local score = base
-    local mut_add = math_min(mutants, MUT_CAP) * MUT_SPOOK
-    score = score + mut_add
-    local indoor_on = (not is_safe) and enclosed and allied == 0
-    if indoor_on then score = score + INDOOR_ADD end
-    local night_on = (not is_safe) and _is_night(hour)
-    if night_on then score = score + NIGHT_MILD end
-    local lonely_on = (not is_safe) and allied == 0 and enemy == 0
-    if lonely_on then score = score + LONELY_ADD end
-    local health_mult = 1 + (1 - health) * HEALTH_AMP
-    score = score * health_mult
-    local allied_mult = (allied > 0) and math_max(ALLIED_FLOOR, 1 - allied * ALLIED_EASE) or 1
-    score = score * allied_mult
-    local sunny_on = _sunny(hour)
-    if sunny_on then score = score * SUNNY_MULT end
+    local threats = enemy > 0 or mutants > 0 or possibly_hostile
+    local safe_now = allied > 0 and day and not threats
+
+    local score, mut_add, health_mult, allied_mult = 0, 0, 1, 1
+    local enemy_on, hostile_on, indoor_on, night_on, lonely_on, base_on = false, false, false, false, false, false
+    if not safe_now then
+        score = base
+        mut_add = math_min(mutants, MUT_CAP) * MUT_SPOOK
+        score = score + mut_add
+        enemy_on = enemy > 0
+        if enemy_on then score = score + ENEMY_ADD end
+        hostile_on = possibly_hostile
+        if hostile_on then score = score + HOSTILE_ADD end
+        indoor_on = enclosed and allied == 0
+        if indoor_on then score = score + INDOOR_ADD end
+        night_on = not day
+        if night_on then score = score + NIGHT_MILD end
+        lonely_on = allied == 0 and enemy == 0
+        if lonely_on then score = score + LONELY_ADD end
+        health_mult = 1 + (1 - health) * HEALTH_AMP
+        score = score * health_mult
+        allied_mult = (allied > 0) and math_max(ALLIED_FLOOR, 1 - allied * ALLIED_EASE) or 1
+        score = score * allied_mult
+        base_on = is_base
+        if base_on then score = score * BASE_AMP end
+        if score < DREAD_FLOOR then score = DREAD_FLOOR end
+    end
     score = score * sensitivity
     if score < 0 then score = 0 elseif score > 1 then score = 1 end
 
@@ -339,8 +363,9 @@ local function _score(actor, hour)
         { "allies",    tostring(allied) },
         { "enemies",   tostring(enemy) },
         { "mutants",   string_format("%d   growl:%s", mutants, _yn(mutants > 0)) },
-        { "night",     _yn(_is_night(hour)) },
-        { "weather",   string_format("%s  rain %.2f", tostring(level.get_weather()), level.rain_factor() or 0) },
+        { "hostile",   _yn(possibly_hostile) },
+        { "safe",      _yn(safe_now) },
+        { "day",       _yn(day) },
         { "underground", _yn(GetEvent("underground")) },
         { "indoor",    _yn(enclosed) },
         { "surge/psi", string_format("%s / %s", _yn(surge_on), _yn(psi_on)) },
@@ -348,18 +373,20 @@ local function _score(actor, hour)
         { "-- math",   "" },
         { "base",      string_format("%.2f", base) },
         { "+mutant",   mut_add > 0 and string_format("+%.2f", mut_add) or "-" },
+        { "+enemy",    enemy_on and string_format("+%.2f", ENEMY_ADD) or "-" },
+        { "+hostile",  hostile_on and string_format("+%.2f", HOSTILE_ADD) or "-" },
         { "+indoor",   indoor_on and string_format("+%.2f", INDOOR_ADD) or "-" },
         { "+night",    night_on and string_format("+%.2f", NIGHT_MILD) or "-" },
         { "+lonely",   lonely_on and string_format("+%.2f", LONELY_ADD) or "-" },
         { "xhealth",   string_format("x%.2f", health_mult) },
         { "xallies",   string_format("x%.2f", allied_mult) },
-        { "xsunny",    sunny_on and string_format("x%.2f", SUNNY_MULT) or "-" },
+        { "xbase",     base_on and string_format("x%.2f", BASE_AMP) or "-" },
         { "= score",   string_format("%.2f", score) },
     }
     if as_debug.on() then
-        as_debug.dbg("spook %s %.2f | %s base=%.2f mut=%d ind=%s nt=%s sun=%s allies=%d enemy=%d hp=%.2f",
-            GRADE_NAME[ctx.grade], score, place, base, mutants, tostring(indoor_on), tostring(night_on),
-            tostring(sunny_on), allied, enemy, health)
+        as_debug.dbg("spook %s %.2f | %s base=%.2f mut=%d host=%s ind=%s nt=%s safe=%s allies=%d enemy=%d hp=%.2f",
+            GRADE_NAME[ctx.grade], score, place, base, mutants, tostring(hostile_on), tostring(indoor_on),
+            tostring(night_on), tostring(safe_now), allied, enemy, health)
     end
 end
 
