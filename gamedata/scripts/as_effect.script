@@ -1,8 +1,9 @@
 --- as_effect: additive spook director. Reads a place-driven spook score from cheap engine-native
 --- signals, sorts it into a five-step ladder, and fires curated spook one-shots through xsound.play
 --- only when a place is genuinely unsettling -- denser, closer, louder as the score climbs. Purely
---- additive over the base soundscape: owns no channels, never touches update_ambient, plays no
---- weather/nature. Place is the base; safety (allied base, allied company, sunny) carves it back.
+--- additive over the base soundscape, plays no weather/nature, and owns update_ambient only to mute
+--- the base's copy of a sound it ships (base-veto). Place is the base; safety (allied base, allied
+--- company, sunny) carves it back.
 
 local math_random, math_rad = math.random, math.rad
 local math_cos, math_sin = math.cos, math.sin
@@ -16,39 +17,26 @@ local LORE_FILE       = "scripts\\as_smart_lore.ltx"
 local CHANNELS_FILE   = "environment\\sound_channels.ltx"
 local SEC_SMART_CLASS = "smart_class"
 local SEC_LEVEL       = "level_default"
-local NO_SOUND        = "ambient\\no_sound"
 
 -- =========================================================================
--- Categories: the fixed palette. Deployed channel names, a firing gate, a base weight, and a
--- per-category minimum interval so screams stay rare against drone density. All are one-shot
--- spooks now: weight rises with the score (no texture/loop split). Per-channel distance/height
--- come from the LTX at init.
+-- Categories: the fixed palette. A firing gate, a base weight, and a per-category minimum interval
+-- so screams stay rare against drone density. Everything is a one-shot spook now (weight rises with
+-- the score, no texture/loop split). The SOUNDS of each category come from the generated as_manifest
+-- (the shipped directory zs\<category>), not from engine channels.
 -- gates: always | mutants (real mutant online) | underground (GetEvent, actual underground level)
 --        | exterior_humans (not underground AND a human near - someone to fire the shot)
 -- =========================================================================
 local CATEGORIES = {
-    { name = "drone",       gate = "always",          weight = 1.0, floor = 12000,
-      channels = { "as_dark_signal", "as_out_dark_amb", "as_out_night_amb" } },
-    { name = "spook",       gate = "always",          weight = 1.0, floor = 8000,
-      channels = { "as_out_day_spoops", "as_out_night_spoops",
-                   "as_urban_spoops_night", "as_crows_spook", "as_foliage_spook" } },
-    { name = "scream",      gate = "always",          weight = 0.5, floor = 90000,
-      channels = { "as_out_screams" } },
-    { name = "growl",       gate = "mutants",         weight = 1.0, floor = 60000,
-      channels = { "as_out_mutants" } },
-    { name = "machine",     gate = "underground",     weight = 0.8, floor = 20000,
-      channels = { "as_day_drones", "as_drones", "as_urban_drones", "as_urban_debris" } },
-    { name = "gunfire",     gate = "exterior_humans", weight = 0.3, floor = 45000,
-      channels = { "as_out_gunfire" } },
-    { name = "underground", gate = "underground",     weight = 1.0, floor = 15000,
-      channels = { "as_ugrnd_banging", "as_ugrnd_drip", "as_ugrnd_drone", "as_ugrnd_lab",
-                   "as_ugrnd_metal", "as_ugrnd_noise", "as_ugrnd_rats", "as_ugrnd_ambient_new" } },
-    { name = "creak",       gate = "always",          weight = 0.8, floor = 20000,
-      channels = { "as_branch", "as_branch_big", "as_branch_med", "as_tree_sway_fog" } },
-    { name = "wind_creep",  gate = "always",          weight = 0.8, floor = 20000,
-      channels = { "as_wind_creep", "as_wind_creep_urban", "as_wind_strong" } },
-    { name = "animals",     gate = "always",          weight = 0.7, floor = 25000, night = true,
-      channels = { "as_crows", "as_crows_retune", "as_crows_forest", "as_dogs", "as_owls" } },
+    { name = "drone",       gate = "always",          weight = 1.0, floor = 12000 },
+    { name = "spook",       gate = "always",          weight = 1.0, floor = 8000 },
+    { name = "scream",      gate = "always",          weight = 0.5, floor = 90000 },
+    { name = "growl",       gate = "mutants",         weight = 1.0, floor = 60000 },
+    { name = "machine",     gate = "underground",     weight = 0.8, floor = 20000 },
+    { name = "gunfire",     gate = "exterior_humans", weight = 0.3, floor = 45000 },
+    { name = "underground", gate = "underground",     weight = 1.0, floor = 15000 },
+    { name = "creak",       gate = "always",          weight = 0.8, floor = 20000 },
+    { name = "wind_creep",  gate = "always",          weight = 0.8, floor = 20000 },
+    { name = "animals",     gate = "always",          weight = 0.7, floor = 25000, night = true },
 }
 
 -- REAL_MUTANT: species that count for the growl-plausibility exclusion; trash tier excluded.
@@ -89,12 +77,14 @@ local GRADE_NAME = { [0] = "none", [1] = "LOW", [2] = "MED", [3] = "HIGH", [4] =
 local G_MED, G_HIGH, G_INSANE = 0.40, 0.62, 0.82
 local SPOOK_ON, SPOOK_OFF = 0.20, 0.14
 
--- Director pacing. SPARSE_MS/DENSE_MS: play spacing lerped by score. VOL_MIN/MAX: volume lerped by
--- score. NO_REPEAT: per-channel no-repeat ring depth. RECENT_MAX: recent-category ring. SPOOK_FLOOR:
--- keeps a category from fully vanishing at its off end. COMBAT_MUTE: mute during an active firefight.
+-- Director pacing. Emission is a per-tick probabilistic roll aimed at the measured classical spook
+-- cadence (as_manifest.cadence_ms), scaled by dread: each TICK_S the director computes and decides to
+-- emit or not. DREAD_LO/HI scale the per-tick probability (calm rarer, dread denser). VOL_MIN/MAX:
+-- volume lerped by score. NO_REPEAT: per-category no-repeat ring depth. RECENT_MAX: recent-category
+-- ring. SPOOK_FLOOR: keeps a category from fully vanishing at its off end. COMBAT_MUTE: mute in a fight.
 local TICK_S      = 1
-local SPARSE_MS   = 40000
-local DENSE_MS    = 6000
+local DREAD_LO    = 0.5
+local DREAD_HI    = 1.5
 local VOL_MIN     = 0.70
 local VOL_MAX     = 1.00
 local NO_REPEAT   = 8
@@ -120,13 +110,13 @@ local rarity             = 1
 local distance           = 1
 local base_volume        = 1
 local opt_ambient_volume = 1
+local _cat_vol           = {}
 
 -- Runtime state.
-local _channels = {}
 local _cats     = {}
+local _cadence_ms = 15000
 local ctx       = { score = 0, grade = 0, mutants_ok = false, enclosed = false, underground = false, has_humans = false }
 local _ctx_next = 0
-local _next_play = 0
 local _gate_open = false
 local _loaded   = false
 local _recent, _recent_set = {}, {}
@@ -144,52 +134,22 @@ local function _lerp(from, to, frac)
     return from + (to - from) * frac
 end
 
--- ---- sound bank load ----------------------------------------------------
+-- ---- sound bank (from the generated manifest) ---------------------------
+-- as_manifest.categories[<cat>] = { { path, min_dist, max_dist, height }, ... }, plus cadence_ms,
+-- both written by tools/merge.py at deploy. The director reads this, never sound_channels.ltx: our
+-- content ships in our own directories (zs\<category>), not as engine channels. Anomaly Lua cannot
+-- enumerate a directory at runtime, so the sound list is shipped as data.
 
---- Strip the muted placeholder stem so a play is never spent on silence
-local function _audible(list)
-    local out = {}
-    for _, name in ipairs(list) do
-        if name ~= NO_SOUND then out[#out + 1] = name end
-    end
-    return out
-end
-
---- Build one channel's record (sounds + distance/height) from the LTX, cached; nil if empty/absent
-local function _build_channel(ini, channel)
-    if _channels[channel] then return _channels[channel] end
-    if not ini:section_exist(channel) then return nil end
-    local raw = parse_list(ini, channel, "sounds")
-    local sounds = raw and #raw > 0 and _audible(raw) or nil
-    if not (sounds and #sounds > 0) then return nil end
-    _channels[channel] = {
-        sounds   = sounds,
-        max_dist = ini:r_float_ex(channel, "max_distance") or 80,
-        min_dist = ini:r_float_ex(channel, "min_distance") or 45,
-        height   = ini:r_float_ex(channel, "height") or 0,
-    }
-    return _channels[channel]
-end
-
---- The channels of one category that actually built (have audible sounds)
-local function _build_category(ini, def)
-    local built = {}
-    for _, channel in ipairs(def.channels) do
-        if _build_channel(ini, channel) then built[#built + 1] = channel end
-    end
-    return built
-end
-
---- Load every category's channels from the DLTX-merged sound_channels.ltx, once.
+--- Load each category's sound list from as_manifest, once. Each sound is { path, min, max, height }.
 local function _load_channels()
     if _loaded then return end
     _loaded = true
-    local ini = ini_file(CHANNELS_FILE)
-    if not ini then as_debug.warn("as_effect: sound_channels.ltx missing - director inert"); return end
+    local cats = as_manifest and as_manifest.categories or {}
+    _cadence_ms = (as_manifest and as_manifest.cadence_ms) or _cadence_ms
     for _, def in ipairs(CATEGORIES) do
-        local built = _build_category(ini, def)
-        _cats[def.name] = { def = def, chans = built, next_ok = 0 }
-        as_debug.dbg("as_effect: category %s built %d/%d channels", def.name, #built, #def.channels)
+        local sounds = cats[def.name] or {}
+        _cats[def.name] = { def = def, sounds = sounds, next_ok = 0, seen = {}, ring = {} }
+        as_debug.dbg("as_effect: category %s = %d sounds", def.name, #sounds)
     end
 end
 
@@ -432,7 +392,7 @@ end
 --- rises-with-score tilt (all one-shot spooks), boosted at night for animals, penalised if recent.
 local function _category_weight(cat, score, hour, tg)
     local def = cat.def
-    if #cat.chans == 0 or tg < cat.next_ok or not _gate_ok(def) then return 0 end
+    if #cat.sounds == 0 or tg < cat.next_ok or not _gate_ok(def) then return 0 end
     local weight = def.weight * (SPOOK_FLOOR + score * score)
     if def.night and _is_night(hour) then weight = weight * 1.5 end
     if _recent_set[def.name] then weight = weight * 0.3 end
@@ -455,41 +415,35 @@ local function _pick_category(score, hour, tg)
     return nil
 end
 
-local function _pick_channel(cat)
-    local count = #cat.chans
-    return count > 0 and cat.chans[math_random(count)] or nil
-end
-
---- No-repeat sound pick within a channel
-local function _pick_sound(channel)
-    local ch = _channels[channel]
-    local count = #ch.sounds
-    if count <= 1 then return ch.sounds[1] end
+--- No-repeat sound pick within a category; returns the sound entry { path, min, max, height } or nil
+local function _pick_sound(cat)
+    local count = #cat.sounds
+    if count == 0 then return nil end
+    if count == 1 then return cat.sounds[1] end
     local avoid = (NO_REPEAT < count) and NO_REPEAT or (count - 1)
-    local seen, ring = ch.seen, ch.ring
-    if not seen then seen = {}; ring = {}; ch.seen = seen; ch.ring = ring end
+    local seen, ring = cat.seen, cat.ring
     local idx
     repeat idx = math_random(count) until not seen[idx]
     seen[idx] = true
     ring[#ring + 1] = idx
     if #ring > avoid then seen[table_remove(ring, 1)] = nil end
-    return ch.sounds[idx]
+    return cat.sounds[idx]
 end
 
---- Place and fire one sound: closer as the score rises (within the channel's authored range, scaled
---- by the distance knob), louder as the score rises. Fire-and-forget via xsound.play.
-local function _play(channel, file, score)
+--- Place and fire one sound entry { path, min, max, height }: closer as the score rises (within its
+--- authored range, scaled by the distance knob), louder as the score rises. Fire-and-forget.
+local function _play(snd, score, cvol)
     local actor = db.actor
     if not actor then return end
-    local ch = _channels[channel]
+    local mn, mx, h = snd[2], snd[3], snd[4]
     local pos = actor:position()
-    local dist = (ch.min_dist + (ch.max_dist - ch.min_dist) * (1 - score)) * distance
+    local dist = (mn + (mx - mn) * (1 - score)) * distance
     local angle = math_rad(math_random(0, 359))
-    local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + ch.height, pos.z + math_sin(angle) * dist)
-    local vol = _lerp(VOL_MIN, VOL_MAX, score) * base_volume * opt_ambient_volume
-    xsound.play(file, { position = vec, volume = vol })
+    local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + h, pos.z + math_sin(angle) * dist)
+    local vol = _lerp(VOL_MIN, VOL_MAX, score) * base_volume * (cvol or 1) * opt_ambient_volume
+    xsound.play(snd[1], { position = vec, volume = vol })
     if as_debug.on() then
-        as_debug.dbg("play ch=%s file=%s dist=%.1f vol=%.2f score=%.2f", channel, file, dist, vol, score)
+        as_debug.dbg("play %s dist=%.1f vol=%.2f score=%.2f", snd[1], dist, vol, score)
     end
 end
 
@@ -529,8 +483,9 @@ end
 
 -- ---- tick ---------------------------------------------------------------
 
---- The director tick: refresh the cached score on a slow interval, gate on combat + hysteresis, then
---- one throttled context-weighted one-shot. Spacing lerps SPARSE->DENSE with the score.
+--- The director tick: refresh the cached score, gate on combat + hysteresis, then a per-tick
+--- probabilistic emit aimed at the measured classical cadence and scaled by dread. Each tick computes
+--- and decides to emit or not - no scheduled next-play time.
 local function spook_tick()
     ResetTimeEvent("as_effect", "spook_tick", TICK_S)
     if not level.present() then return false end
@@ -556,42 +511,43 @@ local function spook_tick()
         _gate_open = true
     end
 
-    if tg < _next_play then return false end
+    -- per-tick emit probability: aim the average rate at the measured classical cadence, scaled by
+    -- dread (DREAD_LO at the gate, DREAD_LO+DREAD_HI at full dread) and the MCM rarity knob, decided
+    -- by a random roll so it never fires like clockwork.
+    local emit_prob = (TICK_S * 1000) / _cadence_ms * (DREAD_LO + DREAD_HI * score) / math_max(rarity, 0.1)
+    if emit_prob > 1 then emit_prob = 1 end
+    if math_random() >= emit_prob then return false end
+
     local cat = _pick_category(score, hour, tg)
     if not cat then return false end
-    local channel = _pick_channel(cat)
-    local file = channel and _pick_sound(channel)
-    if file then
-        _play(channel, file, score)
+    local snd = _pick_sound(cat)
+    if snd then
+        _play(snd, score, _cat_vol[cat.def.name])
         cat.next_ok = tg + cat.def.floor
         _note_recent(cat.def.name)
-        _last_play = string_format("%s  %s", cat.def.name, channel)
+        _last_play = string_format("%s  %s", cat.def.name, snd[1])
     end
-    _next_play = tg + math_floor(_lerp(SPARSE_MS, DENSE_MS, score) * rarity)
     return false
 end
 
 -- ---- base veto (own update_ambient, suppress the base's copies of sounds we ship) --------
 -- Own the vanilla dynamic-ambient slot and run a faithful clone of sound_ambient.update_ambient
 -- (sound_ambient.script:86): same per-level channel load, round-robin, and play. The one change is
--- a VETO - a base sound whose name matches one AlifeSpooks ships is removed at load, so the base
--- never plays our copy and the director plays ours instead. The base's other sounds are untouched.
--- Names match after the original-name deploy: our sounds= are zs\<ch>\<orig path>, the base's are the
--- same <orig path>, so stripping our prefix and lowercasing gives a direct, case-insensitive match.
+-- a VETO - if the player also runs a source pack we drew from, its ambient config plays those spook
+-- sounds too; we mute the base copy at load so only the director plays them. The base's other sounds
+-- are untouched. Match is on the sound's ORIGINAL relative path (the base references sounds by path),
+-- read from the generated as_blockdata: blockfiles (exact paths we ship) and blockdirs (source
+-- folders we drew from, matched on the base sound's own parent dir). The deployed layout is our own
+-- category tree and is never consulted here, so the veto is independent of how files are named.
 local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
-local _block = {}
+local _block, _blockdirs = {}, {}
 
---- Build the veto set from our own loaded channels: the original names we ship, normalized.
+--- Load the veto path set from the generated as_blockdata (blockfiles + blockdirs, lowercased posix).
+--- as_blockdata ships with the mod (tools/merge.py deploy writes it); a missing field degrades to no
+--- veto rather than a partial one.
 local function _build_block()
-    _block = {}
-    for ch, rec in pairs(_channels) do
-        local prefix = ("zs\\" .. ch .. "\\"):lower()
-        for _, s in ipairs(rec.sounds) do
-            local low = s:lower()
-            local key = (low:sub(1, #prefix) == prefix) and low:sub(#prefix + 1) or low
-            _block[key:gsub("\\", "/")] = true
-        end
-    end
+    _block = as_blockdata.blockfiles or {}
+    _blockdirs = as_blockdata.blockdirs or {}
 end
 
 --- One base channel filtered against the veto set: its entry, or nil if every sound is ours.
@@ -600,7 +556,9 @@ local function _base_channel(ch, ini_snd)
     if not raw then return nil end
     local kept = {}
     for _, s in ipairs(raw) do
-        if not _block[s:lower():gsub("\\", "/")] then kept[#kept + 1] = s end
+        local low = s:lower():gsub("\\", "/")
+        local parent = low:match("^(.*/)[^/]*$")
+        if not (_block[low] or (parent and _blockdirs[parent])) then kept[#kept + 1] = s end
     end
     if #kept == 0 then return nil end
     return { name = ch, sounds = kept,
@@ -692,6 +650,9 @@ local function refresh()
     distance           = as_mcm.get_config("distance") or 1
     base_volume        = as_mcm.get_config("vol_global") or 1
     opt_ambient_volume = (ui_options and ui_options.get("sound/environment/ambient_volume")) or 1
+    for _, def in ipairs(CATEGORIES) do
+        _cat_vol[def.name] = as_mcm.get_config("vol_" .. def.name) or 1
+    end
     local wanted = as_mcm.get_config("visuals")
     visuals_on = (wanted == nil) or wanted
 end
@@ -702,7 +663,7 @@ local function _on_first_update()
     refresh()
     if not xsound then as_debug.warn("as_effect: xlibs (xsound) absent - spook director inert"); return end
     _load_channels()
-    _next_play, _ctx_next, _gate_open = 0, 0, false
+    _ctx_next, _gate_open = 0, false
     if _vis.handle and level then level.remove_pp_effector(_vis.handle) end
     _vis.insane_since, _vis.next_ok, _vis.handle = nil, 0, nil
     RemoveTimeEvent("as_effect", "spook_tick")

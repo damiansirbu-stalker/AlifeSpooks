@@ -3,77 +3,11 @@
   <string id="ui_mcm_menu_as">
     <text>AlifeSpooks</text>
   </string>
-  <string id="ui_mcm_as_desc">
-    <text>Тёмный эмбиент поверх базового саундскейпа. Все параметры на 1.0 — без изменений; сдвиньте любой, и рантайм-слой перехватит динамический эмбиент, чтобы применить настройку.</text>
-  </string>
-  <string id="ui_mcm_as_hdr_layers">
-    <text>Громкость акцентов по слою</text>
-  </string>
   <string id="ui_mcm_as_vol_global">
     <text>Громкость акцентов (все)</text>
   </string>
   <string id="ui_mcm_as_vol_global_desc">
     <text>Множитель громкости для каждого одиночного динамического звука.</text>
-  </string>
-  <string id="ui_mcm_as_vol_spooks">
-    <text>Громкость призраков</text>
-  </string>
-  <string id="ui_mcm_as_vol_spooks_desc">
-    <text>Громкость акцентов призраков: шёпот, присутствие, шаги.</text>
-  </string>
-  <string id="ui_mcm_as_vol_screams">
-    <text>Громкость криков</text>
-  </string>
-  <string id="ui_mcm_as_vol_screams_desc">
-    <text>Громкость далёких человеческих и звериных криков.</text>
-  </string>
-  <string id="ui_mcm_as_vol_mutants">
-    <text>Громкость мутантов</text>
-  </string>
-  <string id="ui_mcm_as_vol_mutants_desc">
-    <text>Громкость далёких зовов и рыков мутантов.</text>
-  </string>
-  <string id="ui_mcm_as_vol_ambience">
-    <text>Громкость тёмного эмбиента</text>
-  </string>
-  <string id="ui_mcm_as_vol_ambience_desc">
-    <text>Громкость низких гнетущих подложек и гулов.</text>
-  </string>
-  <string id="ui_mcm_as_vol_machines">
-    <text>Громкость машин</text>
-  </string>
-  <string id="ui_mcm_as_vol_machines_desc">
-    <text>Громкость далёкой стрельбы, дронов, промышленности и радио.</text>
-  </string>
-  <string id="ui_mcm_as_vol_forest">
-    <text>Громкость леса</text>
-  </string>
-  <string id="ui_mcm_as_vol_forest_desc">
-    <text>Громкость треска веток, шелеста листвы и лесных вздрагиваний.</text>
-  </string>
-  <string id="ui_mcm_as_vol_storm">
-    <text>Громкость грозы</text>
-  </string>
-  <string id="ui_mcm_as_vol_storm_desc">
-    <text>Громкость грома и грозовых акцентов.</text>
-  </string>
-  <string id="ui_mcm_as_vol_wind">
-    <text>Громкость ветра</text>
-  </string>
-  <string id="ui_mcm_as_vol_wind_desc">
-    <text>Громкость ветра и крадущихся порывов.</text>
-  </string>
-  <string id="ui_mcm_as_vol_rain">
-    <text>Громкость дождя</text>
-  </string>
-  <string id="ui_mcm_as_vol_rain_desc">
-    <text>Громкость дождевых акцентов.</text>
-  </string>
-  <string id="ui_mcm_as_vol_wildlife">
-    <text>Громкость живности</text>
-  </string>
-  <string id="ui_mcm_as_vol_wildlife_desc">
-    <text>Громкость акцентов ворон, собак и сов.</text>
   </string>
   <string id="ui_mcm_as_vol_underground">
     <text>Громкость подземелья</text>
@@ -95,18 +29,6 @@
   </string>
   <string id="ui_mcm_as_distance_desc">
     <text>Как далеко возникают акценты. Выше — дальше и тише.</text>
-  </string>
-  <string id="ui_mcm_as_loop_volume">
-    <text>Громкость фоновой текстуры</text>
-  </string>
-  <string id="ui_mcm_as_loop_volume_desc">
-    <text>Громкость непрерывного зацикленного фона под всем остальным.</text>
-  </string>
-  <string id="ui_mcm_as_variety">
-    <text>Без повторов</text>
-  </string>
-  <string id="ui_mcm_as_variety_desc">
-    <text>Никогда не проигрывать недавний звук канала, чтобы слышать всё его разнообразие, а не одни и те же немногие по кругу. Выкл. — базовый случайный выбор.</text>
   </string>
   <string id="ui_mcm_as_development_desc">
     <text>Трассировка для диагностики звукового ландшафта. Не влияет на игровой процесс.</text>
@@ -138,9 +60,6 @@
   <string id="ui_mcm_as_log_flush_desc">
     <text>Записывать каждую строку немедленно. Медленнее; только при поиске вылета.</text>
   </string>
-  <string id="ui_mcm_menu_atmosphere">
-    <text>Атмосфера</text>
-  </string>
   <string id="ui_mcm_menu_development">
     <text>Разработка</text>
   </string>
@@ -158,5 +77,116 @@
   </string>
   <string id="ui_mcm_as_title">
     <text>AlifeSpooks</text>
+  </string>
+  <string id="ui_mcm_menu_spooks">
+    <text>Жуть</text>
+  </string>
+  <string id="ui_mcm_menu_visuals">
+    <text>Визуальные эффекты</text>
+  </string>
+  <string id="ui_mcm_as_spooks_desc">
+    <text>Слой жути. Он молчит в безопасных и обыденных местах. Только там, где место по-настоящему тревожно, он запускает подобранные разовые звуки жути, которые становятся ближе и плотнее по мере ухудшения. Он не играет ни погоды, ни природы и никогда не заменяет базовое окружение.</text>
+  </string>
+  <string id="ui_mcm_as_sensitivity">
+    <text>Чувствительность жути</text>
+  </string>
+  <string id="ui_mcm_as_sensitivity_desc">
+    <text>Масштабирует весь отклик жути. Выше делает места тревожными раньше и чаще выводит на пик. Ниже держит жуть реже и слабее.</text>
+  </string>
+  <string id="ui_mcm_as_hdr_vol">
+    <text>Громкость по категориям</text>
+  </string>
+  <string id="ui_mcm_as_vol_drone">
+    <text>Громкость дронов</text>
+  </string>
+  <string id="ui_mcm_as_vol_drone_desc">
+    <text>Громкость низких тёмных дронов и гнетущих подложек.</text>
+  </string>
+  <string id="ui_mcm_as_vol_spook">
+    <text>Громкость жути</text>
+  </string>
+  <string id="ui_mcm_as_vol_spook_desc">
+    <text>Громкость призрачных звуков, шёпотов и тёмных присутствий.</text>
+  </string>
+  <string id="ui_mcm_as_vol_scream">
+    <text>Громкость криков</text>
+  </string>
+  <string id="ui_mcm_as_vol_scream_desc">
+    <text>Громкость далёких криков.</text>
+  </string>
+  <string id="ui_mcm_as_vol_growl">
+    <text>Громкость рыков</text>
+  </string>
+  <string id="ui_mcm_as_vol_growl_desc">
+    <text>Громкость рыков мутантов, только когда рядом настоящий мутант.</text>
+  </string>
+  <string id="ui_mcm_as_vol_machine">
+    <text>Громкость машин</text>
+  </string>
+  <string id="ui_mcm_as_vol_machine_desc">
+    <text>Громкость промышленных гулов и обломков.</text>
+  </string>
+  <string id="ui_mcm_as_vol_gunfire">
+    <text>Громкость стрельбы</text>
+  </string>
+  <string id="ui_mcm_as_vol_gunfire_desc">
+    <text>Громкость далёкой стрельбы на поверхности, где есть люди.</text>
+  </string>
+  <string id="ui_mcm_as_vol_creak">
+    <text>Громкость скрипов</text>
+  </string>
+  <string id="ui_mcm_as_vol_creak_desc">
+    <text>Громкость скрипа веток и деревьев.</text>
+  </string>
+  <string id="ui_mcm_as_vol_wind_creep">
+    <text>Громкость ветра</text>
+  </string>
+  <string id="ui_mcm_as_vol_wind_creep_desc">
+    <text>Громкость крадущегося и воющего ветра.</text>
+  </string>
+  <string id="ui_mcm_as_vol_animals">
+    <text>Громкость живности</text>
+  </string>
+  <string id="ui_mcm_as_vol_animals_desc">
+    <text>Громкость ворон и жуткой живности.</text>
+  </string>
+  <string id="ui_mcm_as_visuals">
+    <text>Визуальные эффекты</text>
+  </string>
+  <string id="ui_mcm_as_visuals_desc">
+    <text>Лёгкое искажение экрана на пике жути.</text>
+  </string>
+  <string id="ui_mcm_as_visuals_page_desc">
+    <text>Тонкое искажение экрана на пике жути.</text>
+  </string>
+  <string id="ui_mcm_as_hud_hdr">
+    <text>Отладочный HUD</text>
+  </string>
+  <string id="ui_mcm_as_development_hud_position">
+    <text>Позиция отладочного HUD</text>
+  </string>
+  <string id="ui_mcm_as_development_hud_position_desc">
+    <text>Где показывать отладочный HUD дреда, или выключить его.</text>
+  </string>
+  <string id="as_development_hud_position_lst_off">
+    <text>Выкл.</text>
+  </string>
+  <string id="as_development_hud_position_lst_topleft">
+    <text>Сверху слева</text>
+  </string>
+  <string id="as_development_hud_position_lst_topright">
+    <text>Сверху справа</text>
+  </string>
+  <string id="as_development_hud_position_lst_centerleft">
+    <text>По центру слева</text>
+  </string>
+  <string id="as_development_hud_position_lst_centerright">
+    <text>По центру справа</text>
+  </string>
+  <string id="as_development_hud_position_lst_bottomleft">
+    <text>Снизу слева</text>
+  </string>
+  <string id="as_development_hud_position_lst_bottomright">
+    <text>Снизу справа</text>
   </string>
 </string_table>

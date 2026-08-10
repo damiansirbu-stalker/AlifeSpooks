@@ -1,9 +1,8 @@
---- _as_deps: AlifeSpooks dependency note. xlibs is OPTIONAL. The content (effects,
---- loop beds) runs on any Anomaly; xlibs (xlog, xmcm) only adds the MCM page and the
---- ambient trace. So this is a SOFT check: if xlibs is present but too old for the control
---- layer, warn once; never abort, so a stock install still runs content-only.
+--- _as_deps: AlifeSpooks dependency gate. xlibs is REQUIRED. The mod ships its sounds in its own
+--- directories and plays them itself through xsound - there are no engine ambient channels for our
+--- content - so without xlibs nothing plays. Hard assert on xlibs and a compatible version.
 
-local tostring = tostring
+local assert = assert
 
 local MOD_NAME          = "AlifeSpooks"
 local XLIBS_MIN_VERSION = "1.5.1"
@@ -15,11 +14,8 @@ function get_version()
 end
 
 function on_game_start()
-    -- no xlibs: content-only, nothing to check
-    if not xlibs then return end
-    if xlibs.is_compatible and not xlibs.is_compatible(XLIBS_MIN_VERSION) then
-        local have = xlibs.get_version and xlibs.get_version() or "?"
-        printf("! [%s] xlibs %s is older than %s (%s); the MCM and trace may not load. Content runs anyway.",
-            MOD_NAME, tostring(have), XLIBS_MIN_VERSION, XLIBS_URL)
-    end
+    assert(xlibs and xlibs.is_compatible and xlibs.is_compatible(XLIBS_MIN_VERSION),
+        "\n\n! [" .. MOD_NAME .. "] requires xlibs " .. XLIBS_MIN_VERSION .. " or newer.\n"..
+        "! AlifeSpooks plays its sounds through xlibs (xsound); without it nothing plays.\n"..
+        "! Install / update: " .. XLIBS_URL .. "\n")
 end

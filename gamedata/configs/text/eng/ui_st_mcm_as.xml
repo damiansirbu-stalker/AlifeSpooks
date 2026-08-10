@@ -46,6 +46,69 @@
   <string id="ui_mcm_as_distance_desc">
     <text>How far the one-shots spawn. Higher is farther and quieter.</text>
   </string>
+  <string id="ui_mcm_as_hdr_vol">
+    <text>Per-category volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_drone">
+    <text>Drone volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_drone_desc">
+    <text>Volume of the low dark drones and dread beds.</text>
+  </string>
+  <string id="ui_mcm_as_vol_spook">
+    <text>Spook volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_spook_desc">
+    <text>Volume of the spooks, whispers, and dark presences.</text>
+  </string>
+  <string id="ui_mcm_as_vol_scream">
+    <text>Scream volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_scream_desc">
+    <text>Volume of the distant screams.</text>
+  </string>
+  <string id="ui_mcm_as_vol_growl">
+    <text>Growl volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_growl_desc">
+    <text>Volume of the mutant growls, played only when a real mutant is near.</text>
+  </string>
+  <string id="ui_mcm_as_vol_machine">
+    <text>Machine volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_machine_desc">
+    <text>Volume of the industrial drones and debris.</text>
+  </string>
+  <string id="ui_mcm_as_vol_gunfire">
+    <text>Gunfire volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_gunfire_desc">
+    <text>Volume of the distant gunfire, outdoors where people are.</text>
+  </string>
+  <string id="ui_mcm_as_vol_underground">
+    <text>Underground volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_underground_desc">
+    <text>Volume of the tunnel and lab dread on underground levels.</text>
+  </string>
+  <string id="ui_mcm_as_vol_creak">
+    <text>Creak volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_creak_desc">
+    <text>Volume of the branch and tree creaks.</text>
+  </string>
+  <string id="ui_mcm_as_vol_wind_creep">
+    <text>Wind volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_wind_creep_desc">
+    <text>Volume of the creeping and howling wind.</text>
+  </string>
+  <string id="ui_mcm_as_vol_animals">
+    <text>Wildlife volume</text>
+  </string>
+  <string id="ui_mcm_as_vol_animals_desc">
+    <text>Volume of the crows and eerie wildlife.</text>
+  </string>
 
   <string id="ui_mcm_as_visuals_page_desc">
     <text>At peak spook, in the worst places, a brief and subtle screen distortion.</text>
