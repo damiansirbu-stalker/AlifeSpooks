@@ -136,14 +136,21 @@ end
 
 -- ---- crystallization probes (raw numbers to fit the director thresholds) ----
 
--- Raw roof/wall hit-distances from xcombat.get_enclosure, to validate tight/huge/building/tunnel/ruin cutoffs.
+-- Raw roof/wall hit-distances from xcombat.get_enclosure PLUS the is_indoor decision breakdown, so a
+-- snapshot in a real room names WHICH check fails: roof ray missing (roof=-1) or too high (>4m), or the
+-- wall rays not striking within 3m. roof=-1 -> roof up-ray never hit the ceiling mesh; walls all -1 ->
+-- the four side-rays never hit a wall (interior walls not in the baked static mesh, or probe height off).
 local function _snap_enclosure(log, apos)
     local enc = xcombat.get_enclosure(apos)
-    if not enc then log.info("ENCLOSURE-RAW none"); return end
+    if not enc then log.info("ENCLOSURE-RAW none | is_indoor=%s", tostring(xcombat.is_indoor(apos))); return end
     local walls = enc.walls
-    log.info("ENCLOSURE-RAW roof=%.1f walls=%.1f,%.1f,%.1f,%.1f nearest=%.1f count=%d",
+    local roof_ok = enc.roof ~= nil and enc.roof <= 4
+    local near = 0
+    for i = 1, 4 do if walls[i] and walls[i] <= 3 then near = near + 1 end end
+    log.info("ENCLOSURE-RAW roof=%.1f walls=%.1f,%.1f,%.1f,%.1f nearest=%.1f count=%d | roof_ok(<=4m)=%s walls_within_3m=%d indoor=%s",
         enc.roof or -1, walls[1] or -1, walls[2] or -1, walls[3] or -1, walls[4] or -1,
-        enc.nearest_wall or -1, enc.wall_count)
+        enc.nearest_wall or -1, enc.wall_count,
+        tostring(roof_ok), near, tostring(xcombat.is_indoor(apos)))
 end
 
 -- Nearest smart id/name/distance + props, to fit the place-identity distance gate.
