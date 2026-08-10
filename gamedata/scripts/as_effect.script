@@ -19,32 +19,35 @@ local SEC_LEVEL       = "level_default"
 local NO_SOUND        = "ambient\\no_sound"
 
 -- =========================================================================
--- Categories: the fixed palette. Deployed channel names (DLTX-merged sound_channels.ltx),
--- a firing gate, spook(rises with score) vs texture(rises with calm), a base weight, and a
--- per-category minimum interval so screams stay rare against drone density. Whisper content
--- rides out_spooks (pipeline routing). Per-channel distance/height come from the LTX at init.
--- gates: always | mutants (real mutant on level/online) | enclosed (is_indoor)
+-- Categories: the fixed palette. Deployed channel names, a firing gate, a base weight, and a
+-- per-category minimum interval so screams stay rare against drone density. All are one-shot
+-- spooks now: weight rises with the score (no texture/loop split). Per-channel distance/height
+-- come from the LTX at init.
+-- gates: always | mutants (real mutant online) | underground (GetEvent, actual underground level)
+--        | exterior_humans (not underground AND a human near - someone to fire the shot)
 -- =========================================================================
 local CATEGORIES = {
-    { name = "drone",       gate = "always",   spook = false, weight = 1.0, floor = 12000,
+    { name = "drone",       gate = "always",          weight = 1.0, floor = 12000,
       channels = { "as_dark_signal", "as_out_dark_amb", "as_out_night_amb" } },
-    { name = "spook",       gate = "always",   spook = true,  weight = 1.0, floor = 8000,
-      channels = { "as_out_spooks", "as_out_day_spoops", "as_out_night_spoops",
+    { name = "spook",       gate = "always",          weight = 1.0, floor = 8000,
+      channels = { "as_out_day_spoops", "as_out_night_spoops",
                    "as_urban_spoops_night", "as_crows_spook", "as_foliage_spook" } },
-    { name = "scream",      gate = "always",   spook = true,  weight = 0.5, floor = 90000,
+    { name = "scream",      gate = "always",          weight = 0.5, floor = 90000,
       channels = { "as_out_screams" } },
-    { name = "growl",       gate = "mutants",  spook = true,  weight = 1.0, floor = 60000,
+    { name = "growl",       gate = "mutants",         weight = 1.0, floor = 60000,
       channels = { "as_out_mutants" } },
-    { name = "machine",     gate = "enclosed", spook = true,  weight = 0.8, floor = 20000,
+    { name = "machine",     gate = "underground",     weight = 0.8, floor = 20000,
       channels = { "as_day_drones", "as_drones", "as_urban_drones", "as_urban_debris" } },
-    { name = "gunfire",     gate = "always",   spook = true,  weight = 0.3, floor = 45000,
+    { name = "gunfire",     gate = "exterior_humans", weight = 0.3, floor = 45000,
       channels = { "as_out_gunfire" } },
-    { name = "underground", gate = "enclosed", spook = true,  weight = 1.0, floor = 15000,
+    { name = "underground", gate = "underground",     weight = 1.0, floor = 15000,
       channels = { "as_ugrnd_banging", "as_ugrnd_drip", "as_ugrnd_drone", "as_ugrnd_lab",
                    "as_ugrnd_metal", "as_ugrnd_noise", "as_ugrnd_rats", "as_ugrnd_ambient_new" } },
-    { name = "wind_creep",  gate = "always",   spook = false, weight = 0.8, floor = 20000,
-      channels = { "as_wind_creep", "as_wind_creep_urban" } },
-    { name = "animals",     gate = "always",   spook = false, weight = 0.7, floor = 25000, night = true,
+    { name = "creak",       gate = "always",          weight = 0.8, floor = 20000,
+      channels = { "as_branch", "as_branch_big", "as_branch_med", "as_tree_sway_fog" } },
+    { name = "wind_creep",  gate = "always",          weight = 0.8, floor = 20000,
+      channels = { "as_wind_creep", "as_wind_creep_urban", "as_wind_strong" } },
+    { name = "animals",     gate = "always",          weight = 0.7, floor = 25000, night = true,
       channels = { "as_crows", "as_crows_retune", "as_crows_forest", "as_dogs", "as_owls" } },
 }
 
@@ -121,7 +124,7 @@ local opt_ambient_volume = 1
 -- Runtime state.
 local _channels = {}
 local _cats     = {}
-local ctx       = { score = 0, grade = 0, mutants_ok = false, enclosed = false }
+local ctx       = { score = 0, grade = 0, mutants_ok = false, enclosed = false, underground = false, has_humans = false }
 local _ctx_next = 0
 local _next_play = 0
 local _gate_open = false
@@ -348,6 +351,8 @@ local function _score(actor, hour)
     ctx.grade = _grade(score)
     ctx.mutants_ok = mutants > 0
     ctx.enclosed = enclosed
+    ctx.underground = GetEvent("underground") or false
+    ctx.has_humans = (allied + enemy) > 0
 
     local props = (smart and xsmart) and string_format("base:%s lair:%s terr:%s anom:%s shelter:%s",
         _yn(xsmart.is_base(smart)), _yn(xsmart.is_lair(smart)), _yn(xsmart.is_territory(smart)),
@@ -399,8 +404,9 @@ end
 
 --- True if a category's gate passes now
 local function _gate_ok(def)
-    if def.gate == "mutants"  then return ctx.mutants_ok end
-    if def.gate == "enclosed" then return ctx.enclosed end
+    if def.gate == "mutants"         then return ctx.mutants_ok end
+    if def.gate == "underground"     then return ctx.underground end
+    if def.gate == "exterior_humans" then return (not ctx.underground) and ctx.has_humans end
     return true
 end
 
@@ -422,13 +428,12 @@ local function _note_recent(name)
     end
 end
 
---- Weight one category: 0 if gated out or on its rarity floor, else spook-vs-texture tilt by score,
---- times its base weight, boosted at night for animals, penalised if recently played.
+--- Weight one category: 0 if gated out or on its rarity floor, else its base weight times a
+--- rises-with-score tilt (all one-shot spooks), boosted at night for animals, penalised if recent.
 local function _category_weight(cat, score, hour, tg)
     local def = cat.def
     if #cat.chans == 0 or tg < cat.next_ok or not _gate_ok(def) then return 0 end
-    local tilt = def.spook and (SPOOK_FLOOR + score * score) or (SPOOK_FLOOR + (1 - score) * (1 - score))
-    local weight = def.weight * tilt
+    local weight = def.weight * (SPOOK_FLOOR + score * score)
     if def.night and _is_night(hour) then weight = weight * 1.5 end
     if _recent_set[def.name] then weight = weight * 0.3 end
     return weight
