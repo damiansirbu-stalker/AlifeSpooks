@@ -566,6 +566,119 @@ local function spook_tick()
     return false
 end
 
+-- ---- base veto (own update_ambient, suppress the base's copies of sounds we ship) --------
+-- Own the vanilla dynamic-ambient slot and run a faithful clone of sound_ambient.update_ambient
+-- (sound_ambient.script:86): same per-level channel load, round-robin, and play. The one change is
+-- a VETO - a base sound whose name matches one AlifeSpooks ships is removed at load, so the base
+-- never plays our copy and the director plays ours instead. The base's other sounds are untouched.
+-- Names match after the original-name deploy: our sounds= are zs\<ch>\<orig path>, the base's are the
+-- same <orig path>, so stripping our prefix and lowercasing gives a direct, case-insensitive match.
+local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
+local _block = {}
+
+--- Build the veto set from our own loaded channels: the original names we ship, normalized.
+local function _build_block()
+    _block = {}
+    for ch, rec in pairs(_channels) do
+        local prefix = ("zs\\" .. ch .. "\\"):lower()
+        for _, s in ipairs(rec.sounds) do
+            local low = s:lower()
+            local key = (low:sub(1, #prefix) == prefix) and low:sub(#prefix + 1) or low
+            _block[key:gsub("\\", "/")] = true
+        end
+    end
+end
+
+--- One base channel filtered against the veto set: its entry, or nil if every sound is ours.
+local function _base_channel(ch, ini_snd)
+    local raw = parse_list(ini_snd, ch, "sounds")
+    if not raw then return nil end
+    local kept = {}
+    for _, s in ipairs(raw) do
+        if not _block[s:lower():gsub("\\", "/")] then kept[#kept + 1] = s end
+    end
+    if #kept == 0 then return nil end
+    return { name = ch, sounds = kept,
+        max_dist = ini_snd:r_float_ex(ch, "max_distance") or 100,
+        min_dist = ini_snd:r_float_ex(ch, "min_distance") or 1,
+        height   = ini_snd:r_float_ex(ch, "height") or 0,
+        indoor   = ini_snd:r_bool_ex(ch, "indoor") or false,
+        periods  = { ini_snd:r_float_ex(ch, "period0") or 10, ini_snd:r_float_ex(ch, "period1") or 15,
+                     ini_snd:r_float_ex(ch, "period2") or 20, ini_snd:r_float_ex(ch, "period3") or 25 } }
+end
+
+--- Clone of sound_ambient.reset_settings: load the base channels for (level, ambient), minus our
+--- sounds (a channel that is entirely ours drops out; the rest stay faithful).
+local function _base_reset(level_name, ambient)
+    _base.chan, _base.idx, _base.tot = {}, 0, 0
+    if not (level_name and ambient and ambient ~= "") then return end
+    local ini_lvl = ini_file("environment\\ambients\\" .. level_name .. ".ltx")
+    if not ini_lvl then return end
+    local channels = parse_list(ini_lvl, ambient, "sound_channels_dynamic")
+    if #channels == 0 then return end
+    local cached, ini_snd = {}, ini_file(CHANNELS_FILE)
+    for i = 1, #channels do
+        local ch = channels[i]
+        local entry = (not cached[ch]) and ini_snd:section_exist(ch) and _base_channel(ch, ini_snd)
+        cached[ch] = true
+        if entry then
+            _base.tot = _base.tot + 1
+            _base.chan[_base.tot] = entry
+        end
+    end
+end
+
+--- Play one base channel's sound the vanilla way (position, indoor/underground volume rule).
+local function _base_fire(ch, tg)
+    local actor = db.actor
+    if not actor then return end
+    ch.next = tg + ch.periods[math_random(4)]
+    local file = ch.sounds[math_random(#ch.sounds)]
+    local inside, underground = GetEvent("current_safe_cover"), GetEvent("underground")
+    local pos = actor:position()
+    local max_dist = ch.max_dist
+    local min_dist = underground and ch.min_dist or ((max_dist + ch.min_dist) / 2)
+    if min_dist > max_dist then min_dist = max_dist end
+    local dist = math_random(min_dist, max_dist) / 2
+    local angle = math_rad(math_random(0, 359))
+    local snd = sound_object(file)
+    snd:play_at_pos(actor, vector():set(pos.x + math_cos(angle) * dist, pos.y + ch.height, pos.z + math_sin(angle) * dist))
+    local vol
+    if underground or inside then vol = ch.indoor and 1 or 0.3
+    else vol = ch.indoor and 0 or 1 end
+    snd.volume = vol * opt_ambient_volume
+    ch.snd = snd
+end
+
+--- Clone of sound_ambient.update_ambient: reset on hour change, else round-robin one veto'd play.
+local function update_ambient_owned()
+    ResetTimeEvent("sound_channels", "update_ambient", 1)
+    if not (level.present() and db.actor) then return false end
+    local hour = level.get_time_hours()
+    if hour ~= _base.hour then
+        _base.hour, _base.idx = hour, 0
+        local wm = level_weathers and level_weathers.get_weather_manager()
+        _base_reset(level.name(), wm and wm:get_curr_ambient())
+        return false
+    end
+    if _base.tot == 0 then return false end
+    _base.idx = _base.idx + 1
+    if _base.idx > _base.tot then _base.idx = 1 end
+    local tg = time_global()
+    local ch = _base.chan[_base.idx]
+    if not ch.next then ch.next = tg + math_random(1, ch.periods[math_random(4)] + 1); return false end
+    if ch.next <= tg then _base_fire(ch, tg) end
+    return false
+end
+
+--- Own the update_ambient slot with our veto clone. Block set built from our loaded channels first.
+local function _apply_owned()
+    _build_block()
+    _base.hour, _base.idx = nil, 0
+    RemoveTimeEvent("sound_channels", "update_ambient")
+    CreateTimeEvent("sound_channels", "update_ambient", 1, update_ambient_owned)
+end
+
 -- ---- lifecycle ----------------------------------------------------------
 
 local function refresh()
@@ -589,7 +702,8 @@ local function _on_first_update()
     _vis.insane_since, _vis.next_ok, _vis.handle = nil, 0, nil
     RemoveTimeEvent("as_effect", "spook_tick")
     CreateTimeEvent("as_effect", "spook_tick", TICK_S, spook_tick)
-    as_debug.info("as_effect: spook director armed")
+    _apply_owned()
+    as_debug.info("as_effect: spook director armed; owning update_ambient (base-veto)")
 end
 
 --- The spook readout rows ({label, value}: grade/score, place, playing, each term, gates) for the HUD.
