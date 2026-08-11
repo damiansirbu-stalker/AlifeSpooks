@@ -25,9 +25,11 @@ local SEC_LEVEL       = "level_default"
 -- (the shipped directory zs\<category>), not from engine channels.
 -- gates: always | mutants (real mutant online) | underground (GetEvent, actual underground level)
 --        | exterior_humans (not underground AND a human near - someone to fire the shot)
+--        | exterior (not enclosed - outdoor-only, nature never plays indoors)
+--        | ominous (non-mundane lore class OR near an anomaly - places that carry dread, e.g. drones)
 -- =========================================================================
 local CATEGORIES = {
-    { name = "drone",       gate = "always",          weight = 1.0, floor = 12000 },
+    { name = "drone",       gate = "ominous",         weight = 1.0, floor = 12000 },
     { name = "spook",       gate = "always",          weight = 1.0, floor = 8000 },
     { name = "scream",      gate = "always",          weight = 0.5, floor = 90000 },
     { name = "growl",       gate = "mutants",         weight = 1.0, floor = 60000 },
@@ -35,8 +37,8 @@ local CATEGORIES = {
     { name = "gunfire",     gate = "exterior_humans", weight = 0.3, floor = 45000 },
     { name = "underground", gate = "underground",     weight = 1.0, floor = 15000 },
     { name = "creak",       gate = "always",          weight = 0.8, floor = 20000 },
-    { name = "wind_creep",  gate = "always",          weight = 0.8, floor = 20000 },
-    { name = "animals",     gate = "always",          weight = 0.7, floor = 25000, night = true },
+    { name = "wind_creep",  gate = "exterior",        weight = 0.8, floor = 20000 },
+    { name = "animals",     gate = "exterior",        weight = 0.7, floor = 25000, night = true },
 }
 
 -- REAL_MUTANT: species that count for the growl-plausibility exclusion; trash tier excluded.
@@ -303,6 +305,22 @@ local function _grade(score)
     return GRADE.INSANE
 end
 
+-- ---- gates --------------------------------------------------------------
+
+--- True if a category's gate passes now. Reads ctx (populated by _score before any gate is checked).
+--- always: any place. mutants: a real mutant online. underground: an actual underground level.
+--- exterior_humans: outdoors with a human near (gunfire). exterior: outdoors - nature never plays indoors.
+--- ominous: the place carries dread - a non-mundane lore class OR near an anomaly (drones).
+local function _gate_ok(def)
+    local g = def.gate
+    if g == "mutants"         then return ctx.mutants_ok end
+    if g == "underground"     then return ctx.underground end
+    if g == "exterior_humans" then return (not ctx.underground) and ctx.has_humans end
+    if g == "exterior"        then return not ctx.enclosed end
+    if g == "ominous"         then return (ctx.class ~= nil and ctx.class ~= "mundane") or ctx.anomaly end
+    return true
+end
+
 --- Recompute the cached dread score. PURELY ADDITIVE - no multipliers, no cutout, no floor constant:
 ---   dread = lore(place class) + who's-around(one categorical state) + indoor + time
 --- Enemy-held ground folds into the "enemy" state; mutants add via the "mutant" state AND gate the
@@ -332,20 +350,17 @@ local function _score(actor, hour)
     ctx.enclosed = enclosed
     ctx.underground = GetEvent("underground") or false
     ctx.has_humans = (allied + enemy) > 0
+    ctx.class = class
+    ctx.anomaly = (smart and xsmart and xsmart.has_anomaly and xsmart.has_anomaly(smart)) or false
 
     -- a factor's contribution, or "-" when the factor is off
     local function _pv(on, v) return on and string_format("%+.2f", v) or "-" end
     local playing = _play_at > 0 and (time_global() - _play_at) < PLAY_WINDOW_MS
     local base_playing = _base_at > 0 and (time_global() - _base_at) < PLAY_WINDOW_MS
-    -- which categories may fire right now (context gates)
+    -- which categories may fire right now (context gates) - one source of truth via _gate_ok
     local avail = {}
     for _, def in ipairs(CATEGORIES) do
-        local g = def.gate
-        local ok = g == "always"
-            or (g == "mutants" and ctx.mutants_ok)
-            or (g == "underground" and ctx.underground)
-            or (g == "exterior_humans" and not ctx.underground and ctx.has_humans)
-        if ok then avail[#avail + 1] = def.name end
+        if _gate_ok(def) then avail[#avail + 1] = def.name end
     end
     -- Two sound sections, symmetrical: SPOOK (our director's current one-shot) then BASE (the base
     -- ambient the hook replays), each a header + the sound on its OWN row (paths are long), bright while
@@ -384,16 +399,6 @@ local function _score(actor, hour)
             GRADE_NAME[ctx.grade], score, place, base, who, who_pts, tostring(enclosed),
             _time_name(hour), time_pts, allied, enemy, mutants, tostring(enemy_held))
     end
-end
-
--- ---- gates --------------------------------------------------------------
-
---- True if a category's gate passes now
-local function _gate_ok(def)
-    if def.gate == "mutants"         then return ctx.mutants_ok end
-    if def.gate == "underground"     then return ctx.underground end
-    if def.gate == "exterior_humans" then return (not ctx.underground) and ctx.has_humans end
-    return true
 end
 
 -- ---- selection ----------------------------------------------------------
@@ -696,7 +701,17 @@ local function _on_first_update()
 end
 
 --- The dread readout rows ({label, value}: grade/score, place, playing, each term, gates) for the HUD.
+--- The score block is rebuilt by _score every CTX_PERIOD (~3s). The two sound lines (SPOOK row 2, BASE
+--- row 5) are refreshed HERE on every HUD read, so "what's playing" tracks the audio with no lag and no
+--- score recompute - O(1), no engine reads. _last_play/_play_at are set by the director at fire time.
 function get_hud_rows()
+    if _rows[2] and _rows[5] then
+        local tg = time_global()
+        local playing = _play_at > 0 and (tg - _play_at) < PLAY_WINDOW_MS
+        local base_playing = _base_at > 0 and (tg - _base_at) < PLAY_WINDOW_MS
+        _rows[2] = { _last_play, "", "", playing and "play" or "stop" }
+        _rows[5] = { _base_last, "", "", base_playing and "play" or "stop" }
+    end
     return _rows
 end
 
