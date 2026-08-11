@@ -23,6 +23,29 @@ local COL3_W = 8  * CHAR_W + CELL_PAD
 local PANEL_W = COL1_W + COL_GAP + COL2_W + COL_GAP + COL3_W + PAD * 2
 local PANEL_H = MAX_ROWS * ROW_H + PAD * 2
 
+-- Row text colors, built lazily: GetARGB is not present at module-load under the static validator
+-- (same as at_hud). Neutral off-white body, gold section headers, green/gray for the live/stopped sound
+-- lines, and a green->red gradient tinting the DREAD summary row by its grade. Applied per row each
+-- refresh so color tracks state, not grid position. Moderate saturation + high luminance to stay legible
+-- over dark, busy scenes; the sound lines use luminance (bright vs dim), so play/stop reads colorblind-safe.
+local _clr
+local function _row_color(style)
+    if not _clr then
+        _clr = {
+            hdr      = GetARGB(255, 235, 200, 120),   -- section header, warm gold
+            norm     = GetARGB(235, 210, 205, 195),   -- body label/value, warm off-white
+            play     = GetARGB(255, 130, 225, 150),   -- sound line, live (green)
+            stop     = GetARGB(190, 135, 135, 135),   -- sound line, stopped (dim gray)
+            g_none   = GetARGB(210, 150, 150, 150),   -- DREAD grade: none (gray)
+            g_low    = GetARGB(255, 130, 220, 140),   --             low (green)
+            g_med    = GetARGB(255, 230, 215, 120),   --             med (yellow)
+            g_high   = GetARGB(255, 240, 165,  90),   --             high (orange)
+            g_insane = GetARGB(255, 235, 105,  95),   --             insane (red)
+        }
+    end
+    return _clr[style] or _clr.norm
+end
+
 local function _pos_key()
     return (as_mcm and as_mcm.get_config and as_mcm.get_config("hud_position")) or "off"
 end
@@ -68,10 +91,9 @@ function UISpookHUD:__init() super()
     local x3 = x2 + COL2_W + COL_GAP
     for row = 1, MAX_ROWS do
         local row_y = PAD + (row - 1) * ROW_H
-        local elem = (row <= 2) and "hi" or "line"   -- the SPOOK_PLAYING rows are bright
-        self.c1[row] = self:_cell(xml, elem, x1, row_y, COL1_W)
-        self.c2[row] = self:_cell(xml, elem, x2, row_y, COL2_W)
-        self.c3[row] = self:_cell(xml, elem, x3, row_y, COL3_W)
+        self.c1[row] = self:_cell(xml, "line", x1, row_y, COL1_W)
+        self.c2[row] = self:_cell(xml, "line", x2, row_y, COL2_W)
+        self.c3[row] = self:_cell(xml, "line", x3, row_y, COL3_W)
     end
     self.used = 0
 end
@@ -82,9 +104,10 @@ function UISpookHUD:set_rows(rows)
     if count > MAX_ROWS then count = MAX_ROWS end
     for row = 1, count do
         local r = rows[row]
-        self.c1[row]:SetText(r[1] or "")
-        self.c2[row]:SetText(r[2] or "")
-        self.c3[row]:SetText(r[3] or "")
+        local clr = _row_color(r[4])
+        self.c1[row]:SetText(r[1] or ""); self.c1[row]:SetTextColor(clr)
+        self.c2[row]:SetText(r[2] or ""); self.c2[row]:SetTextColor(clr)
+        self.c3[row]:SetText(r[3] or ""); self.c3[row]:SetTextColor(clr)
     end
     for row = count + 1, self.used do
         self.c1[row]:SetText(""); self.c2[row]:SetText(""); self.c3[row]:SetText("")
@@ -102,7 +125,7 @@ local _hud, _shown, _active = nil, false, false
 
 -- DIAGNOSTIC trace: logs to alifespooks.log via as_debug (tag [AS]) when tracing is on. Prefix [HUD].
 local function _tr(fmt, ...)
-    if as_debug and as_debug.info then as_debug.info("[HUD] " .. fmt, ...) end
+    if as_debug and as_debug.on and as_debug.on() then as_debug.dbg("[HUD] " .. fmt, ...) end
 end
 
 local function _wanted()

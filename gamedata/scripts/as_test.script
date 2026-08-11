@@ -86,6 +86,57 @@ function as_test.snd(method, dist)
     _tip("m" .. tostring(method) .. " fires in 3s - CLOSE the console now")
 end
 
+-- ---- corpus smoke test (audition every shipped sound, spaced by its own length) ----
+-- Plays every sound in as_manifest one after another at-ear (2D, full volume), each spaced by its
+-- measured duration + a gap so a long drone never overlaps the next. Play and length both go through
+-- xsound (wrapped), never a raw sound_object. Run/stop from the console (close it after):
+--   run_string as_test.smoke()            -- the whole corpus, category order
+--   run_string as_test.smoke("drone")     -- one category only
+--   run_string as_test.smoke_stop()
+local SMOKE_GAP_MS = 700
+local _smoke = { list = nil, i = 0 }
+
+--- Flatten as_manifest to a { cat, path } list in sorted-category order (optionally one category).
+local function _smoke_flat(only_cat)
+    local out, cats = {}, (as_manifest and as_manifest.categories) or {}
+    local names = {}
+    for cat in pairs(cats) do
+        if not only_cat or cat == only_cat then names[#names + 1] = cat end
+    end
+    table_sort(names)
+    for _, cat in ipairs(names) do
+        local sounds = cats[cat]
+        for i = 1, #sounds do out[#out + 1] = { cat = cat, path = sounds[i][1] } end
+    end
+    return out
+end
+
+--- Play the current sound, then re-arm for now + its duration + a gap. Returns true (deregister) at end.
+local function _smoke_step()
+    local item = _smoke.list and _smoke.list[_smoke.i]
+    if not (item and db.actor and xsound) then _tip("smoke: done"); return true end
+    xsound.play(item.path, { volume = 1.0 })
+    local dur = (xsound.length and xsound.length(item.path)) or 2000
+    _tip(string.format("smoke %d/%d  %s  (%s %dms)", _smoke.i, #_smoke.list, item.path, item.cat, dur))
+    _smoke.i = _smoke.i + 1
+    ResetTimeEvent("as_smoke", "step", (dur + SMOKE_GAP_MS) / 1000)
+    return false
+end
+
+function as_test.smoke(only_cat)
+    _smoke.list, _smoke.i = _smoke_flat(only_cat), 1
+    if #_smoke.list == 0 then _tip("smoke: no sounds"); return end
+    _tip(string.format("smoke: %d sounds - close the console", #_smoke.list))
+    RemoveTimeEvent("as_smoke", "step")
+    CreateTimeEvent("as_smoke", "step", 1, _smoke_step)
+end
+
+function as_test.smoke_stop()
+    _smoke.list = nil
+    RemoveTimeEvent("as_smoke", "step")
+    _tip("smoke: stopped")
+end
+
 -- ---- atmosphere probe collector -------------------------------------------
 
 local _log = nil

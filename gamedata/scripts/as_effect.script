@@ -1,10 +1,10 @@
---- as_effect: additive spook director. Reads a place-driven spook score (curated per-level base +
---- dynamic base ownership + one presence term + enclosure + night, all ADDITIVE, no multipliers),
---- sorts it into a five-step ladder, and fires curated one-shots through xsound.play when a place is
---- unsettling -- closer and louder as the score climbs, but at a CONSTANT jittered ~10s rate (spook
---- drives SELECTION, not density). Owns the vanilla update_ambient slot as ONE loop: the base-veto
---- round-robin plus our emission. Place level-default is the base; the safe cutout (allies + day + no
---- enemy/ownership/mutant) zeroes it.
+--- as_effect: additive dread director. Reads a place-driven dread score (curated per-level base +
+--- dynamic base ownership + one presence term + enclosure + time, all ADDITIVE, no multipliers, no
+--- cutout), sorts it into a five-step ladder, and fires curated one-shots through xsound.play when a
+--- place is unsettling -- closer and louder as the score climbs, but at a CONSTANT jittered ~10s rate
+--- (dread drives SELECTION, not density). The director runs on its own dread_director slot. A separate
+--- observer owns the vanilla update_ambient slot only to replay and LOG the base ambient; the base's
+--- copies of our sounds are removed statically by the DLTX overlay (mod_sound_channels_alifespooks.ltx).
 
 local math_random, math_rad = math.random, math.rad
 local math_cos, math_sin = math.cos, math.sin
@@ -20,7 +20,7 @@ local SEC_LEVEL       = "level_default"
 
 -- =========================================================================
 -- Categories: the fixed palette. A firing gate, a base weight, and a per-category minimum interval
--- so screams stay rare against drone density. Everything is a one-shot spook now (weight rises with
+-- so screams stay rare against drone density. Everything is a one-shot now (weight rises with
 -- the score, no texture/loop split). The SOUNDS of each category come from the generated as_manifest
 -- (the shipped directory zs\<category>), not from engine channels.
 -- gates: always | mutants (real mutant online) | underground (GetEvent, actual underground level)
@@ -44,54 +44,55 @@ local REAL_MUTANT = { bloodsucker = true, psysucker = true, controller = true, b
                       poltergeist = true, psy_dog = true, chimera = true, snork = true,
                       gigant = true, zombie = true, fracture = true, karlik = true, lurker = true }
 
--- Lore: the place's own spook by class (as_smart_lore.ltx). The primary driver. No safe class -
+-- Lore: the place's own dread by class (as_smart_lore.ltx). The primary driver. No safe class -
 -- safety is the runtime allied-base cutout.
-local CLASS_SPOOK = { mundane = 0.10, eerie = 0.25, ruin = 0.25,
+local CLASS_DREAD = { mundane = 0.10, eerie = 0.25, ruin = 0.25,
                       den = 0.40, lab = 0.40, psy = 0.50 }
 
--- who's-around: ONE categorical state, its flat spook value. Being among allies (and no threat) is the
+-- who's-around: ONE categorical state, its flat dread value. Being among allies (and no threat) is the
 -- only calming state; alone / enemy / mutant all sit above zero, so a baseline emerges from presence with
 -- NO separate floor constant. The enemy state also covers enemy-held ground (an empty enemy base still
 -- reads hostile). Count and proximity do NOT scale it - this is atmosphere, not a threat alarm.
-local WHO_SPOOK = { allied = -0.15, alone = 0.10, enemy = 0.18, mutant = 0.22, mixed = 0.25 }
+local WHO_DREAD = { allied = -0.15, alone = 0.10, enemy = 0.18, mutant = 0.22, mixed = 0.25 }
 
 -- Other signals. PLACE_RADIUS: presence scan radius + the range a smart must be within to set the place.
--- INDOOR_ADD: enclosed (roof+walls raycast OR surge shelter). Time rides a few stages (_time_spook).
+-- INDOOR_ADD: enclosed (roof+walls raycast OR surge shelter). Time rides a few stages (_time_dread).
 -- CELL_M: is_indoor cache cell size.
 local PLACE_RADIUS   = 150
 local INDOOR_ADD     = 0.15
 local CELL_M         = 4
 
--- Ladder. GRADE names; grade boundaries on the final score; SPOOK_ON is the emission floor (below it
--- nothing spook plays) and also the none->LOW grade edge.
+-- Ladder. GRADE names; grade boundaries on the final score; DREAD_ON is the emission floor (below it
+-- nothing plays) and also the none->LOW grade edge.
 local GRADE = { NONE = 0, LOW = 1, MED = 2, HIGH = 3, INSANE = 4 }
 local GRADE_NAME = { [0] = "none", [1] = "LOW", [2] = "MED", [3] = "HIGH", [4] = "INSANE" }
 local G_MED, G_HIGH, G_INSANE = 0.40, 0.60, 0.80
-local SPOOK_ON = 0.20
+local DREAD_ON = 0.20
 
 -- Director pacing. Emission is a jittered self-reschedule (ap_ext_news pattern): each fire plays one
 -- sound and the next play is armed at math.random(SPACE_MIN_MS, SPACE_MAX_MS) -> mean ~10s, bounded,
--- non-monotonic. Density is CONSTANT and spook-INDEPENDENT (spook drives selection, never the rate).
+-- non-monotonic. Density is CONSTANT and dread-INDEPENDENT (dread drives selection, never the rate).
 -- BASE_TICK_S: the owned loop's own re-arm (base round-robin resolution). VOL_MIN/MAX: volume lerped by
--- score. RECENT_MAX: recent-category ring. SPOOK_FLOOR: keeps a category from vanishing. COMBAT_MUTE.
+-- score. RECENT_MAX: recent-category ring. WEIGHT_FLOOR: keeps a category from vanishing.
 local BASE_TICK_S  = 1
 local CTX_PERIOD   = 3000
 local SPACE_MIN_MS = 5000
 local SPACE_MAX_MS = 15000
 local VOL_MIN     = 0.70
 local VOL_MAX     = 1.00
--- HORROR_PULL: at peak spook the sound spawns this fraction closer than vanilla's own distance.
+-- HORROR_PULL: at peak dread the sound spawns this fraction closer than vanilla's own distance.
 local HORROR_PULL = 0.25
 -- PLAY_WINDOW_MS: how long after a fire the HUD reports the sound as still PLAYING. One-shots are fire-
--- and-forget (engine-owned, no handle to query), so this is an estimate of a typical spook length.
+-- and-forget (engine-owned, no handle to query), so this is an estimate of a typical one-shot length.
 local PLAY_WINDOW_MS = 6000
+-- TYPE_WRAP: chars per HUD row for the wrapped AVAILABLE comma list (fits the as_hud panel width).
+local TYPE_WRAP = 34
 local RECENT_MAX  = 3
-local SPOOK_FLOOR = 0.05
-local COMBAT_MUTE = true
+local WEIGHT_FLOOR = 0.05
 
 -- Visual layer: at INSANE only, a subtle 2-3s distortion pulse (never persistent). Dwell-gated so a
 -- momentary spike never flashes, >=50% random so it isn't mechanical, cooldown so pulses stay
--- occasional, muted during combat. Effectors from the auditioned non-colored set, factor kept subtle.
+-- occasional. Effectors from the auditioned non-colored set, factor kept subtle.
 -- Via xlibs xpp (engine-smoothed, cleared on load).
 local VIS_PPE         = { "blur.ppe", "total_recall.ppe", "steam_mine.ppe" }
 local VIS_FACTOR      = 0.25
@@ -120,15 +121,33 @@ local _enc = { level = nil, cx = nil, cz = nil, val = false }
 -- visual-pulse state
 local _vis = { insane_since = nil, next_ok = 0, handle = nil }
 local visuals_on = true
--- last spook one-shot fired (category + channel), for the HUD
+-- last one-shot the director fired (category + channel), for the HUD
 local _last_play = "-"
--- veto tally for the current (level, ambient) build, for the HUD readout (declared before _score uses it)
-local _veto = { muted = 0, kept = 0 }
+-- last base one-shot the ambient hook replayed (channel + file) + its time, for the HUD BASE section
+local _base_last = "-"
+local _base_at   = 0
 -- structured {label, value} readout rows for the HUD
 local _rows = {}
 
 local function _lerp(from, to, frac)
     return from + (to - from) * frac
+end
+
+--- Comma-join short strings into lines each <= width chars (the wrapped HUD AVAILABLE list). Builds
+--- each line in a buffer joined with table.concat, never a growing-string accumulator.
+local table_concat = table.concat
+local function _wrap_csv(items, width)
+    local lines, buf, len = {}, {}, 0
+    for i = 1, #items do
+        local sep = (i < #items) and ", " or ""
+        local plen = #items[i] + #sep
+        if len > 0 and len + plen > width then lines[#lines + 1] = table_concat(buf); buf, len = {}, 0 end
+        buf[#buf + 1] = items[i]
+        buf[#buf + 1] = sep
+        len = len + plen
+    end
+    if len > 0 then lines[#lines + 1] = table_concat(buf) end
+    return lines
 end
 
 -- ---- sound bank (from the generated manifest) ---------------------------
@@ -200,10 +219,10 @@ local function _ownership(smart, comm)
     return false
 end
 
---- Place spook from the CURATED PER-LEVEL default only (as_smart_lore.ltx [level_default]). Per-smart
+--- Place dread from the CURATED PER-LEVEL default only (as_smart_lore.ltx [level_default]). Per-smart
 --- type is deferred (n100); the prop-flags is_base/is_lair are rejected. Returns the nearest smart
 --- (only when within PLACE_RADIUS) so _ownership can read its stationed squads.
---- @return spook_base, place_desc, smart (or nil), class, dist
+--- @return dread_base, place_desc, smart (or nil), class, dist
 local _lore, _lore_loaded = nil, false
 local function _place()
     if not _lore_loaded then _lore_loaded = true; _lore = ini_file(LORE_FILE) end
@@ -214,7 +233,7 @@ local function _place()
     local dist = data and data.dist or -1
     local in_range = smart ~= nil and data ~= nil and data.dist ~= nil and data.dist <= PLACE_RADIUS
     local class = ini and ini:r_string_ex(SEC_LEVEL, level_name) or "mundane"
-    local base = CLASS_SPOOK[class] or CLASS_SPOOK.mundane
+    local base = CLASS_DREAD[class] or CLASS_DREAD.mundane
     if not in_range then smart, dist = nil, -1 end
     return base, level_name .. ":" .. class, smart, class, dist
 end
@@ -239,7 +258,7 @@ local function _is_night(hour)
 end
 
 --- Time rides a few discrete stages (not a fine curve): day calm, dusk/dawn a nudge, night up, deep night most.
-local function _time_spook(hour)
+local function _time_dread(hour)
     if not hour then return 0 end
     if hour >= 7 and hour < 19 then return 0.00 end   -- day
     if hour >= 19 and hour < 21 then return 0.06 end  -- dusk
@@ -277,19 +296,19 @@ end
 
 --- Map the final score to a grade
 local function _grade(score)
-    if score < SPOOK_ON  then return GRADE.NONE end
+    if score < DREAD_ON  then return GRADE.NONE end
     if score < G_MED     then return GRADE.LOW end
     if score < G_HIGH    then return GRADE.MED end
     if score < G_INSANE  then return GRADE.HIGH end
     return GRADE.INSANE
 end
 
---- Recompute the cached spook score. ADDITIVE, no multipliers, no floor constant:
----   spook = lore(place class) + who's-around(one categorical state) + indoor + time
+--- Recompute the cached dread score. PURELY ADDITIVE - no multipliers, no cutout, no floor constant:
+---   dread = lore(place class) + who's-around(one categorical state) + indoor + time
 --- Enemy-held ground folds into the "enemy" state; mutants add via the "mutant" state AND gate the
---- growl palette (ctx.mutants_ok). Enclosed = roof+wall raycast OR the smart's surge shelter. The safe
---- cutout (among allies, in daylight) zeroes it; otherwise the state keeps it above zero on its own, so
---- no floor is needed. Builds the two-section HUD rows.
+--- growl palette (ctx.mutants_ok). Enclosed = roof+wall raycast OR the smart's surge shelter. Being
+--- among allies is the only NEGATIVE term (WHO_DREAD.allied), so a calm place among allies falls below
+--- the DREAD_ON floor on its own, while a genuinely scary place still carries through. Builds the HUD rows.
 local function _score(actor, hour)
     local allied, enemy, mutants = _presence(actor)
     local base, place, smart, class, dist = _place()
@@ -297,33 +316,27 @@ local function _score(actor, hour)
     local enemy_held = _ownership(smart, comm)
     local enclosed = _enclosed(actor)
         or (smart and xsmart and xsmart.has_surge_shelter and xsmart.has_surge_shelter(smart)) or false
-    local day = not _is_night(hour)
     local who = _who_state(allied, enemy, mutants, enemy_held)
-    local who_pts = WHO_SPOOK[who] or 0
-    local time_pts = _time_spook(hour)
+    local who_pts = WHO_DREAD[who] or 0
+    local time_pts = _time_dread(hour)
 
-    local safe_now = who == "allied" and day
-
-    local score = 0
-    if not safe_now then
-        score = base + who_pts + time_pts
-        if enclosed then score = score + INDOOR_ADD end
-    end
+    -- Pure sum, no cutout, no floor: allied is the only negative term, so a calm place among allies
+    -- falls below DREAD_ON on its own; a scary place (lore) still carries through.
+    local score = base + who_pts + time_pts
+    if enclosed then score = score + INDOOR_ADD end
     if score < 0 then score = 0 elseif score > 1 then score = 1 end
 
-    ctx.score = score
+    ctx.dread = score
     ctx.grade = _grade(score)
     ctx.mutants_ok = mutants > 0
     ctx.enclosed = enclosed
     ctx.underground = GetEvent("underground") or false
     ctx.has_humans = (allied + enemy) > 0
 
-    local surge_on = surge_manager and surge_manager.is_started()
-    local psi_on = psi_storm_manager and psi_storm_manager.is_started()
-    local live = not safe_now
-    -- a factor's contribution, or "-" when off / cut by the safe base
+    -- a factor's contribution, or "-" when the factor is off
     local function _pv(on, v) return on and string_format("%+.2f", v) or "-" end
     local playing = _play_at > 0 and (time_global() - _play_at) < PLAY_WINDOW_MS
+    local base_playing = _base_at > 0 and (time_global() - _base_at) < PLAY_WINDOW_MS
     -- which categories may fire right now (context gates)
     local avail = {}
     for _, def in ipairs(CATEGORIES) do
@@ -334,47 +347,46 @@ local function _score(actor, hour)
             or (g == "exterior_humans" and not ctx.underground and ctx.has_humans)
         if ok then avail[#avail + 1] = def.name end
     end
+    -- Two sound sections, symmetrical: SPOOK (our director's current one-shot) then BASE (the base
+    -- ambient the hook replays), each a header + the sound on its OWN row (paths are long), bright while
+    -- sounding (style "play") and grayed once past PLAY_WINDOW_MS ("stop"). Muting is the static DLTX
+    -- overlay, not this hook, so there is no runtime tally - BASE just shows what the base is playing.
+    local grade_name = GRADE_NAME[ctx.grade]
     _rows = {
-        -- SPOOK_PLAYING (bright rows): what is sounding + whether it is still audible
-        { "SPOOK_PLAYING", "",                                 "" },
-        { _last_play,      playing and "PLAYING" or "stopped", "" },
+        { "SPOOK",         "", "", "hdr" },
+        { _last_play,      "", "", playing and "play" or "stop" },
         { "", "", "" },
-        { "SPOOK_TYPE",    "",                                 "" },
+        { "BASE",          "", "", "hdr" },
+        { _base_last,      "", "", base_playing and "play" or "stop" },
+        { "", "", "" },
+        { "AVAILABLE",     "", "", "hdr" },
     }
-    for i = 1, #avail, 3 do
-        _rows[#_rows + 1] = { avail[i] or "", avail[i + 1] or "", avail[i + 2] or "" }
+    -- AVAILABLE: a wrapped comma list (denser and more legible than a fixed 3-column grid)
+    for _, wrapped in ipairs(_wrap_csv(avail, TYPE_WRAP)) do
+        _rows[#_rows + 1] = { wrapped, "", "" }
     end
-    _rows[#_rows + 1] = { "vetoed", string_format("%d muted, %d kept", _veto.muted, _veto.kept), "" }
     _rows[#_rows + 1] = { "", "", "" }
-    -- SENSORS: the raw type-gate signals, single values
+    -- SENSORS: one harmonized block - the dread terms (value + contribution) then the gate reads
     _rows[#_rows + 1] = { "SENSORS",     "",                   "" }
-    _rows[#_rows + 1] = { "mutant near", _yn(ctx.mutants_ok),  "" }
+    _rows[#_rows + 1] = { "lore",        class or "-",         string_format("%.2f", base) }
+    _rows[#_rows + 1] = { "near",        who,                  string_format("%+.2f", who_pts) }
+    _rows[#_rows + 1] = { "indoor",      _yn(enclosed),        _pv(enclosed, INDOOR_ADD) }
+    _rows[#_rows + 1] = { "time",        _time_name(hour),     _pv(time_pts > 0, time_pts) }
     _rows[#_rows + 1] = { "underground", _yn(ctx.underground), "" }
     _rows[#_rows + 1] = { "person near", _yn(ctx.has_humans),  "" }
     _rows[#_rows + 1] = { "", "", "" }
-    -- SPOOK level + its sensors
-    _rows[#_rows + 1] = { "SPOOK",  string_format("%.2f", score), GRADE_NAME[ctx.grade] }
-    _rows[#_rows + 1] = { "lore",   class or "-",           live and string_format("%.2f", base) or "-" }
-    _rows[#_rows + 1] = { "near",   who,                    live and string_format("%+.2f", who_pts) or "-" }
-    _rows[#_rows + 1] = { "indoor", _yn(enclosed),          _pv(live and enclosed, INDOOR_ADD) }
-    _rows[#_rows + 1] = { "time",   _time_name(hour),       _pv(live and time_pts > 0, time_pts) }
-    _rows[#_rows + 1] = { "base",   _yn(safe_now),          safe_now and "cut" or "-" }
+    -- DREAD: the summed score + grade, the whole row tinted by grade severity (green -> red)
+    _rows[#_rows + 1] = { "DREAD", string_format("%.2f", score), grade_name, "g_" .. grade_name:lower() }
     _rows[#_rows + 1] = { "", "", "" }
     _rows[#_rows + 1] = { "zone",   (smart and smart:name()) or "-", string_format("%.0fm", dist) }
-    _rows[#_rows + 1] = { "surge/psi", string_format("%s / %s", _yn(surge_on), _yn(psi_on)), "" }
     if as_debug.on() then
-        as_debug.dbg("spook %s %.2f | %s lore=%.2f who=%s(%+.2f) ind=%s time=%s(%.2f) safe=%s a=%d e=%d m=%d held=%s",
+        as_debug.dbg("dread %s %.2f | %s lore=%.2f who=%s(%+.2f) ind=%s time=%s(%.2f) a=%d e=%d m=%d held=%s",
             GRADE_NAME[ctx.grade], score, place, base, who, who_pts, tostring(enclosed),
-            _time_name(hour), time_pts, tostring(safe_now), allied, enemy, mutants, tostring(enemy_held))
+            _time_name(hour), time_pts, allied, enemy, mutants, tostring(enemy_held))
     end
 end
 
 -- ---- gates --------------------------------------------------------------
-
---- True during an active firefight (a loud signal; subtle spooks are lost under it)
-local function _in_combat()
-    return xr_combat_ignore and next(xr_combat_ignore.fighting_with_actor_npcs) ~= nil
-end
 
 --- True if a category's gate passes now
 local function _gate_ok(def)
@@ -403,11 +415,11 @@ local function _note_recent(name)
 end
 
 --- Weight one category: 0 if gated out or on its rarity floor, else its base weight times a
---- rises-with-score tilt (all one-shot spooks), boosted at night for animals, penalised if recent.
+--- rises-with-dread tilt (all one-shots), boosted at night for animals, penalised if recent.
 local function _category_weight(cat, score, hour, tg)
     local def = cat.def
     if #cat.sounds == 0 or tg < cat.next_ok or not _gate_ok(def) then return 0 end
-    local weight = def.weight * (SPOOK_FLOOR + score * score)
+    local weight = def.weight * (WEIGHT_FLOOR + score * score)
     if def.night and _is_night(hour) then weight = weight * 1.5 end
     if _recent_set[def.name] then weight = weight * 0.3 end
     return weight
@@ -450,7 +462,7 @@ end
 
 --- Place and fire one sound entry { path, min, max, height }. Spawn geometry is Anomaly's own
 --- (sound_ambient.script:127-141): a random point in the source's min..max band, halved. The ONLY
---- change is HORROR_PULL - at peak spook it lands up to 25% closer. The sound's baked attenuation
+--- change is HORROR_PULL - at peak dread it lands up to 25% closer. The sound's baked attenuation
 --- (the source min/max) does the fade, so it stays audible; we never use max as the spawn position.
 --- Louder as the score rises. Fire-and-forget.
 local function _play(snd, score, cvol)
@@ -466,7 +478,7 @@ local function _play(snd, score, cvol)
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + h, pos.z + math_sin(angle) * dist)
     local vol = _lerp(VOL_MIN, VOL_MAX, score) * base_volume * (cvol or 1) * opt_ambient_volume
     xsound.play(snd[1], { position = vec, volume = vol })
-    as_debug.info("[PLAY] %s dist=%.1f (min=%.0f max=%.0f knob=%.2f) h=%.0f vol=%.2f score=%.2f",
+    as_debug.dbg("[PLAY] %s dist=%.1f (min=%.0f max=%.0f knob=%.2f) h=%.0f vol=%.2f score=%.2f",
         snd[1], dist, mn, mx, distance, h, vol, score)
 end
 
@@ -492,7 +504,7 @@ local function _vis_pulse()
 end
 
 --- INSANE-only visual gate: require sustained INSANE (dwell), then once per cooldown roll >=50% to
---- pulse. Leaving INSANE (or combat) resets the dwell so it must be re-earned.
+--- pulse. Leaving INSANE resets the dwell so it must be re-earned.
 local function _visual_tick(tg)
     if not (visuals_on and xpp) or ctx.grade < GRADE.INSANE then
         _vis.insane_since = nil
@@ -506,70 +518,45 @@ end
 
 -- ---- emission (jittered self-schedule, driven by the director timer) --------------------
 
---- Emit one spook one-shot if the jittered spacing has elapsed. Density is CONSTANT and spook-
+--- Emit one one-shot if the jittered spacing has elapsed. Density is CONSTANT and dread-
 --- INDEPENDENT: the next play is armed at math.random(SPACE_MIN_MS, SPACE_MAX_MS) (scaled by the MCM
---- rarity knob), never by the score. Spook drives only SELECTION - below SPOOK_ON nothing spook plays.
---- Reads the cached ctx.score (refreshed by the director tick); does not score here. Returns nothing.
+--- rarity knob), never by the score. Dread drives only SELECTION - below DREAD_ON nothing plays.
+--- Reads the cached ctx.dread (refreshed by the director tick); does not score here. Returns nothing.
 local function _emit_tick(tg, hour)
-    as_debug.info("[EMIT] enter tg=%d next_play=%d score=%.2f", tg, _next_play, ctx.score)
-    if COMBAT_MUTE and _in_combat() then _vis.insane_since = nil; return end
+    as_debug.dbg("[EMIT] enter tg=%d next_play=%d score=%.2f", tg, _next_play, ctx.dread)
     _visual_tick(tg)
     if tg < _next_play then return end
     _next_play = tg + math_floor(math_random(SPACE_MIN_MS, SPACE_MAX_MS) * math_max(rarity, 0.1))
-    as_debug.info("[EMIT] spacing elapsed, score=%.2f gate=%.2f", ctx.score, SPOOK_ON)
-    if ctx.score < SPOOK_ON then return end
-    local cat = _pick_category(ctx.score, hour, tg)
+    as_debug.dbg("[EMIT] spacing elapsed, score=%.2f gate=%.2f", ctx.dread, DREAD_ON)
+    if ctx.dread < DREAD_ON then return end
+    local cat = _pick_category(ctx.dread, hour, tg)
     if not cat then return end
     local snd = _pick_sound(cat)
     if snd then
-        _play(snd, ctx.score, _cat_vol[cat.def.name])
+        _play(snd, ctx.dread, _cat_vol[cat.def.name])
         cat.next_ok = tg + cat.def.floor
         _note_recent(cat.def.name)
-        _last_play = string_format("%s  %s", cat.def.name, snd[1])
+        _last_play = snd[1]
         _play_at = tg
     end
 end
 
--- ---- base veto (own update_ambient, suppress the base's copies of sounds we ship) --------
--- Own the vanilla dynamic-ambient slot and run a faithful clone of sound_ambient.update_ambient
--- (sound_ambient.script:86): same per-level channel load, round-robin, and play. The one change is
--- a VETO - if the player also runs a source pack we drew from, its ambient config plays those spook
--- sounds too; we mute the base copy at load so only the director plays them. The base's other sounds
--- are untouched. Match is on the sound's ORIGINAL relative path (the base references sounds by path),
--- read from the generated as_blockdata: blockfiles (exact paths we ship) and blockdirs (source
--- folders we drew from, matched on the base sound's own parent dir). The deployed layout is our own
--- category tree and is never consulted here, so the veto is independent of how files are named.
+-- ---- base ambient hook (own update_ambient; a LOGGING observer, not the veto) --------
+-- The muting is STATIC: the DLTX overlay mod_sound_channels_alifespooks.ltx (tools/merge.py deploy)
+-- removes our own sounds from the base ambient channels at config load, so the base never doubles the
+-- director's copy - deterministic, and it holds even if this hook loses the slot. This hook stays only
+-- as an OBSERVER: it owns the vanilla dynamic-ambient slot and runs a faithful clone of
+-- sound_ambient.update_ambient (sound_ambient.script:86) that replays the base ambient (the composed
+-- config already has our sounds removed) and LOGS each play at DEBUG, so the soundscape stays traceable.
+-- No filtering here - the DLTX overlay already did it.
 local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
-local _block, _blockdirs = {}, {}
 
---- Load the veto path set from the generated as_blockdata (blockfiles + blockdirs, lowercased posix).
---- as_blockdata ships with the mod (tools/merge.py deploy writes it); a missing field degrades to no
---- veto rather than a partial one.
-local function _build_block()
-    _block = as_blockdata.blockfiles or {}
-    _blockdirs = as_blockdata.blockdirs or {}
-end
-
---- One base channel filtered against the veto set: its entry, or nil if every sound is ours.
+--- Load one base channel's sounds + settings. The composed config already has our own sounds removed by
+--- the DLTX overlay, so there is no filtering here - we replay what the base would play. nil if empty.
 local function _base_channel(ch, ini_snd)
     local raw = parse_list(ini_snd, ch, "sounds")
-    if not raw then return nil end
-    local kept = {}
-    for _, s in ipairs(raw) do
-        local low = s:lower():gsub("\\", "/")
-        local parent = low:match("^(.*/)[^/]*$")
-        local by_file = _block[low] and true or false
-        local by_dir = (parent and _blockdirs[parent]) and true or false
-        local blocked = by_file or by_dir
-        as_debug.info("[VETO-CALC] ch=%s sound=%s blocked=%s by=%s", ch, s, tostring(blocked),
-            by_file and "file" or (by_dir and "dir" or "-"))
-        if not blocked then kept[#kept + 1] = s end
-    end
-    as_debug.info("[VETO-CALC] ch=%s total=%d kept=%d vetoed=%d", ch, #raw, #kept, #raw - #kept)
-    _veto.muted = _veto.muted + (#raw - #kept)
-    _veto.kept  = _veto.kept + #kept
-    if #kept == 0 then return nil end
-    return { name = ch, sounds = kept,
+    if not raw or #raw == 0 then return nil end
+    return { name = ch, sounds = raw,
         max_dist = ini_snd:r_float_ex(ch, "max_distance") or 100,
         min_dist = ini_snd:r_float_ex(ch, "min_distance") or 1,
         height   = ini_snd:r_float_ex(ch, "height") or 0,
@@ -578,11 +565,10 @@ local function _base_channel(ch, ini_snd)
                      ini_snd:r_float_ex(ch, "period2") or 20, ini_snd:r_float_ex(ch, "period3") or 25 } }
 end
 
---- Clone of sound_ambient.reset_settings: load the base channels for (level, ambient), minus our
---- sounds (a channel that is entirely ours drops out; the rest stay faithful).
+--- Clone of sound_ambient.reset_settings: load the base channels for (level, ambient). The composed
+--- config already has our sounds removed by the DLTX overlay, so this is a faithful replay of the rest.
 local function _base_reset(level_name, ambient)
     _base.chan, _base.idx, _base.tot = {}, 0, 0
-    _veto.muted, _veto.kept = 0, 0
     if not (level_name and ambient and ambient ~= "") then return end
     local ini_lvl = ini_file("environment\\ambients\\" .. level_name .. ".ltx")
     if not ini_lvl then return end
@@ -600,14 +586,16 @@ local function _base_reset(level_name, ambient)
     end
 end
 
---- Play one base channel's sound the vanilla way (position, indoor/underground volume rule). Logs the
---- play at DEBUG (the TestZone baseline log, absorbed here now that we own the slot); no-op when off.
+--- Play one base channel's sound through xsound.play (the wrapped, engine-owned one-shot: no raw
+--- sound_object here), using the vanilla position and indoor/underground volume rule. Logs at DEBUG
+--- (the TestZone baseline log, absorbed here now that we own the slot); no-op when off.
 local function _base_fire(ch, tg)
     local actor = db.actor
     if not actor then return end
     local period = ch.periods[math_random(4)]
     ch.next = tg + period
     local file = ch.sounds[math_random(#ch.sounds)]
+    _base_last, _base_at = tostring(file), tg
     local inside, underground = GetEvent("current_safe_cover"), GetEvent("underground")
     local pos = actor:position()
     local max_dist = ch.max_dist
@@ -615,29 +603,27 @@ local function _base_fire(ch, tg)
     if min_dist > max_dist then min_dist = max_dist end
     local dist = math_random(min_dist, max_dist) / 2
     local angle = math_rad(math_random(0, 359))
-    local snd = sound_object(file)
-    snd:play_at_pos(actor, vector():set(pos.x + math_cos(angle) * dist, pos.y + ch.height, pos.z + math_sin(angle) * dist))
     local vol
     if underground or inside then vol = ch.indoor and 1 or 0.3
     else vol = ch.indoor and 0 or 1 end
     vol = vol * opt_ambient_volume
-    snd.volume = vol
-    ch.snd = snd
+    local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + ch.height, pos.z + math_sin(angle) * dist)
+    xsound.play(file, { position = vec, volume = vol })
     as_debug.dbg("[BASE] lvl=%s ch=%s file=%s dist=%.1f max=%.0f per=%.0f vol=%.2f ug=%s inside=%s pos=%.0f,%.0f,%.0f",
         level.name(), ch.name, tostring(file), dist, max_dist, period, vol,
         tostring(not not underground), tostring(not not inside), pos.x, pos.y, pos.z)
 end
 
---- The VETO clone of the vanilla update_ambient slot. It advances the base ambient round-robin the
---- faithful way but drops the base's copies of sounds we ship. This is the ONLY thing on the base
---- slot: no director, no injection. Our own sounds play from the separate director timer (_director_tick).
+--- The base-ambient OBSERVER on the vanilla update_ambient slot: a faithful clone that advances the
+--- base round-robin and replays it (the composed config already has our sounds removed by the DLTX
+--- overlay), logging each play at DEBUG. No director, no injection, no muting - the overlay does that.
 local function update_ambient_owned()
     ResetTimeEvent("sound_channels", "update_ambient", BASE_TICK_S)
     if not (level.present() and db.actor) then return false end
     local tg = time_global()
     local hour = level.get_time_hours()
-    as_debug.info("[LOOP] veto tick tg=%d base_tot=%d base_hour=%s", tg, _base.tot, tostring(_base.hour))
-    -- base ambient round-robin (veto'd clone): reset on hour change, else advance one channel
+    as_debug.dbg("[LOOP] base tick tg=%d base_tot=%d base_hour=%s", tg, _base.tot, tostring(_base.hour))
+    -- base ambient round-robin (faithful replay): reset on hour change, else advance one channel
     if hour ~= _base.hour then
         _base.hour, _base.idx = hour, 0
         local wm = level_weathers and level_weathers.get_weather_manager()
@@ -652,28 +638,28 @@ local function update_ambient_owned()
     return false
 end
 
---- Own the update_ambient slot with our veto clone. Block set built from our loaded channels first.
---- Install is Remove-then-Create (the base slot dispatches by stored value, so a bare re-add no-ops;
---- Remove clears whatever vanilla put there, Create installs ours - robust to registration order).
+--- Own the update_ambient slot with our base-ambient observer. Install is Remove-then-Create (the base
+--- slot dispatches by stored value, so a bare re-add no-ops; Remove clears whatever vanilla put there,
+--- Create installs ours - robust to registration order). If another script wins the slot back, the
+--- muting still holds (it is the static DLTX overlay); only the base-ambient trace is lost.
 local function _apply_owned()
-    _build_block()
     _base.hour, _base.idx = nil, 0
     RemoveTimeEvent("sound_channels", "update_ambient")
     CreateTimeEvent("sound_channels", "update_ambient", 1, update_ambient_owned)
-    as_debug.info("[VETO] installed update_ambient_owned on the base slot")
+    as_debug.dbg("[BASE] installed base-ambient observer on the update_ambient slot")
 end
 
 -- ---- director timer (OUR OWN slot; never the base update_ambient slot) --------------------
 -- The director runs on its own private time-event, so it can never lose a slot race to the base
--- sound_ambient. Each tick refreshes the spook score (every CTX_PERIOD, feeding the HUD rows) and
+-- sound_ambient. Each tick refreshes the dread score (every CTX_PERIOD, feeding the HUD rows) and
 -- runs the jittered 5-15s emission of our own sounds.
 local _ctx_next = 0
 local function _director_tick()
-    ResetTimeEvent("as_effect", "spook_director", BASE_TICK_S)
+    ResetTimeEvent("as_effect", "dread_director", BASE_TICK_S)
     if not (level.present() and db.actor) then return false end
     local tg = time_global()
     local hour = level.get_time_hours()
-    as_debug.info("[DIR] tick tg=%d ctx_next=%d", tg, _ctx_next)
+    as_debug.dbg("[DIR] tick tg=%d ctx_next=%d", tg, _ctx_next)
     if tg >= _ctx_next then _score(db.actor, hour); _ctx_next = tg + CTX_PERIOD end
     _emit_tick(tg, hour)
     return false
@@ -697,19 +683,19 @@ end
 --- (load-cleared) time event. Inert without xlibs (xsound), the play primitive.
 local function _on_first_update()
     refresh()
-    if not xsound then as_debug.warn("as_effect: xlibs (xsound) absent - spook director inert"); return end
+    if not xsound then as_debug.warn("as_effect: xlibs (xsound) absent - dread director inert"); return end
     _load_channels()
     _next_play = 0
     _ctx_next = 0
     if _vis.handle and level then level.remove_pp_effector(_vis.handle) end
     _vis.insane_since, _vis.next_ok, _vis.handle = nil, 0, nil
     _apply_owned()
-    RemoveTimeEvent("as_effect", "spook_director")
-    CreateTimeEvent("as_effect", "spook_director", BASE_TICK_S, _director_tick)
-    as_debug.info("as_effect: armed. veto on base update_ambient slot; director on its own spook_director slot")
+    RemoveTimeEvent("as_effect", "dread_director")
+    CreateTimeEvent("as_effect", "dread_director", BASE_TICK_S, _director_tick)
+    as_debug.info("as_effect: armed. base-ambient observer on update_ambient; director on dread_director slot")
 end
 
---- The spook readout rows ({label, value}: grade/score, place, playing, each term, gates) for the HUD.
+--- The dread readout rows ({label, value}: grade/score, place, playing, each term, gates) for the HUD.
 function get_hud_rows()
     return _rows
 end

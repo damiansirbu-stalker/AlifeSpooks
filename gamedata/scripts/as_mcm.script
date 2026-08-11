@@ -68,7 +68,7 @@ local function _title()
              text = "ui_mcm_as_title", size = {512, 50}, spacing = 20 }
 end
 
---- Spooks: overall volume, spook sensitivity, rarity, distance, then per-category volume
+--- Spooks: overall volume, rarity, distance, then per-category volume
 local function spooks_page()
     local gr = {
         _title(),
@@ -90,7 +90,7 @@ local function spooks_page()
     return { id = "spooks", sh = true, gr = gr }
 end
 
---- Visuals: the subtle screen distortion at peak spook
+--- Visuals: the subtle screen distortion at peak dread
 local function visuals_page()
     return {
         id = "visuals", sh = true,
