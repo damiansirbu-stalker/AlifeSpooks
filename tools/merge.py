@@ -239,6 +239,12 @@ FP_LEN = 30
 BASE_SIM = 0.88     # Chromaprint recall threshold: >= this makes a pair a same-sound CANDIDATE
 DEDUP_XCORR = 0.90  # PCM cross-correlation DECIDER: >= this confirms a candidate is the same
                     # recording (a re-encode). Below it the pair is kept as distinct variety.
+# Loudness normalization (Dark Signal Amplified reference: median peak ~-1 dB). Each kept file's
+# base_volume in its ogg blob is set so its true peak lands at TARGET_PEAK_DB - lossless, no re-encode.
+# A file whose peak is below CULL_PEAK_DB cannot reach target without absurd gain (amplified noise, not
+# a real quiet sound), so it is DROPPED, not shipped. No near-silent files survive.
+TARGET_PEAK_DB = -1.0
+CULL_PEAK_DB   = -30.0
                     # Frozen as validated (MANGLE=0); see architecture.md I3.
 
 
@@ -296,6 +302,37 @@ def _silence_gate(merged):
         merged[chan]["chosen"] = [c for c in merged[chan]["chosen"] if c["abs"] not in dead]
         n += before - len(merged[chan]["chosen"])
     print(f"silence gate: dropped {n} dead/empty files (true peak -inf, quiet sounds kept)")
+
+
+def _loudness_cull(effects):
+    """Measure each source's true peak. DROP any file that cannot reach TARGET_PEAK_DB without absurd
+    gain (peak <= CULL_PEAK_DB, or unmeasurable/silent - that is amplified noise, not a quiet sound),
+    and store the peak on each survivor so deploy can write a normalizing base_volume. Mutates effects."""
+    import subprocess, re
+    def peak(a):
+        r = subprocess.run([sp.tool("ffmpeg"), "-i", a, "-af", "astats=metadata=1:reset=0",
+                            "-f", "null", "-"], capture_output=True, text=True)
+        m = re.search(r"Peak level dB:\s*(\S+)", r.stderr)
+        if not m or m.group(1) == "-inf":
+            return None
+        try:
+            return float(m.group(1))
+        except ValueError:
+            return None
+    paths = list({e["abs"] for cat in effects for e in effects[cat]})
+    pk = dict(zip(paths, sp.pmap(peak, paths, sp.DEF_JOBS)))
+    dropped = 0
+    for cat in effects:
+        kept = []
+        for e in effects[cat]:
+            p = pk.get(e["abs"])
+            if p is None or p <= CULL_PEAK_DB:
+                dropped += 1
+            else:
+                e["peak"] = p
+                kept.append(e)
+        effects[cat] = kept
+    print(f"loudness cull: dropped {dropped} files (peak <= {CULL_PEAK_DB} dB or silent)")
 
 
 def cmd_plan(_):
@@ -580,10 +617,12 @@ def _build_layers(mc, cls, ch_to_group):
 
 
 def _emit_audio(entry, dst):
-    # n107: ship every sound VERBATIM. No ffmpeg volume re-encode - it re-baked a lossy
-    # gain AND dropped the source's X-Ray ogg comment blob (base_volume + min/max), which
-    # reverts attenuation to the 1/300 default. Per-file loudness now rides in base_volume
-    # (see _band_blobs, n108), not in the samples.
+    # Ship every sound VERBATIM (byte-for-byte copy): no re-encode, no gain. The source's own
+    # X-Ray ogg comment blob (version/min/max/base_volume) rides along untouched, so the engine
+    # applies the SOURCE's attenuation and base volume at play - the pipeline preserves, it does
+    # not compute. (The old ffmpeg volume path was removed because it re-baked a lossy gain AND
+    # dropped that blob, dropping attenuation to the 1/300 engine default.) Loudness is only
+    # MEASURED and flagged (cmd_loudness); it is never applied to the samples or to base_volume.
     dst.parent.mkdir(parents=True, exist_ok=True)
     import shutil as sh
     sh.copy2(entry["abs"], dst)
@@ -700,35 +739,31 @@ def _audio_hash(path):
     return hashlib.md5(b"".join(p[2] for p in pg[2:])).hexdigest()
 
 
-def _band_blobs(root):
-    """Give blob-less files an X-Ray comment blob. Per channel folder, take the median
-    (min, max) of the members that carry a blob and write it (base_volume 1.0) into the
-    members that do not, so a blob-less file attenuates like its channel-mates instead of
-    the 1/300 engine default; fall back to the global median for a folder with no carrier."""
-    zs = root / "sounds/zs"
-    scan, g_mins, g_maxs = {}, [], []
-    for fld in {f.parent for f in zs.rglob("*.ogg")}:
-        rows = [(f, _read_blob(f.read_bytes())) for f in sorted(fld.glob("*.ogg"))]
-        scan[fld] = rows
-        for _, b in rows:
-            if b:
-                g_mins.append(b[0]); g_maxs.append(b[1])
-    g_min = _median(sorted(g_mins)) if g_mins else 1.0
-    g_max = _median(sorted(g_maxs)) if g_maxs else 300.0
+def _norm_bv(peak_db):
+    """base_volume (linear) that lifts a file peaking at peak_db up to TARGET_PEAK_DB."""
+    return round(10.0 ** ((TARGET_PEAK_DB - peak_db) / 20.0), 3)
+
+
+def _normalize_blobs(effects, snd):
+    """Write every kept file's ogg blob: its source min/max (per-category median for a blob-less file,
+    so it attenuates like its mates instead of the 1/300 default) plus a base_volume that peak-normalizes
+    it to TARGET_PEAK_DB. Lossless bitstream rewrite, no re-encode. Peak comes from _loudness_cull."""
     wrote = skipped = 0
-    for fld, rows in scan.items():
-        cs = [b for _, b in rows if b]
-        cmin = _median(sorted(c[0] for c in cs)) if cs else g_min
-        cmax = _median(sorted(c[1] for c in cs)) if cs else g_max
+    for cat in sorted(effects):
+        blobs = [_read_blob((snd / cat / f"{i}.ogg").read_bytes()) for i in range(1, len(effects[cat]) + 1)]
+        carried = [b for b in blobs if b]
+        cmin = _median(sorted(c[0] for c in carried)) if carried else 1.0
+        cmax = _median(sorted(c[1] for c in carried)) if carried else 300.0
         if cmax <= cmin:
             cmax = cmin + 1.0
-        for f, b in rows:
-            if b is None:
-                if _write_blob(f, cmin, cmax, 1.0):
-                    wrote += 1
-                else:
-                    skipped += 1
-    print(f"blobs: wrote {wrote} X-Ray comment blobs (per-channel distance band, base_volume 1.0), "
+        for i, e in enumerate(effects[cat], 1):
+            b = blobs[i - 1]
+            mn, mx = (b[0], b[1]) if b else (cmin, cmax)
+            if _write_blob(snd / cat / f"{i}.ogg", mn, mx, _norm_bv(e["peak"])):
+                wrote += 1
+            else:
+                skipped += 1
+    print(f"normalize: wrote base_volume+blob for {wrote} files (peak -> {TARGET_PEAK_DB} dB), "
           f"skipped {skipped} (non-standard ogg layout)")
 
 
@@ -818,6 +853,7 @@ def cmd_deploy(a):
     cls = json.loads((HERE / "classification.json").read_text())
     ch_to_cat = effect_group_map()                 # source channel -> category
     effects = _build_layers(mc, cls, ch_to_cat)    # category -> [entries]
+    _loudness_cull(effects)                        # measure peak, drop near-silent, store peak per file
 
     _clean(snd); _clean(env / "ambients")
     for stale in ("mod_sound_channels_alifespooks.ltx", "as_channel_layers.ltx"):
@@ -829,7 +865,7 @@ def cmd_deploy(a):
         for i, e in enumerate(effects[cat], 1):
             _emit_audio(e, snd / cat / f"{i}.ogg")
 
-    _band_blobs(root)    # write an X-Ray attenuation blob into blob-less files (folder = category)
+    _normalize_blobs(effects, snd)    # peak-normalize base_volume + write the attenuation blob per file
 
     # as_manifest: category -> its sounds, each { path, min_distance, max_distance, height }. The
     # director reads THIS instead of sound_channels.ltx. Placement min/max come from the DEPLOYED ogg
