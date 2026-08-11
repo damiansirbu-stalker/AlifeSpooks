@@ -53,8 +53,10 @@ provenance  every shipped sound -> its origin         -> provenance.tsv
   and crest. The measured duration drives the deployed period so a long sound does not overlap
   itself. There is no loop-versus-effect decision. Everything is a one-shot.
 - loudness (`cmd_loudness`): measure integrated loudness per sound and flag per-group outliers.
-- deploy (`cmd_deploy`): copy each sound byte for byte to `zs/<category>/<n>.ogg`, write the X-Ray
-  attenuation blob into blob-less files, and write the two data files the director reads, the sound
+- deploy (`cmd_deploy`): measure each source's peak and CULL the near-silent (`_loudness_cull`), copy
+  the survivors byte for byte to `zs/<category>/<n>.ogg`, write each file's blob with source attenuation
+  plus a loudness-normalizing base_volume (`_normalize_blobs`), and write the two data files the director
+  reads, the sound
   manifest and the base-veto set (`as_blockdata.script`).
 - ledger (`cmd_ledger`) and provenance (`cmd_provenance`): the proofs, below.
 
@@ -85,17 +87,24 @@ This runs among the source packs only, within a pack and between the packs we pu
 does not deduplicate against the target modpack. It never drops a sound because the install already
 plays it. Doubling with the base is handled at runtime by the veto.
 
-## Verbatim audio and per-file distance
+## Verbatim audio, loudness-normalized blob
 
-Every kept sound ships byte for byte. No re-encode. Each file carries its own play settings two ways:
+Every kept sound's AUDIO ships byte for byte - no re-encode, the vorbis pages are untouched. What the
+deploy writes is only the X-Ray ogg comment blob (min distance, max distance, base_volume), a lossless
+header-page rewrite (`_write_blob`); the audio pages stay byte-identical.
 
-- The X-Ray ogg comment blob (min distance, max distance, base_volume). A source file that already
-  carries a blob keeps it exactly, since the audio is byte-copied and the blob is never rewritten.
-  The engine reads that blob at play and applies the source's attenuation and base volume.
-- A source file with no blob is given one losslessly (`_band_blobs`): the median min and max of its
-  category-folder members that do carry a blob, with base_volume 1.0. Only the comment header page
-  changes and the audio pages stay byte-identical. This is an approximation from folder peers, not a
-  recovered original, and is recorded as such.
+- **Attenuation** (min/max distance) is the source's. A file that carried a source blob keeps its
+  min/max; a blob-less file gets the median min/max of its category-folder peers.
+- **Loudness is normalized via base_volume** (`_normalize_blobs`, `TARGET_PEAK_DB`). base_volume is a
+  linear multiplier the engine applies on every play (see `sound-source-and-emitter.md`), so setting it
+  per file to `10^((-1 dB - measured_peak)/20)` peak-normalizes every sound to ~-1 dB without touching
+  the samples. This reinstates the loudness leveling n107 removed - the RIGHT way this time (n014's
+  ffmpeg re-encode was destroying the blob; the blob edit does not). Reference target is Dark Signal
+  Amplified (Shrike), whose ambient median peak is ~-1 dB.
+- **Loudness cull** (`_loudness_cull`, `CULL_PEAK_DB`): a file whose measured peak is below -30 dB
+  cannot reach target without absurd gain (that is amplified noise, not a quiet sound), so it is DROPPED,
+  not shipped. The older `_silence_gate` (drops only true -inf) still runs first. No near-silent file
+  survives - a distant/faint feel comes from the director's POSITIONING, never from a quiet source file.
 
 The manifest carries each sound's min distance, max distance, and height, inherited from its source
 channel settings, so the director can position the sound before the engine applies the blob.
@@ -105,59 +114,88 @@ and accounted, never silently.
 
 ## The director
 
-The director conducts playback from a cached read of live context. It scores the dread of the
-player's surroundings, and the score decides which categories are eligible, how often a sound fires,
-how close it plays, and how loud. Context is read on a throttled tick (`CTX_PERIOD`, about 3s) and
-cached. The play path reads the cache. The enclosure raycast is cached by a coarse position cell and
-re-fires only when the player changes cell. Nothing runs per frame.
+The director runs on its OWN time-event, `("as_effect","spook_director")` - a private slot nothing
+else contends for, self-rescheduling every second (`_director_tick`). It is entirely separate from the
+base-veto (below), which owns the vanilla `update_ambient` slot; the two never share a slot. Each tick
+the director refreshes the cached spook score (every `CTX_PERIOD`, about 3s) and runs the emission. The
+enclosure raycast is cached by a coarse position cell and re-fires only when the player changes cell.
+Nothing runs per frame.
 
-Dread is a scalar 0..1 built from four reads (`_score`):
+### The spook score
 
-- Place. The nearest smart terrain keys `as_smart_lore.ltx` for a class (safe, den, psy, lab, ruin,
-  eerie, mundane) hand-curated from the smart props, the location names, and canon. A smart out of
-  range or unlisted falls to a per-level baseline. This is the dread a place carries on its own.
-- Faction. The place's owning faction is read from the smart's declared factions and checked against
-  the player's own community through `game_relations.is_factions_enemies`. Allied ground reads as a
-  refuge, enemy ground raises dread, and it is correct whatever faction the player runs.
-- Presence. The online creature set within range, read live from `db.storage`, not a smart's roster.
-  Enemies raise dread, a horror-tier mutant raises it and opens the growl category, allies ease it.
-  Trash-tier mutants never count.
-- Safety. The one cutout to calm: allies present, in daylight, with no threat near. Everything off
-  that cutout keeps at least a low floor, so a friendly held base is the only true refuge and the
-  Zone is never dead quiet where it should not be.
+Spook is a scalar 0..1, purely additive - no multipliers, no floor constant (`_score`):
 
-Selection and pacing:
+    spook = lore + who's-around + indoor + time
 
-- Categories are the fixed palette (`CATEGORIES`), each with a firing gate and a rarity floor.
-  spook, scream, and drone play wherever dread is up. growl needs a real mutant near. underground and
-  machine play on an actual underground level, read from the engine `underground` flag. gunfire
-  plays outdoors where a human is present. creak, wind, and wildlife play everywhere as texture.
-- `_pick_category` is weighted-random among the eligible categories. The weight rises with dread for
-  the dread categories and with calm for the texture categories, with a recent-category penalty so
-  scares do not repeat back to back.
-- `_pick_sound` keeps a per-category ring of recent picks and re-rolls until a fresh one, so a sound
-  never plays twice in a row. The window is capped below the category's sound count so the pick
-  always terminates.
-- `_play` positions the sound at a distance interpolated from its min and max by the dread score, so
-  a scary place brings the sound closer and louder, and scales by the MCM distance and volume knobs.
-- Emission is a per-tick probabilistic roll, not a scheduled interval. Each tick the director computes
-  the dread and decides whether to emit. The per-tick probability is set so the average rate matches
-  the measured classical spook cadence (`as_manifest.cadence_ms`, the vanilla and Dark Signal
-  Amplified average of how often the base ambient plays a spook, faster than a single channel because
-  several run per section), scaled up with dread and down with the MCM rarity knob, then decided by a
-  random roll so it never fires like clockwork. An active firefight mutes the director, since a subtle
-  scare is lost under gunfire.
+- **lore** - the place's own spook, by class. The nearest smart terrain (within `PLACE_RADIUS`) keys
+  `as_smart_lore.ltx` for a class: mundane 0.10, eerie/ruin 0.25, den/lab 0.40, psy 0.50 - hand-curated
+  from the smart names and canon. Out of range or unlisted falls to a per-level baseline. The primary
+  driver: a place either is or is not spooky.
+- **who's-around** - ONE categorical state, not a per-body tally: `allied` -0.15, `alone` +0.10,
+  `enemy` +0.18, `mutant` +0.22, `mixed` +0.25. Read live from `db.storage` within `PLACE_RADIUS`;
+  the `enemy` state folds in enemy-held ground, so an empty enemy base still reads hostile
+  (`_ownership`). Being among allies is the only calming state; alone / enemy / mutant all sit above
+  zero, so the Zone's baseline uneasiness emerges from the state itself - there is no separate floor.
+  Count and proximity do NOT scale it: this is atmosphere, not a threat alarm.
+- **indoor** +0.15 - enclosed, from the `xcombat.is_indoor` roof+wall raycast OR the smart's surge
+  shelter.
+- **time** - a few discrete stages, not a curve: day 0, dawn/dusk +0.04/+0.06, night +0.10, deep
+  night +0.12.
 
-Visual layer: at the top dread grade only, a short distortion pulse fires occasionally through xlibs
+The safe cutout: among allies, in daylight, the score is forced to 0 (a friendly base by day is
+silent). The score maps to a grade on wide boundaries - NONE < 0.20, LOW 0.20, MED 0.40, HIGH 0.60,
+INSANE 0.80 - so the range discriminates instead of clamping everything to the top. Mutants are the one
+signal that feeds BOTH the score (the `mutant`/`mixed` state) and the TYPE (they gate the growl category).
+
+### Selection, pacing, and positioning
+
+- Category (the TYPE) is chosen by a context gate: `growl` needs a mutant near, `machine`/`underground`
+  need an underground level (engine `underground` flag), `gunfire` needs a human near outdoors, the
+  rest (`spook`, `drone`, `scream`, `creak`, `wind`, `animals`) play anywhere. `_pick_category` is
+  weighted-random among the eligible, weight rising with spook for the spook categories and with calm
+  for texture, with a recent-category penalty.
+- `_pick_sound` is a shuffle-bag: every sound in a category plays once before any repeat.
+- Emission is a jittered self-reschedule, NOT a per-tick roll: after each fire the next play is armed
+  at `math.random(SPACE_MIN_MS, SPACE_MAX_MS)` (5-15s, scaled by the MCM rarity knob). Density is
+  constant and spook-INDEPENDENT; spook drives SELECTION and closeness, never the rate. Below `SPOOK_ON`
+  (0.20) nothing spook-tier plays. An active firefight mutes the director.
+- `_play` positions each one-shot with Anomaly's OWN geometry (`sound_ambient.script:127-141`): a
+  random point in the sound's source min..max band, halved, at a random angle, at the source height.
+  The one change is `HORROR_PULL` - at peak spook it lands up to 25% closer. The attenuation (the
+  source's baked min/max) is left to the engine, so a near sound is full and fades naturally; the max
+  is NEVER used as the spawn position.
+
+Visual layer: at the top spook grade only, a short distortion pulse fires occasionally through xlibs
 `xpp`, dwell-gated so a momentary spike never flashes, on a cooldown, muted during combat.
 
-## The base-veto: mute the source pack's copy, do not inject
+### Debug HUD (`as_hud`, off by default)
 
-If the player also runs a source pack AlifeSpooks pulled from, that pack's ambient config plays the
-same spook sounds. The director owns the vanilla `update_ambient` slot and runs a faithful clone of
-it (`update_ambient_owned`), with one change: a base sound the mod also ships is dropped at load, so
-only the director plays it. The base's other ambient plays untouched. There is no enrichment of a
-base channel and no injection. The mod suppresses a base play, it never adds one.
+A three-column readout (MCM `hud_position`): SPOOK_PLAYING (the sounding file + a PLAYING/stopped
+estimate, in bright text), SPOOK_TYPE (the categories available now + the veto tally), SENSORS (the raw
+type-gate signals), and the SPOOK level with its own sensors summing to the grade. Players never see
+it; it feeds off `as_effect.get_hud_rows`.
+
+## The base-veto: mute the base's copy, on its own slot
+
+The base game's System B (Lua `sound_ambient.update_ambient`) plays the rotating dread/atmosphere
+one-shots - the vanilla "fake" spooks, drones, and distant-mutant growls. AlifeSpooks owns that slot
+with a faithful clone (`update_ambient_owned`) that runs the base round-robin but drops the base copy
+of any sound the mod also ships, so only the director's curated copy plays. The base's other ambient
+(wind, birds, insects) plays untouched. There is no enrichment and no injection - the mod suppresses a
+base play, it never adds one.
+
+This is a SEPARATE time-event from the director; the two never share the slot. An earlier design that
+folded the director onto this contended slot was a bug: the base game (and any other script that also
+clones `update_ambient`) wins the registration race and the folded loop never fires, killing both the
+veto and the director. They are kept apart precisely so the director always runs on its private slot.
+
+Ownership is `RemoveTimeEvent` then `CreateTimeEvent` (`_apply_owned`). The slot dispatches by stored
+function value (`_g.script`), so reassigning `sound_ambient.update_ambient` is dead and a bare re-add
+no-ops onto whoever holds the slot; Remove-then-Create installs ours regardless of registration order.
+The one thing it cannot beat: another script that ALSO owns the slot and runs its `actor_on_first_update`
+after ours (e.g. TestZone's baseline-ambient logging toggle) takes it back. Only one script can own
+`update_ambient` at a time. The current `_veto` tally (muted / kept per level+hour build) is on the HUD
+so the veto's reach is visible.
 
 The match is on the sound's original relative path, since the base references its sounds by path. The
 deploy writes the path set the veto needs to `as_blockdata.script`:
@@ -210,7 +248,7 @@ time and read at runtime by `_build_block`. It never reads `provenance.tsv`.
   `DARK_FILL` after the pack is assessed. The substring match only pulls.
 - I8 Mute, do not inject. The veto suppresses a base sound the mod ships, matched by original path.
   It never adds a channel and never injects a sound into the base ambient.
-- I9 Dark scope only. Keep dread, horror, underground, eerie, and oppressive weather. Leave generic
+- I9 Dark scope only. Keep spook, horror, underground, eerie, and oppressive weather. Leave generic
   daytime life and the base weather bed to the base ambience.
 - I10 Leave emission alone. Blowout and psi-storm are their own system and are never touched.
 - I11 Reproducible. plan to classify to loudness to deploy to ledger to provenance regenerates the
@@ -226,16 +264,19 @@ time and read at runtime by `_build_block`. It never reads `provenance.tsv`.
 Scripts add control, an in-game trace, and the MCM, mirroring the alife-family pattern (`as_mcm`,
 `as_debug`, `xmcm`, `xlog`). All are guarded. Without xlibs they degrade to no-ops.
 
-- `as_effect.script` owns the director, the pick and pace, the positioned play, and the base-veto.
+- `as_effect.script` owns the director (its own `spook_director` slot), the score, the pick and pace,
+  the positioned play, and the base-veto (the separate `update_ambient` slot).
+- `as_hud.script` is the debug HUD (off by default), a three-column readout built from
+  `as_effect.get_hud_rows`.
 - `as_debug.script` is the trace facade. At DEBUG it records every sound played and every term of the
-  dread score to `alifespooks.log`, so the soundscape is checked by observation. Below DEBUG the off
+  spook score to `alifespooks.log`, so the soundscape is checked by observation. Below DEBUG the off
   path marshals nothing and crosses no luabind bridge.
-- `as_mcm.script` is one MCM page tree with three tabs. Atmosphere holds an overall volume, spook
-  sensitivity, rarity, distance, and one per-category volume slider per director category (drone,
-  spook, scream, growl, machine, gunfire, underground, creak, wind_creep, animals), read by the
-  director into `_cat_vol` and applied in `_play`. Visuals toggles the peak-dread screen distortion.
-  Development holds the trace level, a log flush, the debug HUD, and a reset-to-defaults button. Every
-  control is neutral at its default. Labels in English and Russian.
+- `as_mcm.script` is one MCM page tree with three tabs. Atmosphere holds an overall volume, rarity,
+  distance, and one per-category volume slider per director category (drone, spook, scream, growl,
+  machine, gunfire, underground, creak, wind_creep, animals), read by the director into `_cat_vol` and
+  applied in `_play`. Visuals toggles the peak-spook screen distortion. Development holds the trace
+  level, a log flush, the debug HUD position, and a reset-to-defaults button. Every control is neutral
+  at its default. Labels in English and Russian.
 
 ## Tools and data artifacts
 

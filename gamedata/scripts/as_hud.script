@@ -16,10 +16,11 @@ local CHAR_W   = 6
 local CELL_PAD = 2
 local MAX_ROWS = 26
 
--- Fixed-char column widths: label then value. Two cells per row at fixed x, so text aligns by column.
-local LABEL_W = 11 * CHAR_W + CELL_PAD
-local VALUE_W = 40 * CHAR_W + CELL_PAD
-local PANEL_W = LABEL_W + COL_GAP + VALUE_W + PAD * 2
+-- Fixed-char column widths: factor | state | spook. Three cells per row at fixed x, aligned by column.
+local COL1_W = 12 * CHAR_W + CELL_PAD
+local COL2_W = 16 * CHAR_W + CELL_PAD
+local COL3_W = 8  * CHAR_W + CELL_PAD
+local PANEL_W = COL1_W + COL_GAP + COL2_W + COL_GAP + COL3_W + PAD * 2
 local PANEL_H = MAX_ROWS * ROW_H + PAD * 2
 
 local function _pos_key()
@@ -42,13 +43,13 @@ local function _calc_position(key)
 end
 
 -- =========================================================================
--- UISpookHUD: a two-column grid (label | value) built once; refresh only rewrites text.
+-- UISpookHUD: a three-column grid (factor | state | spook) built once; refresh only rewrites text.
 -- =========================================================================
 
 class "UISpookHUD" (CUIScriptWnd)
 
-function UISpookHUD:_cell(xml, cell_x, cell_y, cell_w)
-    local static = xml:InitStatic("line", self)
+function UISpookHUD:_cell(xml, elem, cell_x, cell_y, cell_w)
+    local static = xml:InitStatic(elem, self)
     static:SetWndPos(vector2():set(cell_x, cell_y))
     static:SetWndSize(vector2():set(cell_w, ROW_H))
     return static:TextControl()
@@ -61,26 +62,32 @@ function UISpookHUD:__init() super()
     self:SetWndSize(vector2():set(PANEL_W, PANEL_H))
     local xml = CScriptXmlInit()
     xml:ParseFile("ui_as_stats.xml")
-    self.lab, self.val = {}, {}
+    self.c1, self.c2, self.c3 = {}, {}, {}
+    local x1 = PAD
+    local x2 = x1 + COL1_W + COL_GAP
+    local x3 = x2 + COL2_W + COL_GAP
     for row = 1, MAX_ROWS do
         local row_y = PAD + (row - 1) * ROW_H
-        self.lab[row] = self:_cell(xml, PAD, row_y, LABEL_W)
-        self.val[row] = self:_cell(xml, PAD + LABEL_W + COL_GAP, row_y, VALUE_W)
+        local elem = (row <= 2) and "hi" or "line"   -- the SPOOK_PLAYING rows are bright
+        self.c1[row] = self:_cell(xml, elem, x1, row_y, COL1_W)
+        self.c2[row] = self:_cell(xml, elem, x2, row_y, COL2_W)
+        self.c3[row] = self:_cell(xml, elem, x3, row_y, COL3_W)
     end
     self.used = 0
 end
 
---- Rewrite each row's label + value cell; blank only what the previous refresh used.
+--- Rewrite each row's three cells (factor | state | spook); blank only what the previous refresh used.
 function UISpookHUD:set_rows(rows)
     local count = #rows
     if count > MAX_ROWS then count = MAX_ROWS end
     for row = 1, count do
-        self.lab[row]:SetText(rows[row][1] or "")
-        self.val[row]:SetText(rows[row][2] or "")
+        local r = rows[row]
+        self.c1[row]:SetText(r[1] or "")
+        self.c2[row]:SetText(r[2] or "")
+        self.c3[row]:SetText(r[3] or "")
     end
     for row = count + 1, self.used do
-        self.lab[row]:SetText("")
-        self.val[row]:SetText("")
+        self.c1[row]:SetText(""); self.c2[row]:SetText(""); self.c3[row]:SetText("")
     end
     self.used = count
 end
@@ -92,6 +99,11 @@ function UISpookHUD:__finalize() end
 -- =========================================================================
 
 local _hud, _shown, _active = nil, false, false
+
+-- DIAGNOSTIC trace: logs to alifespooks.log via as_debug (tag [AS]) when tracing is on. Prefix [HUD].
+local function _tr(fmt, ...)
+    if as_debug and as_debug.info then as_debug.info("[HUD] " .. fmt, ...) end
+end
 
 local function _wanted()
     return _pos_key() ~= "off"
@@ -113,40 +125,48 @@ local function _is_visible()
 end
 
 local function _refresh()
-    if not _wanted() then return end
-    if not _hud then _hud = UISpookHUD() end
-    if not _shown then get_hud():AddDialogToRender(_hud); _shown = true end
-    _hud:set_rows((as_effect and as_effect.get_hud_rows and as_effect.get_hud_rows()) or {})
+    if not _wanted() then _tr("_refresh: not wanted, skip"); return end
+    if not _hud then _hud = UISpookHUD(); _tr("_refresh: built UISpookHUD") end
+    if not _shown then get_hud():AddDialogToRender(_hud); _shown = true; _tr("_refresh: AddDialogToRender, shown=true") end
+    local rows = (as_effect and as_effect.get_hud_rows and as_effect.get_hud_rows()) or {}
+    _tr("_refresh: rows=%d hud=%s shown=%s", #rows, tostring(_hud ~= nil), tostring(_shown))
+    _hud:set_rows(rows)
 end
 
 --- Re-arm FIRST: an expired event that errored would re-fire every frame and starve all time events.
 local function _tick()
-    if not _active then _hide(); return true end
+    if not _active then _tr("_tick: not active, hide"); _hide(); return true end
     ResetTimeEvent("as_hud", "tick", REFRESH_SEC)
-    if _is_visible() then _refresh() else _hide() end
+    local vis = _is_visible()
+    _tr("_tick: active=%s visible=%s main_hud=%s", tostring(_active), tostring(vis), tostring(main_hud_shown()))
+    if vis then _refresh() else _hide() end
     return false
 end
 
 local function _start()
-    if _active then return end
+    if _active then _tr("_start: already active"); return end
     _active = true
     RemoveTimeEvent("as_hud", "tick")
     CreateTimeEvent("as_hud", "tick", REFRESH_SEC, _tick)
+    _tr("_start: armed tick")
 end
 
 local function _stop()
     _active = false
     RemoveTimeEvent("as_hud", "tick")
     _drop()
+    _tr("_stop")
 end
 
 --- Position preset changed or actor (re)spawned: rebuild and (dis)arm to match the current setting.
 local function _apply()
+    _tr("_apply: wanted=%s pos=%s", tostring(_wanted()), tostring(_pos_key()))
     _drop()
     if _wanted() then _start() else _stop() end
 end
 
 function on_game_start()
+    _tr("on_game_start: registering callbacks")
     RegisterScriptCallback("actor_on_first_update",      _apply)
     RegisterScriptCallback("actor_on_net_destroy",       _stop)
     RegisterScriptCallback("on_option_change",           _apply)

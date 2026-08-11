@@ -2,4 +2,7 @@
     <line x="0" y="0" width="100" height="14">
         <text font="letterica16" r="190" g="220" b="190" a="230" complex_mode="0"/>
     </line>
+    <hi x="0" y="0" width="100" height="14">
+        <text font="letterica16" r="255" g="235" b="120" a="255" complex_mode="0"/>
+    </hi>
 </w>

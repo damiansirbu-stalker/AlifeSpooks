@@ -50,6 +50,42 @@ function as_test.dev_setup()
     as_test.open_north()
 end
 
+-- ---- sound playback probe (empirical: which call actually makes sound?) ----
+-- A confirmed MONO sound. Run each from the console and report what you HEAR:
+--   run_string as_test.snd(1)       -- play_no_feedback 2D, full volume: does the FILE play at all?
+--   run_string as_test.snd(2)       -- play_no_feedback 3D at 5m: the director's CURRENT path
+--   run_string as_test.snd(3)       -- play_at_pos 3D at 5m: vanilla's method, no kept reference
+--   run_string as_test.snd(4)       -- play_at_pos 3D at 5m + kept reference: vanilla exact
+--   run_string as_test.snd(3, 50)   -- any method at a chosen distance (attenuation check)
+local SND_OURS    = "zs\\growl\\131"       -- our LOUDEST shipped sound (max -0.5 dB)
+local SND_VANILLA = "anomaly\\emi_blowout" -- a known-good, LOUD vanilla sound (unmissable)
+-- Fire the play 3s AFTER the call, so it happens during live gameplay, not while the console is open
+-- (an open console pauses the game and paused sounds never sound). Close the console after running it.
+function as_test.snd(method, dist)
+    dist = dist or 5
+    local path = (method == 5) and SND_VANILLA or SND_OURS
+    RemoveTimeEvent("as_snd", "play")
+    CreateTimeEvent("as_snd", "play", 3, function()
+        local a = db.actor
+        if not a then return true end
+        local pos = a:position()
+        local vec = vector():set(pos.x + dist, pos.y, pos.z)
+        local s = sound_object(path)
+        if not s then _tip("snd: sound_object NIL for " .. path); return true end
+        if method == 1 then
+            s:play_no_feedback(a, sound_object.s2d, 0, vector():set(0, 0, 0), 1.0, 1.0)
+        elseif method == 2 then
+            s:play_no_feedback(a, sound_object.s3d, 0, vec, 1.0, 1.0)
+        else
+            s:play_at_pos(a, vec); s.volume = 1.0
+            if method ~= 3 then as_test._kept = s end
+        end
+        _tip("PLAYED m" .. tostring(method) .. "  " .. path)
+        return true
+    end)
+    _tip("m" .. tostring(method) .. " fires in 3s - CLOSE the console now")
+end
+
 -- ---- atmosphere probe collector -------------------------------------------
 
 local _log = nil

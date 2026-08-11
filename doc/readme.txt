@@ -17,11 +17,11 @@ Reset MCM settings to defaults after updating.
 
 The Zone used to be frightening. Modern soundscape mods sharpened its realism and, in the trade, stripped the horror out. AlifeSpooks puts it back.
 
-It is a dread director. It reads where you stand and who is near, then plays curated horror one-shots to match. Nothing is a random timer and nothing is scripted. The soundscape follows the real state of the game around you, the same way the rest of the Alife Collection reads state and decides rather than rolling dice.
+It is a spook director. It reads where you stand and who is near, then plays curated horror one-shots to match. Nothing is a random timer and nothing is scripted. The soundscape follows the real state of the game around you, the same way the rest of the Alife Collection reads state and decides rather than rolling dice.
 
 Effects:
-- Dread reads the place. A bloodsucker den, a lab, the psi fields of the north, and a ruined city each sound like what they are, before anything happens.
-- Dread reads the people. Enemy ground and hostile squads raise it, a mutant near raises it and lets the growls in, your own people at a held base in daylight bring quiet.
+- Spook reads the place. A bloodsucker den, a lab, the psi fields of the north, and a ruined city each sound like what they are, before anything happens.
+- Spook reads the people. Enemy ground and hostile squads raise it, a mutant near raises it and lets the growls in, your own people at a held base in daylight bring quiet.
 - Safety is a live fact. Your allies are here now, it is not a spot marked safe on a list, so an emptied or infiltrated base at night is not safe.
 - Faction hostility is read from the game's own relations, so a base is friendly or hostile by the faction you play, not a fixed assumption that you are a loner.
 - The loud scares stay rare and spaced, and no call plays twice in a row.
@@ -34,16 +34,18 @@ Everything is faithful, measured, and fast:
 - It reads cheap signals every few seconds, never per frame, and caches them. The cost is a slow timer whatever plays on screen.
 - It requires xlibs, the library that plays its sounds. Without xlibs the mod is inert.
 
-The dread director:
-The director is the core. It scores the dread of your surroundings from four reads, and the score decides which sounds are eligible, how often they fire, how close they play, and how loud. A safe place is silent, a psi lab with a mutant near at night is loud, and most of the Zone sits in between with a low, uneasy floor.
+The spook director:
+The director is the core. It scores the spook of your surroundings and the score decides which sounds are eligible, how often they fire, how close they play, and how loud. A friendly base in daylight is silent, a psi lab with a mutant near at night is loud, and most of the Zone sits in between. The score is one simple sum: lore + who's around + indoor + time.
 
-- Place. The smart terrain you stand in is looked up in a hand-curated lore table taken to canon: the psi zones (Yantar, Radar, Red Forest, the reactor), the labs, the mutant dens, the ruined cities, the eerie wilds. A smart not in the table falls to a per-level baseline. This is the dread a place carries on its own, empty and quiet.
-- Faction. A base's owning faction is read and checked against your own community through the game's relation system. Allied ground reads as a refuge, enemy ground reads as hostile, and it is correct whether you play a loner, Duty, a bandit, or Monolith. It is not a hardcoded "safe if you are a loner" list.
-- Presence. The live creatures around you, read from the online set within range, not a smart's roster: allied and enemy humans, and horror-tier mutants. Enemies raise the dread, a real mutant raises it and opens the growl category, allies ease it. Trash-tier mutants never count.
-- Safety. The one cutout to silence. Your own people present, in daylight, with no threat near, drops the dread to calm. Everything off that cutout keeps at least a low murmur, so a friendly base full of allies is the only true refuge and the Zone is never dead quiet where it should not be.
+- Lore. The smart terrain you stand in is looked up in a hand-curated table taken to canon: the psi zones (Yantar, Radar, Red Forest, the reactor), the labs, the mutant dens, the ruined cities, the eerie wilds. A place not in the table falls to a per-level baseline. This is the spook a place carries on its own.
+- Who's around. One reading of your company: alone, among allies, near enemies, near mutants, or a mix. Being among your own people is the only thing that calms you; alone or with a threat near, the Zone stays uneasy on its own. Enemy ground counts as hostile even when the base sits empty. It is not a body count or a threat meter, just what kind of company you keep.
+- Indoor. Enclosed spaces (a roof and walls, or a surge shelter) read scarier than the open.
+- Time. A few steps through the day: calm by day, a nudge at dusk and dawn, up at night, most in the dead of night.
+
+Among allies in daylight the score falls to silence. Otherwise your company alone keeps a low uneasiness under everything, so the Zone is never dead quiet where it should not be, without any artificial floor.
 
 The palette:
-The sounds are grouped into categories, each with the condition it fires under and a minimum spacing so a scream stays rare against the wind. Spooks, screams, and dark drones play wherever the dread is up. Growls need a real mutant near. Tunnel and machine sound plays on an actual underground level, read from the engine's own underground flag, not in a surface building. Gunfire plays outdoors where humans are present, because someone has to fire the shot. Wind, creaks, and eerie wildlife play everywhere as texture.
+The sounds are grouped into categories, each with the condition it fires under and a minimum spacing so a scream stays rare against the wind. Spooks, screams, and dark drones play wherever the spook is up. Growls need a real mutant near. Tunnel and machine sound plays on an actual underground level, read from the engine's own underground flag, not in a surface building. Gunfire plays outdoors where humans are present, because someone has to fire the shot. Wind, creaks, and eerie wildlife play everywhere as texture.
 
 It plays its own sounds and never adds a channel:
 The mod ships its sounds in its own directories and plays them itself, as positioned one-shots. It defines no ambient channel and injects nothing into the base ambient. A long horror drone or a psy bed plays as a spaced one-shot, not a continuous loop.
@@ -58,7 +60,7 @@ Identity is decided by the waveform, in three stages, cheapest first so the expe
 Every kept sound ships byte for byte, carrying its own X-Ray volume and distance in its ogg comment. A source that lacks that metadata is given it losslessly, the median of its category band, so only the comment header changes and the audio bytes stay identical. A fitness gate keeps 44.1 kHz vorbis, the X-Ray standard, and accounts anything dropped. A ledger proves no net-new dark sound is missed. A provenance record maps every shipped sound back to its origin mod, folder, name, and settings, and self-verifies by audio hash.
 
 MCM:
-Three tabs. Atmosphere holds an overall volume, spook sensitivity, rarity, distance, and a per-category volume slider for each kind of spook (drone, spook, scream, growl, machine, gunfire, underground, creak, wind, wildlife), so you can turn screams down and underground up on their own. Visuals toggles the screen distortion at peak dread. Development holds the trace level, a log flush, the debug HUD, and a reset-to-defaults button. The in-game trace logs every sound played and every term of the dread score, so you can read exactly why a place sounds the way it does.
+Three tabs. Atmosphere holds an overall volume, spook sensitivity, rarity, distance, and a per-category volume slider for each kind of spook (drone, spook, scream, growl, machine, gunfire, underground, creak, wind, wildlife), so you can turn screams down and underground up on their own. Visuals toggles the screen distortion at peak spook. Development holds the trace level, a log flush, the debug HUD, and a reset-to-defaults button. The in-game trace logs every sound played and every term of the spook score, so you can read exactly why a place sounds the way it does.
 
 Requirements:
 Anomaly 1.5.3
@@ -87,7 +89,7 @@ The content is drawn from these community packs, with thanks to their authors:
   Soundscape Overhaul                - Solarint
   RETUNE Ambient Sounds              - Aphrodite_child
   Real Distant Mutants Sounds        - moddb, distant creature calls
-  Audio Expansion                    - moddb, underground and surface dread
+  Audio Expansion                    - moddb, underground and surface spook
 Used under the terms on each source page. Only the selected audio is redistributed, with attribution. If an author requests removal, their pack is dropped from the build.
 
 Usage and License:

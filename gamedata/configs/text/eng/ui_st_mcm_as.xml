@@ -53,7 +53,7 @@
     <text>Drone volume</text>
   </string>
   <string id="ui_mcm_as_vol_drone_desc">
-    <text>Volume of the low dark drones and dread beds.</text>
+    <text>Volume of the low dark drones and spook beds.</text>
   </string>
   <string id="ui_mcm_as_vol_spook">
     <text>Spook volume</text>
@@ -89,7 +89,7 @@
     <text>Underground volume</text>
   </string>
   <string id="ui_mcm_as_vol_underground_desc">
-    <text>Volume of the tunnel and lab dread on underground levels.</text>
+    <text>Volume of the tunnel and lab spook on underground levels.</text>
   </string>
   <string id="ui_mcm_as_vol_creak">
     <text>Creak volume</text>
