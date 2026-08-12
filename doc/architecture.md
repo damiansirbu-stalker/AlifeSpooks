@@ -26,11 +26,13 @@ the ambient system play them. That is gone. AlifeSpooks now owns playback end to
 Because the director is the only playback path, xlibs (`xsound`) is required. Without it the mod is
 inert: no sound plays.
 
-The category is the unit of organization and of play. It is a directory of sounds, a firing gate,
-and a rarity floor. The director reads a generated manifest (`as_manifest.script`) that lists each
+The category is the unit of organization and of play. It is a directory of sounds plus two attributes -
+an `env` set (which enclosure states it may play in) and a `requires` gate (a live precondition) - with
+no weight and no cooldown. The director reads a generated manifest (`as_manifest.script`) that lists each
 category, its sounds, and each sound's distance and height. The manifest replaces the channel
 definitions the director used to read from `sound_channels.ltx`. Anomaly Lua cannot enumerate a
-directory at runtime, so the deploy writes the manifest and the director reads it.
+directory at runtime, so the deploy writes the manifest and the director reads it. See "Categories - the
+rule table" below; the category list is the single source of truth.
 
 ## Content pipeline (reproducible)
 
@@ -115,71 +117,132 @@ and accounted, never silently.
 
 ## The director
 
-The director runs on its OWN time-event, `("as_effect","dread_director")` - a private slot nothing
-else contends for, self-rescheduling every second (`_director_tick`). It is entirely separate from the
-base-ambient observer (below), which owns the vanilla `update_ambient` slot; the two never share a slot. Each tick
-the director refreshes the cached dread score (every `CTX_PERIOD`, about 3s) and runs the emission. The
-enclosure raycast is cached by a coarse position cell and re-fires only when the player changes cell.
-Nothing runs per frame.
+> STATUS: REDESIGN (target). Supersedes the shipped `as_effect.script`; not fully built. Build stages and
+> progress in `doc/todo/todo-alifespooks.md` n117.
 
-### The dread score
+A per-map palette, filtered each evaluation to what the world justifies, delivered by proximity. One
+scheduled loop (`execute`, its own `("as_effect","dread_director")` time-event, separate from the
+base-ambient observer) runs a fixed-cadence pipeline and plays at most one sound per emission:
 
-Dread is a scalar 0..1, purely additive - no multipliers, no floor constant (`_score`):
+    load     -> static data: rule table, per-map ambience LTX, overrides ltx
+    evaluate -> world -> ctx: smart, enclosure, presence, anomaly, time (cached, refreshed ~3s)
+    select   -> which sound: eligible categories -> category-bag -> sound-bag
+    apply    -> how: dread -> distance + frequency -> position + play
 
-    dread = lore + who's-around + indoor + time
+Methods, one per part:
 
-- **lore** - the place's own dread, by class. The nearest smart terrain (within `PLACE_RADIUS`) keys
-  `as_smart_lore.ltx` for a class: mundane 0.10, eerie/ruin 0.25, den/lab 0.40, psy 0.50 - hand-curated
-  from the smart names and canon. Out of range or unlisted falls to a per-level baseline. The primary
-  driver: a place either is or is not spooky.
-- **who's-around** - ONE categorical state, not a per-body tally: `allied` -0.15, `alone` +0.10,
-  `enemy` +0.18, `mutant` +0.22, `mixed` +0.25. Read live from `db.storage` within `PLACE_RADIUS`;
-  the `enemy` state folds in enemy-held ground, so an empty enemy base still reads hostile
-  (`_ownership`). Being among allies is the only calming state; alone / enemy / mutant all sit above
-  zero, so the Zone's baseline uneasiness emerges from the state itself - there is no separate floor.
-  Count and proximity do NOT scale it: this is atmosphere, not a threat alarm.
-- **indoor** +0.15 - enclosed, from the `xcombat.is_indoor` roof+wall raycast OR the smart's surge
-  shelter.
-- **time** - a few discrete stages, not a curve: day 0, dawn/dusk +0.04/+0.06, night +0.10, deep
-  night +0.12.
+- LOAD: `_load_rule_table` / `_load_map_ambience(level)` / `_load_overrides`
+- EVALUATE: `_evaluate_smart` / `_evaluate_enclosure` / `_evaluate_presence` / `_evaluate_anomaly` / `_evaluate_time`
+- SELECT: `_select` -> `_eligible_categories` / `_env_ok(cat)` / `_requires_ok(cat)` / `_pick_category` / `_pick_sound`
+- APPLY: `_apply` -> `_dread` (+ `_dread_lore/_enclosure/_time/_threat/_company/_base_override`) / `_spawn_distance` / `_next_gap` / `_play_positioned`
+- LOOP: `_director_execute` -> refresh EVALUATE if stale -> `_select` -> `_apply` -> arm next
 
-No cutout, no floor: the score is a pure sum. Being among allies is the only negative term
-(`WHO_DREAD.allied`), so a calm place with your own people falls below the `DREAD_ON` floor on its own
-(a friendly base by day is silent), while a genuinely scary place still carries its lore through. The
-score maps to a grade on wide boundaries - NONE < 0.20, LOW 0.20, MED 0.40, HIGH 0.60, INSANE 0.80 - so
-the range discriminates instead of clamping everything to the top. Mutants are the one signal that feeds
-BOTH the score (the `mutant`/`mixed` state) and the TYPE (they gate the growl category).
+### Loop cadence and the emission gate
 
-### Selection, pacing, and positioning
+`_director_execute` runs on a fixed cadence and never stops, so a rising dread is always caught. Emission
+is separate: a sound fires at most every 5-15s (`_next_gap`), and dread shortens that gap (scarier ->
+denser). Below ~0.10 dread nothing is emitted (calm places quiet, a friendly base silent), but the loop
+keeps evaluating and resumes the instant dread rises. No per-category cooldowns, no weights; the gap has
+a floor so peak dread never machine-guns.
 
-- Category (the TYPE) is chosen by a context gate: `growl` needs a mutant near, `machine`/`underground`
-  need an underground level (engine `underground` flag), `gunfire` needs a human near outdoors, the
-  rest (`spook`, `drone`, `scream`, `creak`, `wind`, `animals`) play anywhere. `_pick_category` is
-  weighted-random among the eligible, weight rising with dread for the spook categories and with calm
-  for texture, with a recent-category penalty.
-- `_pick_sound` is a shuffle-bag: every sound in a category plays once before any repeat.
-- Emission is a jittered self-reschedule, NOT a per-tick roll: after each fire the next play is armed
-  at `math.random(SPACE_MIN_MS, SPACE_MAX_MS)` (5-15s, scaled by the MCM rarity knob). Density is
-  constant and dread-INDEPENDENT; dread drives SELECTION and closeness, never the rate. Below `DREAD_ON`
-  (0.20) nothing plays.
-- `_play` positions each one-shot with Anomaly's OWN geometry (`sound_ambient.script:127-141`): a
-  random point in the sound's source min..max band, halved, at a random angle, at the source height.
-  The one change is `HORROR_PULL` - at peak dread it lands up to 25% closer. The attenuation (the
-  source's baked min/max) is left to the engine, so a near sound is full and fades naturally; the max
-  is NEVER used as the spawn position.
+### SELECT - which sound plays
 
-Visual layer: at the top dread grade only, a short distortion pulse fires occasionally through xlibs
-`xpp`, dwell-gated so a momentary spike never flashes, on a cooldown.
+Two families of category, unified by two attributes each - an `env` set and a `requires` gate:
+
+- **ambience** (drone, spook, scream, industrial, structural, drip, wind, foliage, wildlife) -
+  terrain-curated: eligible only if the current map's list (the per-map ambience LTX) names it.
+- **creatures** (one atomic category per identifiable species: chimera, controller, burer, bloodsucker,
+  zombie, snork, dog, boar, rat, bat, ...) - NOT map-listed; eligible when that species is present on
+  the level (a level-wide presence check, not a range scan).
+
+Every category then passes two live filters:
+
+- **`env`** - the set of enclosure states it may play in (subset of `{outdoor, indoor, underground}`).
+  Kept only if the current enclosure state is in the set. Common sets have shorthand: outdoor-only
+  (nature), surface `{outdoor, indoor}` (dread), underground-only, anywhere `{all}` (creatures).
+  Oddballs declare their own: rats `{indoor, underground}`, bats `{outdoor, underground}`.
+- **`requires`** - a live precondition. `mutant`/species -> that creature present (level-wide);
+  `human` -> a person present (level-wide); anomaly -> an anomaly near (enables drone); most -> none.
+
+The survivors are the eligible set. Selection is a **symmetrical two-level shuffle-bag**, no weights:
+
+- **category-bag** - cycle every eligible category once before any repeats, refilled from the current
+  eligible list each cycle. So a 2-sound category can never be hammered while others wait.
+- **sound-bag** (per category) - cycle every sound once before any repeats.
+
+Rarity emerges from rotation: with N eligible categories each plays once per full cycle, so a scream
+lands roughly once every N ticks - rare by rotation, not by any limiter. Each bag is self-contained, so
+the dynamically-changing eligible set never has to be reconciled into a global pool.
+
+### APPLY - dread drives distance and frequency
+
+Dread is a scalar 0..1, additive, **no baseline constant** - it is the sum of whatever grounded
+conditions are true right now, and nothing when none are:
+
+    dread = lore + enclosure + time + threat + company
+
+- **lore** - the place's own dread from the overrides file (below), by `type`, per smart terrain; a
+  per-level default when the smart is unlisted.
+- **enclosure** - exactly ONE state (resolved by one check, no double-count): outdoor +0; indoor
+  (surface building, `is_indoor` raycast) +small; underground-in-world (a below-ground spot on a
+  surface level, hand-tagged) +big; underground level +biggest.
+- **time** - night raises dread: day +0, dusk/dawn +small, night/deep-night +medium (capped at medium).
+- **threat** - the single scariest thing present, never a sum: an apex mutant (gigant, controller,
+  burer, chimera) +big; else a lesser threat (an enemy, or a mid mutant) +small; else, if no living
+  soul at all is near, +small (loneliness).
+- **company** - allied stalkers near (excluding companions) -big (equal in magnitude to an apex mutant);
+  companions -small.
+
+Every term is grounded (a real, checkable condition), so there is no "+X just because." Dread feeds
+APPLY only, never SELECT: **distance** (higher dread spawns the sound closer, via `HORROR_PULL`) and
+**frequency** (higher dread shortens the loop gap). It does not touch **volume** - volume is the sound's
+own normalized level x a single master MCM volume slider (no per-category volume). Positioning uses Anomaly's
+own geometry (a random point in the sound's source min..max band, halved, random angle, source height);
+the engine's baked attenuation does the fade, the max is never used as the spawn position.
+
+### Base override - real bases, replaces the sum
+
+If the nearest smart terrain is a curated `base` (from the overrides file), the additive sum is
+replaced: owner friendly to you (same community or `is_factions_friends`, via `xcreature.relation`) ->
+dread 0, silent; owner hostile (`is_factions_enemies`) -> dread high. Enclosure/time/threat terms are
+ignored inside a base. Base ownership is static in Anomaly and is hand-written, never read from the
+smart config.
+
+### Visual layer
+
+Only when dread is at its peak (>= 0.80) a short distortion pulse fires occasionally through xlibs
+`xpp`, dwell-gated so a momentary spike never flashes, on a cooldown. This is the one place a threshold
+on the continuous dread still matters; there is no grade ladder otherwise.
 
 ### Debug HUD (`as_hud`, off by default)
 
-A three-column readout (MCM `hud_position`) with the dread palette - gold section headers, off-white
-body: SPOOK (the director's current one-shot on its own row, bright while sounding and gray once
-stopped), BASE directly under it and symmetrical (the sound the base-ambient observer is replaying, same
-treatment - muting is the static overlay, so there is no tally), AVAILABLE (a wrapped comma list of the
-categories eligible now), SENSORS (one harmonized block: the dread terms with their contribution, then
-the type-gate reads), and the DREAD summary - the summed score and grade, the row tinted green->red by
-severity. Players never see it; it feeds off `as_effect.get_hud_rows`.
+A three-column readout (MCM `hud_position`), dread palette (gold headers, off-white body): SPOOK (the
+director's current one-shot, bright while sounding, gray once stopped), BASE (the base-ambient the
+observer is replaying, same treatment), AVAILABLE (the eligible categories now), SENSORS (each dread
+term with its contribution, plus the raw checks), and the DREAD summary tinted green->red by value.
+Players never see it; it feeds off `as_effect.get_hud_rows`.
+
+## Categories - the rule table
+
+A category is atomic and viable: one coherent thing (one dread kind, one species), never a grab-bag,
+with enough sounds to be worth its own bag. The category list is a **rule table and the single source
+of truth** - the deployed sound folders (`zs/<name>/`), the manifest, the per-map ambience LTX, and the
+runtime all derive from it; nothing invents a category name outside it. Each row carries:
+
+- `name` - `<env>_<kind>` for the common cases, or a bare species/kind name where env is a custom set.
+- `env` - the enclosure-state set (above).
+- `requires` - the live precondition (above).
+- its sounds (from the deploy).
+
+Naming convention: the name declares where and what - `outdoor`/`surface`/`underground` for the common
+env sets, and the kind (`drone`, `spook`, `scream`, `mutant`, `human`, `industrial`, `structural`,
+`drip`, `wind`, `foliage`, `wildlife`, or a species). The env set is authoritative; the name is a label.
+
+Ambience categories are de-mixed from the source structure (`spooks_above` = surface, `spooks_below` =
+underground, terrain vs species naming): e.g. the old `machine` category was surface urban/plant drones
+mis-gated underground and becomes `industrial` (surface); the ~142 terrain-mutant sounds mislabeled as
+`spook` become `mutant`; `creak` (outdoor branches) becomes `foliage`; interior structural creaks live
+in `structural`. Creatures are one atomic category per identifiable species, presence-gated.
 
 ## The base-veto: static DLTX removal, plus a logging observer
 
@@ -290,10 +353,8 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
 - `as_debug.script` is the trace facade. At DEBUG it records every sound played and every term of the
   dread score to `alifespooks.log`, so the soundscape is checked by observation. Below DEBUG the off
   path marshals nothing and crosses no luabind bridge.
-- `as_mcm.script` is one MCM page tree with three tabs. Atmosphere holds an overall volume, rarity,
-  distance, and one per-category volume slider per director category (drone, spook, scream, growl,
-  machine, gunfire, underground, creak, wind_creep, animals), read by the director into `_cat_vol` and
-  applied in `_play`. Visuals toggles the peak-dread screen distortion. Development holds the trace
+- `as_mcm.script` is one MCM page tree. Atmosphere holds a single master volume for our sounds (no
+  per-category sliders). Visuals toggles the peak-dread screen distortion. Development holds the trace
   level, a log flush, the debug HUD position, and a reset-to-defaults button. Every control is neutral
   at its default. Labels in English and Russian.
 
