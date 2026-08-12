@@ -19,26 +19,26 @@ local CHANNELS_FILE   = "environment\\sound_channels.ltx"
 local SEC_LEVEL       = "level_default"
 
 -- =========================================================================
--- Categories: the fixed palette. A firing gate, a base weight, and a per-category minimum interval
--- so screams stay rare against drone density. Everything is a one-shot now (weight rises with
--- the score, no texture/loop split). The SOUNDS of each category come from the generated as_manifest
--- (the shipped directory zs\<category>), not from engine channels.
+-- Categories: the fixed palette. A firing gate and a base weight. Everything is a one-shot (weight
+-- rises with the score, no texture/loop split). Pacing is the ONE global loop (5-15s); there is NO
+-- per-category rate limit. The SOUNDS of each category come from the generated as_manifest (the
+-- shipped directory zs\<category>), not from engine channels.
 -- gates: always | mutants (real mutant online) | underground (GetEvent, actual underground level)
 --        | exterior_humans (not underground AND a human near - someone to fire the shot)
 --        | exterior (not enclosed - outdoor-only, nature never plays indoors)
 --        | ominous (non-mundane lore class OR near an anomaly - places that carry dread, e.g. drones)
 -- =========================================================================
 local CATEGORIES = {
-    { name = "drone",       gate = "ominous",         weight = 1.0, floor = 12000 },
-    { name = "spook",       gate = "always",          weight = 1.0, floor = 8000 },
-    { name = "scream",      gate = "always",          weight = 0.5, floor = 90000 },
-    { name = "growl",       gate = "mutants",         weight = 1.0, floor = 60000 },
-    { name = "machine",     gate = "underground",     weight = 0.8, floor = 20000 },
-    { name = "gunfire",     gate = "exterior_humans", weight = 0.3, floor = 45000 },
-    { name = "underground", gate = "underground",     weight = 1.0, floor = 15000 },
-    { name = "creak",       gate = "always",          weight = 0.8, floor = 20000 },
-    { name = "wind_creep",  gate = "exterior",        weight = 0.8, floor = 20000 },
-    { name = "animals",     gate = "exterior",        weight = 0.7, floor = 25000, night = true },
+    { name = "drone",       gate = "ominous",         weight = 1.0 },
+    { name = "spook",       gate = "always",          weight = 1.0 },
+    { name = "scream",      gate = "always",          weight = 0.5 },
+    { name = "growl",       gate = "mutants",         weight = 1.0 },
+    { name = "machine",     gate = "underground",     weight = 0.8 },
+    { name = "gunfire",     gate = "exterior_humans", weight = 0.3 },
+    { name = "underground", gate = "underground",     weight = 1.0 },
+    { name = "creak",       gate = "always",          weight = 0.8 },
+    { name = "wind_creep",  gate = "exterior",        weight = 0.8 },
+    { name = "animals",     gate = "exterior",        weight = 0.7, night = true },
 }
 
 -- REAL_MUTANT: species that count for the growl-plausibility exclusion; trash tier excluded.
@@ -58,7 +58,7 @@ local CLASS_DREAD = { mundane = 0.10, eerie = 0.25, ruin = 0.25,
 local WHO_DREAD = { allied = -0.15, alone = 0.10, enemy = 0.18, mutant = 0.22, mixed = 0.25 }
 
 -- Other signals. PLACE_RADIUS: presence scan radius + the range a smart must be within to set the place.
--- INDOOR_ADD: enclosed (roof+walls raycast OR surge shelter). Time rides a few stages (_time_dread).
+-- INDOOR_ADD: enclosed (roof+wall raycast). Time rides a few stages (_time_dread).
 -- CELL_M: is_indoor cache cell size.
 local PLACE_RADIUS   = 150
 local INDOOR_ADD     = 0.15
@@ -165,7 +165,7 @@ local function _load_channels()
     local cats = as_manifest and as_manifest.categories or {}
     for _, def in ipairs(CATEGORIES) do
         local sounds = cats[def.name] or {}
-        _cats[def.name] = { def = def, sounds = sounds, next_ok = 0 }
+        _cats[def.name] = { def = def, sounds = sounds }
         as_debug.dbg("as_effect: category %s = %d sounds", def.name, #sounds)
     end
 end
@@ -324,7 +324,7 @@ end
 --- Recompute the cached dread score. PURELY ADDITIVE - no multipliers, no cutout, no floor constant:
 ---   dread = lore(place class) + who's-around(one categorical state) + indoor + time
 --- Enemy-held ground folds into the "enemy" state; mutants add via the "mutant" state AND gate the
---- growl palette (ctx.mutants_ok). Enclosed = roof+wall raycast OR the smart's surge shelter. Being
+--- growl palette (ctx.mutants_ok). Enclosed = the xcombat roof+wall raycast (is_indoor). Being
 --- among allies is the only NEGATIVE term (WHO_DREAD.allied), so a calm place among allies falls below
 --- the DREAD_ON floor on its own, while a genuinely scary place still carries through. Builds the HUD rows.
 local function _score(actor, hour)
@@ -333,7 +333,6 @@ local function _score(actor, hour)
     local comm = xcreature and xcreature.community and xcreature.community(actor)
     local enemy_held = _ownership(smart, comm)
     local enclosed = _enclosed(actor)
-        or (smart and xsmart and xsmart.has_surge_shelter and xsmart.has_surge_shelter(smart)) or false
     local who = _who_state(allied, enemy, mutants, enemy_held)
     local who_pts = WHO_DREAD[who] or 0
     local time_pts = _time_dread(hour)
@@ -423,7 +422,7 @@ end
 --- rises-with-dread tilt (all one-shots), boosted at night for animals, penalised if recent.
 local function _category_weight(cat, score, hour, tg)
     local def = cat.def
-    if #cat.sounds == 0 or tg < cat.next_ok or not _gate_ok(def) then return 0 end
+    if #cat.sounds == 0 or not _gate_ok(def) then return 0 end
     local weight = def.weight * (WEIGHT_FLOOR + score * score)
     if def.night and _is_night(hour) then weight = weight * 1.5 end
     if _recent_set[def.name] then weight = weight * 0.3 end
@@ -539,7 +538,6 @@ local function _emit_tick(tg, hour)
     local snd = _pick_sound(cat)
     if snd then
         _play(snd, ctx.dread, _cat_vol[cat.def.name])
-        cat.next_ok = tg + cat.def.floor
         _note_recent(cat.def.name)
         _last_play = snd[1]
         _play_at = tg
