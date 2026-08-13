@@ -74,7 +74,8 @@ No collision and no doubled density, over GAMMA, vanilla, or any soundscape base
 
 The audio is built by a reproducible, measured pipeline, one command end to end, not dumped in. Every sound is analyzed before it goes in.
 ffmpeg reads its spectral centroid and flatness, its crest factor, and its integrated loudness in EBU R128 LUFS. ffprobe reads its duration, sample rate, and codec.
-The measured duration sets how far apart a sound may fire, so a long one never overlaps itself.
+Each pack's folders are mapped to horror categories by hand, and every file in them is pulled, so nothing the pack buries goes missed.
+A sound too long for a one-shot is dropped, and the long radio-signal bed is sliced into short pieces, so nothing overlaps itself.
 Each file's loudness is leveled to a common target by editing its ogg gain field, losslessly, so the corpus is even without a single re-encode.
 
 Identity is decided by the waveform, in three stages, cheapest first, so the expensive test runs only on the pairs the cheap ones flag. An exact md5 hash collapses byte-identical reships.

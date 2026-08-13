@@ -48,13 +48,15 @@ ledger      content-hash proof of coverage           -> ledger.tsv
 provenance  every shipped sound -> its origin         -> provenance.tsv
 ```
 
-- plan (`cmd_plan`): pool the dark sounds from each source pack two ways, from the pack's own config
-  lists (`DARK_KEEP`) and by walking its folder trees (`DARK_FILL`), because a pack ships far more
-  dark content than it wires. Resolve, gate on codec and sample rate, drop dead-silent files, then
-  deduplicate by waveform. Output `merged_channels.json`, the curated dark corpus.
+- plan (`cmd_plan`): walk every source pack's sound tree and route each FILE to a category by its
+  folder path (`route` / `ROUTE`), a structural per-file allowlist - the packs ship far more dark
+  content than they wire into a channel, so the folder trees are the source of truth, not any config
+  list. Gate on sample rate, drop dead-silent files, deduplicate by waveform, then the long-file pass:
+  a sound whose ACTIVE (silence-removed) length exceeds the max emission tick is culled, except
+  `dark_signal`, which is sliced into short desilenced pieces (`_long_file_pass`). Output
+  `merged_channels.json` (the curated corpus) and `folder_audit.tsv` (which folders each category pulled).
 - classify (`cmd_classify`): one ffmpeg pass per sound for duration, spectral centroid and flatness,
-  and crest. The measured duration drives the deployed period so a long sound does not overlap
-  itself. There is no loop-versus-effect decision. Everything is a one-shot.
+  and crest. There is no loop-versus-effect decision. Everything is a one-shot.
 - loudness (`cmd_loudness`): measure integrated loudness per sound and flag per-group outliers.
 - deploy (`cmd_deploy`): measure each source's peak and CULL the near-silent (`_loudness_cull`), copy
   the survivors byte for byte to `zs/<category>/<n>.ogg`, write each file's blob with source attenuation
@@ -67,10 +69,10 @@ provenance  every shipped sound -> its origin         -> provenance.tsv
 
 Which packs and which folders contribute is a per-pack judgment, made by hand before any pull. Each
 new pack is opened and assessed for what dark content it actually holds, and its folders are mapped
-to categories by adding rows to `DARK_FILL`. The folder-substring match in `DARK_FILL` is only the
-mechanical pull that runs after that decision. There is no keyword classifier that decides scope on
-its own. The `UNUSED-DARK = 0` ledger invariant then confirms the hand-written rules captured every
-dark file the pack holds.
+to categories by adding rows to `ROUTE` (the structural per-file table `route` walks). The folder-path
+match is only the mechanical pull that runs after that decision; anything unmatched is dropped (dark
+scope). There is no keyword classifier that decides scope on its own. The `UNUSED-DARK = 0` ledger
+invariant then confirms the hand-written rules captured every dark file the pack holds.
 
 ## Deduplication: waveform identity, source side only
 
@@ -224,25 +226,32 @@ Players never see it; it feeds off `as_effect.get_hud_rows`.
 
 ## Categories - the rule table
 
-A category is atomic and viable: one coherent thing (one dread kind, one species), never a grab-bag,
-with enough sounds to be worth its own bag. The category list is a **rule table and the single source
-of truth** - the deployed sound folders (`zs/<name>/`), the manifest, the per-map ambience LTX, and the
-runtime all derive from it; nothing invents a category name outside it. Each row carries:
+A category is atomic: one coherent thing (one dread kind, one zone), never a grab-bag. The category is
+the unit of organization - it is the shipped folder (`zs/<name>/`) and the manifest key. **The pipeline
+category list carries only the name and the folder routing** (`CATEGORIES` + `route` in `merge.py`); it
+holds no play rules. A category's runtime attributes - its `env` set, its `requires` gate, the per-map
+eligibility, the presence checks - live in the director (`as_effect`) and the per-map LTX, keyed by the
+category name. The manifest carries sound paths and distances only; the category NAME is the entire
+contract between the pipeline and the runtime.
 
-- `name` - `<env>_<kind>` for the common cases, or a bare species/kind name where env is a custom set.
-- `env` - the enclosure-state set (above).
-- `requires` - the live precondition (above).
-- its sounds (from the deploy).
+The 20 categories:
 
-Naming convention: the name declares where and what - `outdoor`/`surface`/`underground` for the common
-env sets, and the kind (`drone`, `spook`, `scream`, `mutant`, `human`, `industrial`, `structural`,
-`drip`, `wind`, `foliage`, `wildlife`, or a species). The env set is authoritative; the name is a label.
+- creature - `mutant`: one pooled bag, gated at runtime on any real mutant being present (a single
+  boolean, not per-species). Fed by `monsters/<species>` (combat filtered out), `soundscape/mutants`,
+  and the flat `spooks_above/mutants` trees. Species is preserved in provenance only, never a subfolder.
+- zone ambience - `mutant_ambient_forest` / `_swamp` / `_urban` / `_field`: per-zone horror-mutant
+  atmosphere, map-selected per level, no time and no species. Fed by the terrain-split
+  `trx/spooks_above/<zone>{day,night}mutants` trees.
+- ambience - `spook`, `scream`, `drone`, `dark_signal`, `industrial`, `structural`, `labs`, `drip`,
+  `wind`, `foliage`, `wildlife`, `urban`, `gunfire`, `rats`, `bats`.
 
-Ambience categories are de-mixed from the source structure (`spooks_above` = surface, `spooks_below` =
-underground, terrain vs species naming): e.g. the old `machine` category was surface urban/plant drones
-mis-gated underground and becomes `industrial` (surface); the ~142 terrain-mutant sounds mislabeled as
-`spook` become `mutant`; `creak` (outdoor branches) becomes `foliage`; interior structural creaks live
-in `structural`. Creatures are one atomic category per identifiable species, presence-gated.
+Categories are de-mixed from the source structure by folder path (`spooks_above` = surface,
+`spooks_below` = underground): the old `machine` bucket becomes surface `industrial`; the underground
+mega-bucket becomes `labs` (`underground` is now only the enclosure STATE, never a category); terrain
+mutants split off into the four `mutant_ambient_<zone>` zones; `creak` becomes `foliage`; vermin split
+into `rats` and `bats`. A category is split only along a filter axis the runtime acts on (env, per-map
+zone, presence) - that is why the four zones are separate categories but the underground kinds collapse
+into `labs`.
 
 ## The base-veto: static DLTX removal, plus a logging observer
 
@@ -320,7 +329,9 @@ a separate slot from the director's `dread_director`; the two never share.
   among the source packs, never against the target modpack.
 - I4 Fitness is codec plus sample rate: 44100 Hz vorbis. Off-spec files are dropped and accounted.
 - I5 Ship byte for byte. Per-file volume and distance are the file's own X-Ray blob. A blob-less file
-  gets a category-band blob written losslessly, base_volume 1.0.
+  gets a category-band blob written losslessly, base_volume 1.0. The one exception is a file that must
+  be transformed to fit the one-shot model: a `dark_signal` bed too long for the emission tick is sliced
+  into desilenced pieces, which re-encode and so lose the source blob (booked "cut", category-median blob).
 - I6 Capture from folder trees, not just wired files. The ledger proof is what drives UNUSED-DARK to
   0.
 - I7 Selection is manual and per-pack. A pack's folders are mapped to categories by hand in
@@ -363,14 +374,15 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
 - Signal analysis: `ffmpeg` (`aspectralstats` centroid and flatness, `astats` crest, `ebur128`
   loudness), `ffprobe` (duration, rate, codec). Dedup identity: md5, then Chromaprint `fpcalc`, then
   PCM cross-correlation. Resolved from `$PORTX_ROOT/packages` by `soundpool.py`.
-- Committed data: `merged_channels.json` (pool plus per-channel source settings), `classification.json`
-  (measured features), `loudness_outliers.json`, `ledger.tsv` (coverage proof), `provenance.tsv`
-  (origin of every shipped sound).
-- `merge.py` is the pipeline, its `MODS` list is the source of truth. `soundpool.py` is the
-  probe and resolver.
+- Committed data: `merged_channels.json` (the curated corpus per category), `classification.json`
+  (measured features), `loudness_outliers.json`, `folder_audit.tsv` (which source folders each category
+  pulled), `ledger.tsv` (coverage proof), `provenance.tsv` (origin of every shipped sound).
+- `merge.py` is the pipeline; its `MODS` list and `route`/`ROUTE` table are the source of truth. The
+  whole run is one command, `merge.py all` (plan -> classify -> loudness -> deploy -> ledger ->
+  provenance, in order). `soundpool.py` is the probe and resolver.
 
-Adopting a pack: assess it by hand, add it to `MODS` and its folder rules to `DARK_FILL`, re-run the
-pipeline, read the ledger (UNUSED-DARK must stay 0) and the provenance self-verify (0 mismatch).
+Adopting a pack: assess it by hand, add it to `MODS` and its folder rules to `ROUTE`, re-run
+`merge.py all`, read the ledger (UNUSED-DARK must stay 0) and the provenance self-verify (0 mismatch).
 
 ## Deploy
 

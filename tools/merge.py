@@ -16,105 +16,128 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import soundpool as sp
 
-# Channels whose curated content does not resolve from any mod's config get filled
-# deliberately from a content folder. out_mutants: the distant-growl recordings live
-# under soundscape/mutants and no channel def points at them, so assign them here.
-MANUAL_FILL = [
-    # distant creature calls: soundscape/mutants ships them but no channel def points at them.
-    {"chan": "out_mutants",
-     "root": "C:/Users/damian/Downloads/anomaly_audio_mods/Dark Signal Amplified Soundscape/gamedata/sounds/ambient/soundscape/mutants",
-     "pattern": r"distant", "mono": False, "limit": 100000},
-    # 276 is a CREATURE-sound pack (monsters/<species>/), dread mixed with combat. Pull ONLY the
-    # near-lurking dread by filename (idle / growl / ambient_drone / eat); the combat sounds
-    # (attack/hit/die/pain) are left out - fired ambiently with no mutant they play out of context.
-    {"chan": "out_mutants",
-     "root": "C:/Users/damian/Downloads/anomaly_audio_mods/276- Dark Signal Mutants Audio - Shrike/gamedata/sounds/monsters",
-     "pattern": r"(idle|growl|ambient_drone|_eat)", "mono": False, "limit": 100000},
+LOWQ_BITRATE = 32000  # drop clearly junk-bitrate files when a category has better
+
+# The CATEGORY list - the shipped folders (zs/<name>) and the manifest keys. The pipeline ONLY captures
+# and organizes: `route` (below) maps each source file to one of these by folder path. It carries NO
+# play rules - env, presence gates, map-eligibility and enclosure filters are RUNTIME selection, owned by
+# as_effect + the per-map LTX, never baked here. Ordered for the report/audit; `mutant` is one pooled bag.
+CATEGORIES = [
+    "mutant",
+    "mutant_ambient_forest", "mutant_ambient_swamp", "mutant_ambient_urban", "mutant_ambient_field",
+    "spook", "scream", "drone", "dark_signal",
+    "industrial", "structural", "labs", "drip",
+    "wind", "foliage", "wildlife", "urban", "gunfire", "rats", "bats",
 ]
-LOWQ_BITRATE = 32000  # drop clearly junk-bitrate files when a channel has better
+CATEGORY_NAMES = set(CATEGORIES)
 
-# Dark scope (I9): the ONLY channels AlifeSpooks keeps. Everything else in the
-# packs (generic daytime life, neutral beds, plain wind) is left to the base
-# ambience. Emission (blowout_*, emission_wind) is a separate system, never touched.
-# Grouped by family - the same grouping seeds the runtime per-family policy later.
-DARK_KEEP = {
-    # dread cues
-    "out_spooks", "out_day_spoops", "out_night_spoops", "northen_spoops", "urban_spoops_night",
-    "out_screams", "out_mutants", "out_dark_amb", "out_night_amb", "dark_signal",
-    "foliage_spook", "crows_spook", "inside_noise",
-    "background_creepy_low_wind",
-    "background_forest_whisper_day", "background_forest_whisper_evening",
-    "background_forest_whisper_morning", "background_forest_whisper_night",
-    # underground horror
-    "ugrnd_ambient", "ugrnd_ambient_machine", "ugrnd_ambient_new", "ugrnd_banging", "ugrnd_bkg_1",
-    "ugrnd_drip", "ugrnd_drone", "ugrnd_lab", "ugrnd_metal", "ugrnd_noise", "ugrnd_rats", "ugrnd_voices",
-    "underground_background_1", "underground_background_2", "underground_background_3", "underground_background_4",
-    "underground_background_5", "underground_background_6", "underground_background_7", "underground_background_8", "x18",
-    # tension
-    "out_gunfire", "out_drone", "drones", "day_drones", "urban_drones",
-    "wind_creep", "wind_creep_alt", "wind_creep_urban", "branch", "branch_big", "branch_med",
-    "urban_debris",
-    # eerie wildlife (crows/owls/dogs) + tree creaks. Generic birds, fog, and weather DROPPED.
-    "owls", "dogs", "crows", "crows_clear", "crows_forest", "crows_retune", "tree_sway_fog",
-    # dread wind (creeping/howling, NOT storm/rain)
-    "wind_dark", "wind_gale", "wind_heavy", "wind_strong",
-}
+# Out-of-scope / misfiled source paths to skip (n109). psi-storm is emission-domain (readme: "does not
+# touch emission or psi-storm sound"); giant_underground is a monster roar misfiled into an ambient tree;
+# ambience_exp is the Immersive Ambience Expansion weather tree (silent drip, non-dread wind - user-checked).
+EXCLUDE = ("psi_storm", "psistorm", "giant_underground", "ambience_exp")
 
-# Folder-tree capture: the packs ship far more dark content than they wire into a
-# channel's sounds= list (proven by the ledger: 1103 genuinely-new unused dark
-# files). So we pull dark content from the FOLDER TREES directly, not just
-# channel-referenced files. First matching substring (checked in order) maps the
-# file to a channel; content-hash dedup collapses cross-tree copies. This is how
-# ALL the horror (distant mutants, screams, spooks, underground) gets in.
-# Weather (storm/rain/thunder/pre_storm) and fog (tuman) are DROPPED: weather is the base ambient's
-# job (user). Rules are kept tight - full-path folder substrings that are unambiguously dread - so no
-# random shit is pulled. monsters/ (top-level creature combat) is deliberately NOT matched here; the
-# ambient mutant dread lives under ambient/soundscape/mutants/, a different tree.
-DARK_FILL = [
-    ("/screams", "out_screams"),
-    ("ambient/soundscape/mutants/", "out_mutants"), ("spooks_above/mutants", "out_mutants"),
-    ("amb_dark", "out_dark_amb"), ("amb_night", "out_night_amb"),
-    ("spooks_below/metal", "ugrnd_metal"), ("spooks_below/banging", "ugrnd_banging"),
-    ("spooks_below/rats", "ugrnd_rats"), ("spooks_below/noise", "ugrnd_noise"),
-    ("spooks_below/lab", "ugrnd_lab"), ("water_drip", "ugrnd_drip"), ("/drip", "ugrnd_drip"),
-    ("spooks_below/machine", "ugrnd_ambient_machine"), ("spooks_below/ambient", "ugrnd_ambient"),
-    ("spooks_below/creaks", "ugrnd_ambient"),          # Audio Expansion creaking underground dread
-    ("spooks_below/drone", "ugrnd_drone"), ("spooks_above/drone", "out_drone"),
-    ("spooks_below/spooks", "out_spooks"), ("spooks_above/spooks", "out_spooks"), ("/spooks/", "out_spooks"),
-    ("/shooting", "out_gunfire"), ("wind_dark", "wind_heavy"),
-    ("spoops/urban_drones", "urban_drones"), ("spoops/drones", "out_drone"),
-    ("northern_spoops", "out_spooks"),
-    ("spooks_above", "out_spooks"), ("spooks_below", "out_spooks"),
-    ("nature/whispers", "out_spooks"), ("/whispers", "out_spooks"),   # surface whisper dread
-    ("ugrnd_whispers", "ugrnd_voices"),
-    ("/underground/", "ugrnd_ambient"), ("underground_", "ugrnd_ambient"),
+# Zone terrains for the map-selected mutant_ambient_<zone> categories (n117: forest/swamp/urban/field).
+ZONES = ("forest", "swamp", "urban", "field")
+# Creature-pool keep filter: from a monsters/<species> or soundscape/mutants/<species> tree, keep only
+# the near-lurking AMBIENT dread (idle/growl/ambient_drone/eat/distant/moan/breath). Combat sounds
+# (attack/hit/die/pain/step) are dropped - fired ambiently with no creature present they play out of
+# context. The gate is a single boolean, so species is preserved in provenance only, not a subfolder.
+MUTANT_KEEP = re.compile(r"(idle|growl|ambient_drone|_eat|distant|moan|breath|lurk)", re.I)
+
+# STRUCTURAL per-file allowlist (n117): first matching substring maps a source path to a category. Ordered
+# specific-first. Whole-tree capture, not keyword matching. Anything unmatched is DROPPED (dark scope, I9).
+# Weather (storm/rain/thunder/pre_storm/tuman) and generic life (birds/bugs/insects/frogs) are left out.
+ROUTE = [
+    ("/screams", "scream"),
+    ("/dark_signal", "dark_signal"), ("radio/white_noise", "dark_signal"),   # the 4-min radio static bed
+    # spooks_below/<sub> (the packs nest this under .../soundscape/underground/, so the sub-tree is the
+    # discriminator, NOT the container folder). Specific first, so vermin/water/creaks win over labs.
+    ("spooks_below/rats", "rats"),
+    ("spooks_below/bats", "bats"),
+    ("spooks_below/water_drip", "drip"), ("spooks_below/drip", "drip"),
+    ("spooks_below/creaks", "structural"),
+    ("spooks_below/drone", "drone"),
+    ("spooks_below/lab", "labs"), ("spooks_below/machine", "labs"), ("spooks_below/metal", "labs"),
+    ("spooks_below/noise", "labs"), ("spooks_below/banging", "labs"), ("spooks_below/ambient", "labs"),
+    ("spooks_below/background", "labs"), ("spooks_below/lowrumble", "labs"), ("spooks_below/lowchancerumble", "labs"),
+    ("spooks_below/spooks", "spook"),
+    # spooks_above/<sub> (surface, also under the underground container in some packs)
+    ("spooks_above/drone", "drone"),
+    ("spooks_above/spooks", "spook"),
+    # other trees for the same kinds
+    ("water_drip", "drip"), ("/drip", "drip"),
+    ("nature/bats", "bats"),
+    ("/creak", "structural"),
+    ("device/airtight", "structural"), ("device/door", "structural"),
+    ("device/metal_small", "structural"), ("device/old/door", "structural"),
+    ("out_drone", "drone"),
+    ("urban_drones", "industrial"), ("day_drones", "industrial"), ("/drones", "industrial"),
+    ("urban_spoops", "urban"), ("urban_debris", "urban"), ("ambienturban", "urban"),
+    # dread wind ONLY (creep/dark/gale/heavy/strong); generic/forest/normal/gust/storm/rain left out
+    ("wind_dark", "wind"), ("wind_creep", "wind"), ("wind_gale", "wind"), ("wind_heavy", "wind"),
+    ("wind_strong", "wind"), ("spookgust", "wind"), ("galewind", "wind"), ("windwhistle", "wind"),
+    ("creepy_low_wind", "wind"),
+    ("foliage_spook", "foliage"), ("/branch", "foliage"), ("tree_sway_fog", "foliage"), ("/rustle", "foliage"),
+    ("soundscape/foliage", "foliage"),
+    ("crow/", "wildlife"), ("crows/", "wildlife"), ("owl/", "wildlife"), ("owls/", "wildlife"),
+    ("dog/", "wildlife"), ("dogs/", "wildlife"),
+    ("/shooting", "gunfire"), ("out_gunfire", "gunfire"),
+    # generic surface spook (whispers, spoops, amb_dark/night)
+    ("/spooks/", "spook"), ("northern_spoops", "spook"), ("northen_spoops", "spook"), ("_spoops", "spook"),
+    ("whisper", "spook"),
+    ("amb_dark", "spook"), ("amb_night", "spook"),
+    ("spooks_above", "spook"),
+    # standalone underground trees -> labs, LAST (spooks_above/below already routed above; this catches the
+    # loose ambient/underground, soundscape/underground/under_NN, ugrnd, x18/x16 files with no sub-tag)
+    ("ugrnd_", "labs"), ("/ugrnd/", "labs"), ("/x18", "labs"), ("/x16", "labs"),
+    ("ambient/underground/", "labs"), ("soundscape/underground/", "labs"), ("underground_", "labs"),
 ]
 
-# Out-of-scope / misfiled files to skip even when a DARK_FILL or channel rule would
-# capture them (n109, verified 2026-08-06). psi-storm is emission-domain (readme: "does
-# not touch emission or psi-storm sound"); giant_underground is a monster roar misfiled
-# into ugrnd_ambient. Substring match on the lowercased source path.
-EXCLUDE = ("psi_storm", "psistorm", "giant_underground")
 
-# priority order: settings for a shared channel come from the first that defines it
-# Sources are assessed per pack by hand before wiring (which folders hold real dread), then their
-# folders map to channels in DARK_FILL / MANUAL_FILL. 304 Dark Signal Weather is out (GAMMA's Dark
-# Signal, sounds muted at wrong levels). The Amplified variants (Vanilla/Atmospherics) are byte-
-# identical to Amplified Soundscape in the dread folders (measured: 3215 md5s, 0 unique), so only
-# Soundscape is pulled. Doom II NSDARK is deferred (n116).
+def route(path):
+    """Structural per-file category routing (n117): a source path -> a category name, or None to drop.
+    Whole-tree allowlist by folder, not keyword matching on the filename. Order: exclusions, zone-mutant
+    ambience, the creature pool, then the flat ambience allowlist (first match wins)."""
+    p = path.replace("\\", "/").lower()
+    if any(x in p for x in EXCLUDE):
+        return None
+    # zone-mutant ambience: ONLY the terrain-split trx/spooks_above/<zone>{day,night}mutants (validated
+    # horror). The soundscape/background/<Terrain> beds were user-checked and rejected (birds/generic, no
+    # horror), so they are NOT routed here - the zones are pure zone-mutant content.
+    for z in ZONES:
+        if z + "daymutants" in p or z + "nightmutants" in p:
+            return "mutant_ambient_" + z
+    # creature pool. wolf/mwolf are eerie wildlife, not creatures. monsters/<sp> is a creature-sound tree
+    # with COMBAT mixed in, so MUTANT_KEEP filters out attack/hit/die there. soundscape/mutants and the flat
+    # spooks_above/mutants are ALREADY ambient/distant dread (named sound_NN), so keep them all - no filter.
+    if "/wolf/" in p or "/mwolf/" in p:
+        return "wildlife"
+    if "/monsters/" in p:
+        return "mutant" if MUTANT_KEEP.search(p) else None
+    if "/soundscape/mutants/" in p or "spooks_above/mutants" in p:
+        return "mutant"
+    return next((c for sub, c in ROUTE if sub in p), None)
+
+# Source packs, assessed by hand before wiring. Capture is STRUCTURAL per-file (ROUTE, below): each
+# pack's folder trees map to categories by path, so the whole horror tree is pulled, not just the
+# files a channel wires. n117: +DS Amplified Vanilla / 457 RETUNE / 304 Dark Signal Weather; the drops
+# (DS Overhaul Atmospherics, RE-TUNE Ambience, 274 bullet SFX) are simply not listed. Doom II NSDARK
+# deferred (n116). vanilla stays last for portability coverage only.
 MODS = [
     ("Amplified",      "C:/Users/damian/Downloads/anomaly_audio_mods/Dark Signal Amplified Soundscape/gamedata"),
+    ("AmplifiedVanilla", "C:/Users/damian/Downloads/anomaly_audio_mods/DS Amplified Vanilla/gamedata"),
     ("Soundscape",     "D:/Games/GAMMA/GAMMA/mods/3- Soundscape Overhaul - Solarint/gamedata"),
-    # myRETUNE Antares (user-vouched): its ambient/soundscape/underground/spooks_above|below tree is the
-    # same dread structure DARK_FILL matches. Replaces the disabled GAMMA 457 (same lineage).
+    ("RETUNE457",      "D:/Games/GAMMA/GAMMA/mods/457- RETUNE Ambiant Sounds - Aphrodite_child/gamedata"),
+    ("DarkSignal304",  "D:/Games/GAMMA/GAMMA/mods/304- Dark Signal Weather and Ambiance Audio - Shrike/gamedata"),
+    # myRETUNE Antares (user-vouched): the same soundscape/underground/spooks_above|below dread tree.
     ("myRETUNE",       "C:/Users/damian/Downloads/anomaly_audio_mods/myRETUNE_AntaresWolverine_2.1/myRETUNE ambience sounds ver2.1/gamedata"),
-    # net-new distant-creature calls under soundscape/mutants. No sound_channels.ltx of its own.
+    # net-new distant-creature calls under soundscape/mutants.
     ("RealDistantMutants", "C:/Users/damian/Downloads/anomaly_audio_mods/Real Distant Mutants Sounds/gamedata"),
-    # 276 creature-sound pack: pulled by MANUAL_FILL, filtered to near-lurking dread only (combat out).
+    # 276 creature-sound pack: routed to the mutant pool, near-lurking dread only (combat filtered out).
     ("DSMutants",      "C:/Users/damian/Downloads/anomaly_audio_mods/276- Dark Signal Mutants Audio - Shrike/gamedata"),
-    # net-new underground dread (spooks_below creaks/ambient/noise), not installed in GAMMA.
+    # net-new underground dread + the terrain-split zone-mutant trees (trx/spooks_above/<zone>mutants).
     ("AudioExpansion", "C:/Users/damian/Downloads/anomaly_audio_mods/Audio Expansion/gamedata"),
-    ("vanilla",        "D:/Games/GAMMA/Anomaly/tools/_unpacked"),   # last: only for channels no pack defines (portability coverage)
+    ("vanilla",        "D:/Games/GAMMA/Anomaly/tools/_unpacked"),
 ]
 
 HERE = Path(__file__).resolve().parent
@@ -246,6 +269,14 @@ DEDUP_XCORR = 0.90  # PCM cross-correlation DECIDER: >= this confirms a candidat
 TARGET_PEAK_DB = -1.0
 CULL_PEAK_DB   = -30.0
                     # Frozen as validated (MANGLE=0); see architecture.md I3.
+# Long-file handling (n117): a sound whose ACTIVE (silence-removed) length exceeds the max emission tick
+# outlives its slot and overlaps the next fire, so it is CULLED - EXCEPT dark_signal, which is SLICED into
+# <=MAX_ACTIVE_S desilenced pieces (keeps the loved 4-min radio as clean pieces). Sliced/desilenced files
+# re-encode -> lose the source X-Ray blob -> get the category-median blob at deploy (the one I5 exception).
+MAX_ACTIVE_S     = 20.0
+SILENCE_NOISE_DB = "-30dB"
+SILENCE_MIN_S    = 0.5
+SLICE_DIR        = HERE / "_sliced"
 
 
 def _active_channels(gd):
@@ -335,120 +366,129 @@ def _loudness_cull(effects):
     print(f"loudness cull: dropped {dropped} files (peak <= {CULL_PEAK_DB} dB or silent)")
 
 
-def cmd_plan(_):
-    # 1. gather every channel's assigned sounds across mods
-    per_mod = {name: parse_channels(gd) for name, gd in MODS}
-    orig_def, pool = {}, collections.defaultdict(list)   # orig_def: settings + original stems from priority mod
-    missing = collections.Counter()
-    offrate = 0
-    for name, gd in MODS:
-        sounds_root = Path(gd) / "sounds"
-        for chan, d in per_mod[name].items():
-            if chan not in DARK_KEEP:            # dark scope only (I9); skip generic life/beds/emission
-                continue
-            if chan not in orig_def and (d["settings"] or d["stems"]):
-                orig_def[chan] = {"mod": name, "settings": d["settings"], "stems": d["stems"]}
-            for stem in d["stems"]:
-                f = resolve(stem, sounds_root)
-                if f is None:
-                    missing[name] += 1
-                    continue
-                if any(x in f.as_posix().lower() for x in EXCLUDE):
-                    continue
-                info = sp.probe(str(f)) or {}
-                if info.get("sample_rate") != 44100:      # X-Ray fitness: 44100 only
-                    offrate += 1
-                    continue
-                pool[chan].append({"abs": str(f), "stem": stem, "pool": name,
-                                   "bitrate": info.get("bit_rate", 0),
-                                   "channels": info.get("channels", 0)})
-    # 1b. manual fill for channels whose curated content does not resolve from a config
-    for rule in MANUAL_FILL:
-        chan = rule["chan"]
-        root = Path(rule["root"])
-        rx = re.compile(rule["pattern"], re.I)
-        cands = []
-        for f in sorted(root.rglob("*.ogg")):
-            if not rx.search(f.as_posix()):
-                continue
-            info = sp.probe(str(f)) or {}
-            if info.get("sample_rate") != 44100:
-                continue
-            if rule.get("mono") and info.get("channels") != 1:
-                continue
-            cands.append({"abs": str(f), "stem": f.as_posix().split("/sounds/")[-1][:-4],
-                          "pool": "ManualFill", "bitrate": info.get("bit_rate", 0),
-                          "channels": info.get("channels", 0)})
-        cands.sort(key=lambda c: -c["bitrate"])
-        pool[chan].extend(cands[:rule.get("limit", 48)])
+def _active_seconds(abs_path, duration):
+    """Non-silent seconds = duration minus the total silence ffmpeg silencedetect reports."""
+    import subprocess
+    r = subprocess.run([sp.tool("ffmpeg"), "-i", abs_path, "-af",
+                        f"silencedetect=noise={SILENCE_NOISE_DB}:d={SILENCE_MIN_S}", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    silence = sum(float(x) for x in re.findall(r"silence_duration:\s*([\d.]+)", r.stderr))
+    return max(0.0, duration - silence)
 
-    # 1c. FOLDER-TREE capture: pull ALL dark content from the trees, not just files a
-    #     channel wires. The packs ship far more than they reference (ledger proof).
-    fill_added = collections.Counter()
+
+def _slice_file(abs_path, out_dir, base):
+    """Strip silence, then segment into <=MAX_ACTIVE_S pieces (re-encoded vorbis). Returns the piece paths."""
+    import subprocess
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pattern = str(out_dir / f"{base}_%03d.ogg")
+    subprocess.run([sp.tool("ffmpeg"), "-y", "-i", abs_path, "-af",
+                    f"silenceremove=stop_periods=-1:stop_duration={SILENCE_MIN_S}:stop_threshold={SILENCE_NOISE_DB}",
+                    "-f", "segment", "-segment_time", str(int(MAX_ACTIVE_S)),
+                    "-c:a", "libvorbis", "-ar", "44100", pattern],
+                   capture_output=True, text=True)
+    return sorted(out_dir.glob(f"{base}_*.ogg"))
+
+
+def _long_file_pass(merged):
+    """Cull files whose ACTIVE length > MAX_ACTIVE_S; dark_signal is SLICED into desilenced pieces instead.
+    Only RAW-duration-over-cap files are silencedetect-probed (active <= raw), so the pass runs on the few
+    long files, not the whole corpus. Books culled + sliced-original hashes so the ledger keeps UNUSED-DARK 0."""
+    import shutil
+    if SLICE_DIR.exists():
+        shutil.rmtree(SLICE_DIR)
+    culled, sliced_orig, sliced_to = [], [], 0
+    for cat in merged:
+        new_chosen = []
+        for c in merged[cat]["chosen"]:
+            if float(c.get("dur") or 0.0) <= MAX_ACTIVE_S:      # raw already short -> active shorter, keep
+                new_chosen.append(c)
+                continue
+            active = _active_seconds(c["abs"], float(c.get("dur") or 0.0))
+            if active <= MAX_ACTIVE_S:
+                new_chosen.append(c)
+            elif cat == "dark_signal":
+                sliced_orig.append(c["hash"])
+                for p in _slice_file(Path(c["abs"]), SLICE_DIR / cat, Path(c["stem"]).name):
+                    sliced_to += 1
+                    piece = dict(c)
+                    piece.update(abs=str(p), stem=Path(c["stem"]).as_posix() + "#" + p.stem,
+                                 hash=file_hash(p), cut=True)
+                    new_chosen.append(piece)
+            else:
+                culled.append(c["hash"])
+        merged[cat]["chosen"] = new_chosen
+    (HERE / "longfile_culled.json").write_text(json.dumps(sorted(set(culled))), encoding="utf-8")
+    (HERE / "sliced_dropped.json").write_text(json.dumps(sorted(set(sliced_orig))), encoding="utf-8")
+    print(f"long-file pass: culled {len(culled)} (active > {int(MAX_ACTIVE_S)}s); "
+          f"sliced {len(sliced_orig)} dark_signal -> {sliced_to} pieces")
+
+
+def cmd_plan(_):
+    # STRUCTURAL per-file capture (n117): walk every pack's sound tree, route each file to a category by
+    # its FOLDER PATH (route), gate on 44100, pool by category. No channel parsing - the packs ship far
+    # more dark content than they wire, so the folder trees are the source of truth. Unmatched files are
+    # dropped (dark scope, I9); the folder audit proves no generic folder leaked in.
+    pool = collections.defaultdict(list)                        # category -> [file dicts]
+    audit = collections.defaultdict(collections.Counter)       # category -> {source_folder: count}
+    offrate = dropped_scope = 0
     for name, gd in MODS:
         sroot = Path(gd) / "sounds"
         if not sroot.is_dir():
             continue
         for f in sroot.rglob("*.ogg"):
-            rel = f.as_posix().lower()
-            if any(x in rel for x in EXCLUDE):
-                continue
-            chan = next((c for sub, c in DARK_FILL if sub in rel), None)
-            if not chan:
+            cat = route(f.as_posix())
+            if not cat:
+                dropped_scope += 1
                 continue
             info = sp.probe(str(f)) or {}
-            if info.get("sample_rate") != 44100:
+            if info.get("sample_rate") != 44100:               # X-Ray fitness: 44100 only
                 offrate += 1
                 continue
-            pool[chan].append({"abs": str(f), "stem": f.as_posix().split("/sounds/")[-1][:-4],
-                               "pool": name, "bitrate": info.get("bit_rate", 0),
-                               "channels": info.get("channels", 0)})
-            fill_added[chan] += 1
-    print(f"folder-tree capture added (pre-dedup): {dict(fill_added)}")
+            rel = f.as_posix().split("/sounds/", 1)[-1]
+            pool[cat].append({"abs": str(f), "stem": rel[:-4], "pool": name,
+                              "bitrate": info.get("bit_rate", 0), "channels": info.get("channels", 0),
+                              "dur": info.get("duration") or 0.0})
+            audit[cat][name + ":" + str(Path(rel).parent)] += 1
 
-    # 2. EVERY channel the base defines is emitted (missing section = engine CTD).
-    #    Filled channels get our deduped content; unfilled ones (blowout/emission,
-    #    packed-only) keep their original stems so they resolve from the base VFS.
+    # dedup per category (source-side waveform), then silence + cross-category dedup
     merged = {}
-    tot_in = tot_kept = tot_dropped = inherited = 0
+    tot_in = tot_kept = 0
     kept_hashes = set()
-    for chan in sorted(set(orig_def) | set(pool)):
-        files = pool.get(chan, [])
+    for cat in CATEGORY_NAMES:
+        files = pool.get(cat, [])
         tot_in += len(files)
         chosen = dedup_pick(files) if files else []
         kept_hashes |= {c["hash"] for c in chosen}
-        tot_dropped += len(files) - len(chosen)
         tot_kept += len(chosen)
-        od = orig_def.get(chan, {"mod": "?", "settings": [], "stems": []})
-        if not chosen and od["stems"]:
-            inherited += 1
-        merged[chan] = {
-            "settings_src": od["mod"], "settings": od["settings"],
-            "orig_stems": od["stems"],
-            "chosen": [{"abs": c["abs"], "stem": c["stem"], "pool": c["pool"],
-                        "bitrate": c["bitrate"], "channels": c["channels"]} for c in chosen],
+        merged[cat] = {
+            "chosen": [{"abs": c["abs"], "stem": c["stem"], "pool": c["pool"], "hash": c["hash"],
+                        "bitrate": c["bitrate"], "channels": c["channels"], "dur": c.get("dur", 0.0)}
+                       for c in chosen],
         }
-    # Intra-corpus re-encodes the PCM dedup dropped (distinct bytes, cross-correlation-confirmed
-    # the same recording as a KEPT sound): record their hashes so the ledger books them as
-    # captured-then-deduped, not as a coverage miss. md5-losers share a hash with the kept
-    # winner (so their hash is in kept_hashes); only the acoustic drops remain in this set.
+    # Intra-corpus re-encodes the PCM dedup dropped: their hashes, so the ledger books them as
+    # captured-then-deduped, not a coverage miss (md5-losers share the winner's hash, already in kept).
     pool_hashes = {f["hash"] for fs in pool.values() for f in fs if "hash" in f}
     (HERE / "intra_dups.json").write_text(json.dumps(sorted(pool_hashes - kept_hashes)), encoding="utf-8")
-    # No target-modpack dedup. Doubling with the base (or a source pack a player also runs) is
-    # handled at runtime by the base-veto: as_effect owns update_ambient and mutes the base's copy
-    # of any sound we ship (as_blockdata). So we ship the full curated dark corpus and own it under
-    # the director. Source-side dedup (dedup_pick + _cross_channel_dedup) still runs.
+    # No target-modpack dedup. Doubling with the base is handled at config load by the static DLTX veto.
     _silence_gate(merged)
     _cross_channel_dedup(merged)
+    _long_file_pass(merged)                    # cull active > 20s; slice dark_signal into desilenced pieces
     (HERE / "merged_channels.json").write_text(json.dumps(merged, indent=1), encoding="utf-8")
 
-    # 3. report
-    print(f"mods merged: {[m[0] for m in MODS]}")
-    net_new = sum(len(v["chosen"]) for v in merged.values())
-    print(f"channels (union): {len(merged)}   filled: {sum(1 for v in merged.values() if v['chosen'])}   inherited (blowout/packed): {inherited}")
-    print(f"sounds pooled: {tot_in}  ->  deduped {tot_kept}  ->  shipped {net_new}  (dropped {tot_dropped}: exact dups + junk bitrate; {offrate} off-44100 skipped)")
-    if missing:
-        print(f"unresolved sound refs (packed/missing files): {dict(missing)}")
+    # folder audit: per category, the source folders it pulled, so a wrong/generic folder shows.
+    audit_lines = ["category\tsounds\tsource_folders(count)"]
+    for cat in CATEGORIES:
+        srcs = "; ".join(f"{d}({k})" for d, k in sorted(audit[cat].items()))
+        audit_lines.append(f"{cat}\t{len(merged[cat]['chosen'])}\t{srcs}")
+    (HERE / "folder_audit.tsv").write_text("\n".join(audit_lines) + "\n", encoding="utf-8")
+
+    # report
+    print(f"mods: {[m[0] for m in MODS]}")
+    net = sum(len(v["chosen"]) for v in merged.values())
+    print(f"categories: {len(merged)}   pooled {tot_in} -> deduped {tot_kept} -> shipped {net}   "
+          f"(dropped out-of-scope {dropped_scope}; off-44100 {offrate})")
+    for cat in CATEGORIES:
+        print(f"  {cat:24s} {len(merged[cat]['chosen']):4d}")
 
 
 def parse_presets(gamedata):
@@ -880,61 +920,16 @@ def _chan_settings(lines):
             "indoor": d.get("indoor") == "true", "height": num(d.get("height"), 0)}
 
 
-# The director categories, which ARE the shipped directories (zs\<category>). The gate and weight
-# per category live in as_effect CATEGORIES; category_of only decides which directory a sound lands
-# in. Every captured source channel maps to exactly one, aligned with as_effect CATEGORIES.
-CATEGORIES = ["drone", "spook", "scream", "growl", "machine", "gunfire",
-              "underground", "creak", "wind_creep", "animals"]
-
-
-def category_of(ch):
-    c = ch.lower()
-    if c == "out_gunfire": return "gunfire"
-    if c == "out_screams": return "scream"
-    if c == "out_mutants": return "growl"
-    if c.startswith("ugrnd_") or c.startswith("underground_") or c == "x18" or c == "inside_noise":
-        return "underground"
-    if c in ("dark_signal", "out_dark_amb", "out_night_amb", "out_drone"):
-        return "drone"
-    if c in ("day_drones", "drones", "urban_drones", "urban_debris"):
-        return "machine"
-    if c in ("branch", "branch_big", "branch_med", "tree_sway_fog"):
-        return "creak"
-    if "wind" in c or c == "background_creepy_low_wind":
-        return "wind_creep"
-    if c in ("crows", "crows_clear", "crows_forest", "crows_retune", "owls", "dogs"):
-        return "animals"
-    return "spook"   # out_spooks, *_spoops, crows_spook, foliage_spook, whispers, default
-
-
-def _classical_cadence():
-    """Average ms between spook one-shots in the classical ambient system, measured from vanilla and
-    Dark Signal Amplified Soundscape (user). In a section several spook channels run at once, each on
-    its period0-3, so the combined rate is faster than a single period: take the median spook-channel
-    period over the average count of spook channels a section runs, then average the two sources. The
-    director aims its per-tick emit probability at this, so density matches the base, not a guess."""
-    def rate(gd):
-        periods = []
-        for ch, d in parse_channels(gd).items():
-            if ch in DARK_KEEP:
-                pv = [p for p in _chan_settings(d["settings"])["p"] if p > 0]
-                if pv:
-                    periods.append(sum(pv) / len(pv))
-        med = _median(sorted(periods)) if periods else 15000.0
-        counts = [len([c for c in sd.get("dynamic", []) if c in DARK_KEEP])
-                  for _f, secs in parse_presets(gd).items() for _s, sd in secs.items()]
-        counts = [n for n in counts if n > 0]
-        n = (sum(counts) / len(counts)) if counts else 1.0
-        return med / max(1.0, n)
-    v = rate(VAN_CFG)
-    a = rate("C:/Users/damian/Downloads/anomaly_audio_mods/Dark Signal Amplified Soundscape/gamedata")
-    return int((v + a) / 2)
+# The category table (CATEGORIES, top of file) is the single source of truth. merged_channels.json is
+# keyed by category directly (structural per-file capture), so the deploy groups by category identity -
+# no channel->category mapping. The shipped directory is zs\<category>.
 
 
 def effect_group_map():
-    """source channel -> category (the shipped directory). Every captured channel maps to one."""
+    """category -> category identity, for every category that captured content. The deploy groups a
+    sound into the directory named by its category (structural capture already assigned it)."""
     mc = json.loads((HERE / "merged_channels.json").read_text())
-    return {ch: category_of(ch) for ch in sorted(mc) if mc[ch]["chosen"]}
+    return {cat: cat for cat in sorted(mc) if mc[cat]["chosen"]}
 
 
 def cmd_deploy(a):
@@ -959,15 +954,14 @@ def cmd_deploy(a):
 
     _normalize_blobs(effects, snd)    # peak-normalize base_volume + write the attenuation blob per file
 
-    # as_manifest: category -> its sounds, each { path, min_distance, max_distance, height }. The
-    # director reads THIS instead of sound_channels.ltx. Placement min/max come from the DEPLOYED ogg
-    # blob (n108), so the director's positioning and the engine's attenuation use one curve; height
-    # comes from the source channel settings. Anomaly Lua cannot list a directory at runtime, so the
-    # sound list has to be shipped as data.
-    settings = {ch: _chan_settings(mc[ch].get("settings")) for ch in mc}
+    # as_manifest: category -> its sounds, each { path, min_distance, max_distance, height }. The director
+    # reads THIS instead of sound_channels.ltx. min/max come from the DEPLOYED ogg blob (n108), so the
+    # director's positioning and the engine's attenuation use one curve. height is 0 (no channel source
+    # under structural capture); per-category overhead offsets, if wanted, are a RUNTIME concern in
+    # as_effect. Anomaly Lua cannot list a directory at runtime, so the sound list ships as data. Paths
+    # only - no play rules (env/requires/gates live in as_effect, not the manifest).
     man = ["--- as_manifest: GENERATED by tools/merge.py, do not edit. Category -> its sounds for the",
            "--- director (as_effect reads this, not sound_channels.ltx). Each: { path, min, max, height }.",
-           "--- cadence_ms is the measured classical spook interval (vanilla + Dark Signal Amplified).",
            "categories = {"]
 
     def _pack(cells, indent, budget=185):    # fill a line to <=budget chars then wrap (under the 200 cap)
@@ -988,12 +982,11 @@ def cmd_deploy(a):
         for i, e in enumerate(effects[cat], 1):
             b = _read_blob((snd / cat / f"{i}.ogg").read_bytes())
             mn, mx = (round(b[0], 1), round(b[1], 1)) if b else (1, 300)
-            h = settings.get(e["ch"], {}).get("height", 0)
-            cells.append('{ "zs\\\\%s\\\\%d", %s, %s, %s }' % (cat, i, mn, mx, h))
+            cells.append('{ "zs\\\\%s\\\\%d", %s, %s, %s }' % (cat, i, mn, mx, 0))
         man.append('\t["%s"] = {' % cat)
         man += _pack(cells, "\t\t")
         man.append("\t},")
-    man += ["}", "", "cadence_ms = %d" % _classical_cadence()]
+    man += ["}"]
     (root / "scripts").mkdir(parents=True, exist_ok=True)
     (root / "scripts" / "as_manifest.script").write_text("\n".join(man) + "\n", encoding="utf-8")
 
@@ -1006,8 +999,7 @@ def cmd_deploy(a):
     (env / "mod_sound_channels_alifespooks.ltx").write_text(dltx, encoding="utf-8")
 
     print(f"deployed to {root}")
-    print(f"  categories: {len(effects)}; sounds: {sum(len(v) for v in effects.values())}; "
-          f"cadence {_classical_cadence()}ms")
+    print(f"  categories: {len(effects)}; sounds: {sum(len(v) for v in effects.values())}")
     print(f"  veto DLTX: {n_rm} removals across {n_ch} channels")
 
 
@@ -1038,6 +1030,8 @@ def cmd_ledger(a):
         p = HERE / fn
         return set(json.loads(p.read_text())) if p.exists() else set()
     silence_dropped = _load_set("silence_dropped.json") # dropped as dead/empty (true peak -inf)
+    longfile_culled = _load_set("longfile_culled.json") # dropped: active length > MAX_ACTIVE_S
+    sliced_dropped  = _load_set("sliced_dropped.json")  # dark_signal originals replaced by sliced pieces
     rows, counts, pending = [], collections.Counter(), []
     for name, gd in MODS:
         if name == "vanilla":
@@ -1051,6 +1045,7 @@ def cmd_ledger(a):
             h = file_hash(f)
             dark = any(k in low for k in DARK_KW)
             emission = any(k in low for k in EMISSION_KW)
+            excluded = any(x in low for x in EXCLUDE)   # intentionally out-of-scope trees (ambience_exp, ...)
             under_root = low.split("/", 1)[0] in INCLUDE_ROOTS
             if _audio_hash(f) in deployed:
                 st = "USED-shipped"
@@ -1058,10 +1053,16 @@ def cmd_ledger(a):
                 st = "USED-effect-unshipped"
             elif emission:
                 st = "EMISSION-excluded"
+            elif excluded:
+                st = "EXCLUDED-scope"
             elif h in intra_dropped:                    # our own re-encode, deduped by cross-correlation
                 st = "INTRA-DUP-excluded"
             elif h in silence_dropped:                  # dead/empty, dropped by the silence gate
                 st = "SILENCE-excluded"
+            elif h in longfile_culled:                  # active length over the cap, culled
+                st = "LONGFILE-culled"
+            elif h in sliced_dropped:                   # dark_signal original, replaced by sliced pieces
+                st = "SLICED-excluded"
             elif dark and under_root:
                 info = sp.probe(str(f)) or {}
                 if info.get("sample_rate") != 44100:
@@ -1130,22 +1131,19 @@ def cmd_provenance(a):
     cls = json.loads((HERE / "classification.json").read_text())
     ch_to_cat = effect_group_map()
     effects = _build_layers(mc, cls, ch_to_cat)
-    settings = {ch: _parse_settings(mc[ch]["settings"]) for ch in mc}
-    ch_sec = _channel_sections()
+    _loudness_cull(effects)              # SAME drop deploy applies, so the N-numbering matches the tree
     zs = GDATA / "sounds/zs"
 
-    cols = ["deployed", "category", "orig_mod", "orig_dir", "orig_file", "orig_channel",
-            "min_distance", "max_distance", "period0", "period1", "period2", "period3",
-            "indoor", "height", "base_volume", "orig_sections"]
+    # Structural capture: a sound's origin is its SOURCE PATH (orig_dir/orig_file from the stem) + the
+    # pack it came from. No channel/settings/sections columns - categories are not channels. min/max/
+    # base_volume live in the deployed ogg blob. The audio self-verify is the preservation proof.
+    cols = ["deployed", "category", "orig_mod", "orig_dir", "orig_file", "base_volume"]
     rows, verify_ok, verify_bad = [], 0, 0
     for cat in sorted(effects):                       # every sound deploys to zs\<category>\N
         for i, e in enumerate(effects[cat], 1):
             dep = f"zs\\{cat}\\{i}"
-            s = settings.get(e["ch"], {})
             stem = e["stem"]
             dfile = zs / cat / f"{i}.ogg"
-            # n107/n108: every file ships audio-verbatim; a blob write touches only the comment
-            # header. Record the DEPLOYED base_volume and self-verify by AUDIO.
             bv = ""
             if dfile.exists():
                 b = _read_blob(dfile.read_bytes())
@@ -1156,17 +1154,25 @@ def cmd_provenance(a):
                 else:
                     verify_bad += 1
             rows.append([dep, cat, e["pool"], str(Path(stem).parent).replace("\\", "/"),
-                         Path(stem).name, e["ch"],
-                         s.get("min_distance", ""), s.get("max_distance", ""),
-                         s.get("period0", ""), s.get("period1", ""), s.get("period2", ""), s.get("period3", ""),
-                         s.get("indoor", ""), s.get("height", ""),
-                         str(bv), "; ".join(ch_sec.get(e["ch"], []))])
+                         Path(stem).name, str(bv)])
     lines = ["\t".join(cols)] + ["\t".join(str(x) for x in r) for r in rows]
     (HERE / "provenance.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"provenance: {len(rows)} shipped sounds -> provenance.tsv")
     print(f"audio self-verify vs source (comment-blob-agnostic): {verify_ok} match, {verify_bad} MISMATCH")
     if verify_bad:
         print("  MISMATCH != 0 -> the deploy ordering does NOT reproduce the tree; provenance is NOT exact.")
+
+
+def cmd_all(a):
+    """Run the whole pipeline in order: plan -> classify -> loudness -> deploy -> ledger -> provenance.
+    One command so the sequence (and the classify-after-plan rule) can never be got wrong by hand."""
+    import types
+    ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None))
+    for name, fn in (("plan", cmd_plan), ("classify", cmd_classify), ("loudness", cmd_loudness),
+                     ("deploy", cmd_deploy), ("ledger", cmd_ledger), ("provenance", cmd_provenance)):
+        print(f"\n========== {name} ==========")
+        fn(ns)
+    print("\n========== done ==========")
 
 
 if __name__ == "__main__":
@@ -1179,4 +1185,5 @@ if __name__ == "__main__":
     p = sub.add_parser("deploy"); p.add_argument("--root"); p.set_defaults(func=cmd_deploy)
     sub.add_parser("ledger").set_defaults(func=cmd_ledger)
     sub.add_parser("provenance").set_defaults(func=cmd_provenance)
+    p = sub.add_parser("all"); p.add_argument("--root"); p.set_defaults(func=cmd_all)
     a = ap.parse_args(); a.func(a)
