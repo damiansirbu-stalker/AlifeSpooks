@@ -122,22 +122,28 @@ and accounted, never silently.
 > STATUS: REDESIGN (target). Supersedes the shipped `as_effect.script`; not fully built. Build stages and
 > progress in `doc/todo/todo-alifespooks.md` n117.
 
-A per-map palette, filtered each evaluation to what the world justifies, delivered by proximity. One
-scheduled loop (`execute`, its own `("as_effect","dread_director")` time-event, separate from the
-base-ambient observer) runs a fixed-cadence pipeline and plays at most one sound per emission:
+SELECT is GEOGRAPHY - "where am I" decides what is eligible. One scheduled loop (its own
+`("as_effect","dread_director")` time-event, separate from the base-ambient observer) runs a
+fixed-cadence pipeline and plays at most one sound per emission:
 
-    load     -> static data: rule table, per-map ambience LTX, overrides ltx
-    evaluate -> world -> ctx: smart, enclosure, presence, anomaly, time (cached, refreshed ~3s)
-    select   -> which sound: eligible categories -> category-bag -> sound-bag
+    load     -> static data: the category table (env + need, in as_effect), the per-map list (as_static_map.ltx)
+    where    -> geography: level, enclosure (outdoor/indoor/underground), base owner - plus presence, anomaly, time
+    select   -> which sound: eligible (map + enclosure + need) -> category-bag -> sound-bag
     apply    -> how: dread -> distance + frequency -> position + play
 
-Methods, one per part:
+The category's runtime attributes live HERE, not in the manifest: each category name maps to its `env`
+(the enclosure states it may play in) and its `need` (a live gate). The smart terrain is deliberately NOT
+a select input - smart terrains proved unreliable for filtering (the trader/base cases), so selection reads
+the LEVEL, and the only place-identity signal kept is the base, detected by NPC (a seller near), never by
+smart config. Methods, one per part:
 
-- LOAD: `_load_rule_table` / `_load_map_ambience(level)` / `_load_overrides`
-- EVALUATE: `_evaluate_smart` / `_evaluate_enclosure` / `_evaluate_presence` / `_evaluate_anomaly` / `_evaluate_time`
-- SELECT: `_select` -> `_eligible_categories` / `_env_ok(cat)` / `_requires_ok(cat)` / `_pick_category` / `_pick_sound`
-- APPLY: `_apply` -> `_dread` (+ `_dread_lore/_enclosure/_time/_threat/_company/_base_override`) / `_spawn_distance` / `_next_gap` / `_play_positioned`
-- LOOP: `_director_execute` -> refresh EVALUATE if stale -> `_select` -> `_apply` -> arm next
+- LOAD: `_load_map(level)` (the level's category list) / the category table (`CAT`, a module constant)
+- WHERE: `_where` -> `{ level, enclosure = xcombat.enclosure(pos), base_owner = xsmart.base_owner_near(pos) }`
+  + `_presence` (xcreature.any_mutant_online / any_human_online) / `_anomaly_near` / `_time`
+- SELECT: `_select` -> `_eligible(cat, where)` (map + enclosure + need) / `_pick_category` / `_pick_sound`
+- APPLY: `_apply` -> `_dread` (+ `_dread_lore/_enclosure/_time/_threat/_company` and the base override) /
+  `_spawn_distance` / `_next_gap` / `_play_positioned`
+- LOOP: `_director_execute` -> refresh WHERE if stale -> `_select` -> `_apply` -> arm next
 
 ### Loop cadence and the emission gate
 
@@ -149,24 +155,20 @@ a floor so peak dread never machine-guns.
 
 ### SELECT - which sound plays
 
-Two families of category, unified by two attributes each - an `env` set and a `requires` gate:
+A category is eligible only if ALL three geography checks pass, in order:
 
-- **ambience** (drone, spook, scream, industrial, structural, drip, wind, foliage, wildlife) -
-  terrain-curated: eligible only if the current map's list (the per-map ambience LTX) names it.
-- **creatures** (one atomic category per identifiable species: chimera, controller, burer, bloodsucker,
-  zombie, snork, dog, boar, rat, bat, ...) - NOT map-listed; eligible when that species is present on
-  the level (a level-wide presence check, not a range scan).
+- **map** - the level's list in `as_static_map.ltx` names it. `[default]` holds the universal cues
+  (spook, scream, mutant, drone, gunfire) on every level; each `[level]` adds its terrain flavor, its
+  interior/facility kinds, and the `dark_signal` lore placement. This is the big differentiator: a lab
+  level lists `labs`, a swamp lists `mutant_ambient_swamp`, a wild forest never lists `dark_signal`.
+- **enclosure** - the category's `env` (a subset of `{outdoor, indoor, underground}`) contains the
+  current enclosure state (`xcombat.enclosure`). Outdoor never plays the inside kinds (structural, labs,
+  drip, rats); indoor never plays the outside kinds (foliage, wind, wildlife, urban, the zones).
+- **need** - a live gate: `mutant` needs a mutant present (`xcreature.any_mutant_online`), `gunfire`
+  needs a human present (`any_human_online`), `drone` needs an anomaly near; the rest, none.
 
-Every category then passes two live filters:
-
-- **`env`** - the set of enclosure states it may play in (subset of `{outdoor, indoor, underground}`).
-  Kept only if the current enclosure state is in the set. Common sets have shorthand: outdoor-only
-  (nature), surface `{outdoor, indoor}` (dread), underground-only, anywhere `{all}` (creatures).
-  Oddballs declare their own: rats `{indoor, underground}`, bats `{outdoor, underground}`.
-- **`requires`** - a live precondition. `mutant`/species -> that creature present (level-wide);
-  `human` -> a person present (level-wide); anomaly -> an anomaly near (enables drone); most -> none.
-
-The survivors are the eligible set. Selection is a **symmetrical two-level shuffle-bag**, no weights:
+The base is NOT a select filter: a friendly base is silenced by APPLY (dread -> 0), not by category
+gating. The survivors are the eligible set. Selection is a **symmetrical two-level shuffle-bag**, no weights:
 
 - **category-bag** - cycle every eligible category once before any repeats, refilled from the current
   eligible list each cycle. So a 2-sound category can never be hammered while others wait.
@@ -183,11 +185,12 @@ conditions are true right now, and nothing when none are:
 
     dread = lore + enclosure + time + threat + company
 
-- **lore** - the place's own dread from the overrides file (below), by `type`, per smart terrain; a
-  per-level default when the smart is unlisted.
-- **enclosure** - exactly ONE state (resolved by one check, no double-count): outdoor +0; indoor
-  (surface building, `is_indoor` raycast) +small; underground-in-world (a below-ground spot on a
-  surface level, hand-tagged) +big; underground level +biggest.
+- **lore** - the level's own dread, a per-LEVEL default. The per-smart lore table is dropped: smart
+  terrains proved unreliable to filter or score on (the trader/base cases), so place identity comes from
+  the level plus the base check, not the smart.
+- **enclosure** - exactly ONE state from `xcombat.enclosure`: outdoor +0; indoor (surface building,
+  `is_indoor` raycast) +small; underground level +big (the engine's own underground flag). A below-ground
+  spot on a surface level reads `indoor`, the accepted trade (no per-spot depth signal exists).
 - **time** - night raises dread: day +0, dusk/dawn +small, night/deep-night +medium (capped at medium).
 - **threat** - the single scariest thing present, never a sum: an apex mutant (gigant, controller,
   burer, chimera) +big; else a lesser threat (an enemy, or a mid mutant) +small; else, if no living
@@ -202,13 +205,15 @@ own normalized level x a single master MCM volume slider (no per-category volume
 own geometry (a random point in the sound's source min..max band, halved, random angle, source height);
 the engine's baked attenuation does the fade, the max is never used as the spawn position.
 
-### Base override - real bases, replaces the sum
+### Base override - detected by the seller, cancels the sum
 
-If the nearest smart terrain is a curated `base` (from the overrides file), the additive sum is
-replaced: owner friendly to you (same community or `is_factions_friends`, via `xcreature.relation`) ->
-dread 0, silent; owner hostile (`is_factions_enemies`) -> dread high. Enclosure/time/threat terms are
-ignored inside a base. Base ownership is static in Anomaly and is hand-written, never read from the
-smart config.
+A base is detected by a live SELLER near - `xsmart.base_owner_near(pos)` returns the nearest
+trader/barman/medic/mechanic's faction, measured to the NPC itself, never to a smart center, so it is
+warfare-correct (a captured base's seller changes faction) and does not depend on the over-assigned
+`is_base` prop. If a base is near, the additive sum is REPLACED: owner friendly to you (same community or
+`is_factions_friends`, via `xcreature.relation`) -> dread 0, fully silent; owner hostile
+(`is_factions_enemies`) -> dread high. There is no per-smart curation and no mini-dread at a base - a
+friendly base is simply silent (dread below the emission gate), which suppresses every category at once.
 
 ### Visual layer
 

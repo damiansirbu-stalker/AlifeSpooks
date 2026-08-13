@@ -1,0 +1,115 @@
+; as_static_map.ltx - the per-LEVEL category eligibility (the MAP filter in as_effect SELECT).
+; [default] = the universal cues on every level (runtime-gated by presence/anomaly: mutant needs a
+; mutant present, gunfire a human, drone an anomaly). Each [level] adds its terrain flavor, its
+; interior/facility kinds, and the dark_signal lore placement. The director UNIONS [default] with
+; [level.name()], then filters by enclosure (outdoor/indoor/underground), presence, and base.
+; Level names are the engine level.name() values (game_levels.ltx). Curated per the terrain template
+; and the dark_signal lore list (signal source: tech/military/psy/reactor/underground; silent in wild
+; wetland/forest: k00_marsh, l04_darkvalley, l10_red_forest, y04_pole).
+
+[default]
+categories = spook, scream, mutant, drone, gunfire
+
+; --- swamp / wetland ---
+[k00_marsh]
+categories = mutant_ambient_swamp, wind, wildlife, bats, structural
+
+[l08_yantar]
+categories = dark_signal, mutant_ambient_swamp, wind, wildlife, bats, structural, industrial
+
+[zaton]
+categories = dark_signal, mutant_ambient_swamp, wind, wildlife, bats, structural, industrial
+
+; --- forest ---
+[l07_military]
+categories = dark_signal, mutant_ambient_forest, foliage, wind, wildlife, structural
+
+[l10_red_forest]
+categories = mutant_ambient_forest, foliage, wind, wildlife, structural
+
+; --- field / open ---
+[l01_escape]
+categories = dark_signal, mutant_ambient_field, wind, wildlife, foliage, structural
+
+[k01_darkscape]
+categories = dark_signal, mutant_ambient_field, wind, wildlife, structural
+
+[k02_trucks_cemetery]
+categories = dark_signal, mutant_ambient_field, wind, wildlife, structural, industrial
+
+[l02_garbage]
+categories = dark_signal, mutant_ambient_field, wind, wildlife, structural, industrial
+
+[l03_agroprom]
+categories = dark_signal, mutant_ambient_field, wind, wildlife, foliage, structural, industrial
+
+[l04_darkvalley]
+categories = mutant_ambient_field, wind, wildlife, foliage, structural
+
+[l10_radar]
+categories = dark_signal, mutant_ambient_field, wind, wildlife, structural, industrial
+
+[l13_generators]
+categories = dark_signal, mutant_ambient_field, wind, wildlife, structural, industrial
+
+[jupiter]
+categories = dark_signal, mutant_ambient_field, wind, wildlife, structural, industrial
+
+[y04_pole]
+categories = mutant_ambient_field, wind, wildlife, foliage
+
+; --- urban / city ---
+[l05_bar]
+categories = dark_signal, mutant_ambient_urban, urban, wind, structural, industrial
+
+[l06_rostok]
+categories = dark_signal, mutant_ambient_urban, urban, wind, structural, industrial
+
+[l09_deadcity]
+categories = dark_signal, mutant_ambient_urban, urban, wind, structural, industrial
+
+[l10_limansk]
+categories = dark_signal, mutant_ambient_urban, urban, wind, structural, industrial
+
+[l11_hospital]
+categories = dark_signal, mutant_ambient_urban, urban, wind, structural, industrial, labs, drip
+
+[l11_pripyat]
+categories = dark_signal, mutant_ambient_urban, urban, wind, structural, industrial
+
+[pripyat]
+categories = dark_signal, mutant_ambient_urban, urban, wind, structural, industrial
+
+[l12_stancia]
+categories = dark_signal, mutant_ambient_urban, urban, wind, structural, industrial, labs, drip
+
+[l12_stancia_2]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+; --- underground / lab / bunker (no outdoor terrain) ---
+[l03u_agr_underground]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+[l04u_labx18]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+[l08u_brainlab]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+[l10u_bunker]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+[l12u_control_monolith]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+[l12u_sarcofag]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+[l13u_warlab]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+[labx8]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
+
+[jupiter_underground]
+categories = dark_signal, labs, drip, rats, structural, industrial, bats
