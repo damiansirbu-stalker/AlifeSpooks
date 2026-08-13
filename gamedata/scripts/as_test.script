@@ -5,8 +5,9 @@
 
 as_test = as_test or {}
 
-local pairs, tostring = pairs, tostring
-local table_concat, table_sort = table.concat, table.sort
+local pairs, tostring, ipairs, pcall = pairs, tostring, ipairs, pcall
+local table_concat, table_sort, string_format = table.concat, table.sort, string.format
+local profile_timer = profile_timer
 local RegisterScriptCallback, GetEvent = RegisterScriptCallback, GetEvent
 local news_manager, ui_options, game_fast_travel = news_manager, ui_options, game_fast_travel
 
@@ -117,7 +118,7 @@ local function _smoke_step()
     if not (item and db.actor and xsound) then _tip("smoke: done"); return true end
     xsound.play(item.path, { volume = 1.0 })
     local dur = (xsound.length and xsound.length(item.path)) or 2000
-    _tip(string.format("smoke %d/%d  %s  (%s %dms)", _smoke.i, #_smoke.list, item.path, item.cat, dur))
+    _tip(string_format("smoke %d/%d  %s  (%s %dms)", _smoke.i, #_smoke.list, item.path, item.cat, dur))
     _smoke.i = _smoke.i + 1
     ResetTimeEvent("as_smoke", "step", (dur + SMOKE_GAP_MS) / 1000)
     return false
@@ -126,7 +127,7 @@ end
 function as_test.smoke(only_cat)
     _smoke.list, _smoke.i = _smoke_flat(only_cat), 1
     if #_smoke.list == 0 then _tip("smoke: no sounds"); return end
-    _tip(string.format("smoke: %d sounds - close the console", #_smoke.list))
+    _tip(string_format("smoke: %d sounds - close the console", #_smoke.list))
     RemoveTimeEvent("as_smoke", "step")
     CreateTimeEvent("as_smoke", "step", 1, _smoke_step)
 end
@@ -241,14 +242,24 @@ local function _snap_enclosure(log, apos)
 end
 
 -- Nearest smart id/name/distance + props, to fit the place-identity distance gate.
-local function _snap_smart(log)
+local function _snap_smart(log, apos)
     local ns = smart_terrain and smart_terrain.nearest_to_actor_smart
-    if not (ns and ns.id) then log.info("SMART none"); return end
-    local smart = alife_object(ns.id)
-    if not smart then log.info("SMART id=%s dist=%.1f unresolved", tostring(ns.id), ns.dist or -1); return end
-    log.info("SMART id=%s name=%s dist=%.1f lair=%s base=%s",
-        tostring(ns.id), smart:name(), ns.dist or -1,
-        tostring(xsmart.is_lair(smart)), tostring(xsmart.is_base(smart)))
+    if ns and ns.id then
+        local smart = alife_object(ns.id)
+        if smart then
+            log.info("SMART id=%s name=%s dist=%.1f lair=%s base=%s",
+                tostring(ns.id), smart:name(), ns.dist or -1,
+                tostring(xsmart.is_lair(smart)), tostring(xsmart.is_base(smart)))
+        else
+            log.info("SMART id=%s dist=%.1f unresolved", tostring(ns.id), ns.dist or -1)
+        end
+    else
+        log.info("SMART none")
+    end
+    -- base detection: distance to the nearest SELLER NPC (not the smart center), within 80m
+    local owner, sd = xsmart.base_owner_near(apos, 80)
+    log.info("BASE seller_near owner=%s dist=%s (nearest trader/medic/mechanic NPC <=80m)",
+        tostring(owner or "-"), owner and string_format("%.0f", sd) or "-")
 end
 
 -- Bump a { b25, b50, all } triple by one for a distance.
@@ -289,22 +300,42 @@ local function _snap_vertical(log, actor, apos)
     log.info("VERTICAL actor_y=%.1f ai_ground_y=%.1f y_above_ground=%.1f", apos.y, gy, apos.y - gy)
 end
 
+-- Run one check under the modded-exe microsecond timer, logging its duration inline through `sink`.
+-- Noop timing when profile_timer is absent. Lets the snapshot show each check's real cost in-game.
+-- @cost O(1) wrapper | 1 profile_timer ctor + start/stop/time around the wrapped check
+local function _timed(sink, label, fn)
+    local timer = profile_timer and profile_timer()
+    if timer then timer:start() end
+    fn()
+    if timer then timer:stop(); sink.info("  [%7.0f us] %s", timer:time(), label) end
+end
+
 --- Log one atmosphere snapshot with a note. Cheap; run on demand only, never per frame.
 function as_test.snapshot(note)
     local log = _logger()
     local actor = db.actor
     if not (log and xcreature and xsmart and xlevel and xcombat and actor and level.present()) then return end
-    log.info("=== SNAPSHOT note=[%s] level=%s ===", tostring(note or "?"), tostring(level.name()))
+    -- sink: every collected line goes to BOTH the log file and an on-screen buffer, so the probe
+    -- shows what it gathered on screen AND records it. Same call shape as the log facade (.info).
+    local lines = {}
+    local sink = { info = function(fmt, ...)
+        local ok, msg = pcall(string_format, fmt, ...)
+        if not ok then msg = tostring(fmt) end
+        log.info("%s", msg)
+        lines[#lines + 1] = msg
+    end }
+    sink.info("=== SNAPSHOT note=[%s] level=%s ===", tostring(note or "?"), tostring(level.name()))
     local apos = actor:position()
-    _snap_combat(log)
-    _snap_online(log, actor:id())
-    _snap_place(log, apos)
-    _snap_level_species(log, xlevel.get_actor_level_id())
-    _snap_enclosure(log, apos)
-    _snap_smart(log)
-    _snap_bands(log, actor, apos)
-    _snap_vertical(log, actor, apos)
+    _timed(sink, "combat",         function() _snap_combat(sink) end)
+    _timed(sink, "online-near",    function() _snap_online(sink, actor:id()) end)
+    _timed(sink, "place",          function() _snap_place(sink, apos) end)
+    _timed(sink, "level-species",  function() _snap_level_species(sink, xlevel.get_actor_level_id()) end)
+    _timed(sink, "enclosure",      function() _snap_enclosure(sink, apos) end)
+    _timed(sink, "smart+base_near",function() _snap_smart(sink, apos) end)
+    _timed(sink, "presence-bands", function() _snap_bands(sink, actor, apos) end)
+    _timed(sink, "vertical",       function() _snap_vertical(sink, actor, apos) end)
     log.flush()
+    news_manager.send_tip(actor, table_concat(lines, "\n"), nil, nil, 25000)
 end
 
 -- ---- note box + probe key (debug-gated) -----------------------------------
