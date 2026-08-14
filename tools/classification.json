@@ -4021,6 +4021,16 @@
  },
  {
   "ch": "industrial",
+  "stem": "ambient/soundscape/Spoops/urban_drones/drone13",
+  "dur": 12.4,
+  "cen": 6416,
+  "flat": 0.281,
+  "crest": 5.6,
+  "bright": "bright",
+  "tone": "mixed"
+ },
+ {
+  "ch": "industrial",
   "stem": "ambient/soundscape/Spoops/urban_drones/drone14",
   "dur": 6.0,
   "cen": 6296,
@@ -4046,6 +4056,16 @@
   "cen": 7722,
   "flat": 0.298,
   "crest": 8.1,
+  "bright": "bright",
+  "tone": "mixed"
+ },
+ {
+  "ch": "industrial",
+  "stem": "ambient/soundscape/Spoops/urban_drones/drone17",
+  "dur": 5.5,
+  "cen": 8003,
+  "flat": 0.299,
+  "crest": 6.9,
   "bright": "bright",
   "tone": "mixed"
  },
@@ -4138,6 +4158,16 @@
   "crest": 7.2,
   "bright": "bright",
   "tone": "mixed"
+ },
+ {
+  "ch": "industrial",
+  "stem": "ambient/soundscape/Spoops/urban_drones/drone3",
+  "dur": 0.8,
+  "cen": 251,
+  "flat": 0.098,
+  "crest": 5.3,
+  "bright": "dark",
+  "tone": "tonal"
  },
  {
   "ch": "industrial",
@@ -4241,6 +4271,16 @@
  },
  {
   "ch": "industrial",
+  "stem": "ambient/soundscape/Spoops/urban_drones/drone4",
+  "dur": 0.8,
+  "cen": 226,
+  "flat": 0.116,
+  "crest": 5.0,
+  "bright": "dark",
+  "tone": "tonal"
+ },
+ {
+  "ch": "industrial",
   "stem": "ambient/soundscape/Spoops/urban_drones/drone40",
   "dur": 11.0,
   "cen": 2367,
@@ -4311,6 +4351,16 @@
  },
  {
   "ch": "industrial",
+  "stem": "ambient/soundscape/Spoops/urban_drones/drone48",
+  "dur": 1.1,
+  "cen": 7460,
+  "flat": 0.444,
+  "crest": 12.3,
+  "bright": "bright",
+  "tone": "noisy"
+ },
+ {
+  "ch": "industrial",
   "stem": "ambient/soundscape/Spoops/urban_drones/drone50",
   "dur": 4.7,
   "cen": 2064,
@@ -4366,6 +4416,26 @@
   "cen": 8825,
   "flat": 0.383,
   "crest": 6.4,
+  "bright": "bright",
+  "tone": "mixed"
+ },
+ {
+  "ch": "industrial",
+  "stem": "ambient/soundscape/Spoops/urban_drones/drone6",
+  "dur": 0.8,
+  "cen": 278,
+  "flat": 0.109,
+  "crest": 4.7,
+  "bright": "dark",
+  "tone": "tonal"
+ },
+ {
+  "ch": "industrial",
+  "stem": "ambient/soundscape/Spoops/urban_drones/drone7",
+  "dur": 13.2,
+  "cen": 4976,
+  "flat": 0.188,
+  "crest": 5.1,
   "bright": "bright",
   "tone": "mixed"
  },
@@ -5318,6 +5388,16 @@
   "crest": 11.1,
   "bright": "mid",
   "tone": "mixed"
+ },
+ {
+  "ch": "labs",
+  "stem": "ambient/soundscape/underground/under_83",
+  "dur": 3.7,
+  "cen": 545,
+  "flat": 0.025,
+  "crest": 2.9,
+  "bright": "dark",
+  "tone": "tonal"
  },
  {
   "ch": "labs",
@@ -21101,16 +21181,6 @@
  },
  {
   "ch": "urban",
-  "stem": "ambient/soundscape/urban/ambienturban_67",
-  "dur": 0.8,
-  "cen": 278,
-  "flat": 0.109,
-  "crest": 4.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "urban",
   "stem": "ambient/soundscape/urban/ambienturban_68",
   "dur": 14.5,
   "cen": 10273,
@@ -21118,16 +21188,6 @@
   "crest": 10.0,
   "bright": "bright",
   "tone": "noisy"
- },
- {
-  "ch": "urban",
-  "stem": "ambient/soundscape/urban/ambienturban_69",
-  "dur": 0.8,
-  "cen": 251,
-  "flat": 0.098,
-  "crest": 5.3,
-  "bright": "dark",
-  "tone": "tonal"
  },
  {
   "ch": "urban",
@@ -21176,26 +21236,6 @@
   "cen": 294,
   "flat": 0.058,
   "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "urban",
-  "stem": "ambient/soundscape/urban/ambienturban_74",
-  "dur": 13.2,
-  "cen": 4976,
-  "flat": 0.188,
-  "crest": 5.1,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "urban",
-  "stem": "ambient/soundscape/urban/ambienturban_75",
-  "dur": 0.8,
-  "cen": 226,
-  "flat": 0.116,
-  "crest": 5.0,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -21491,16 +21531,6 @@
  },
  {
   "ch": "urban",
-  "stem": "ambient/soundscape/Spoops/urban_spoops_night/sound_11",
-  "dur": 1.1,
-  "cen": 7460,
-  "flat": 0.444,
-  "crest": 12.3,
-  "bright": "bright",
-  "tone": "noisy"
- },
- {
-  "ch": "urban",
   "stem": "ambient/soundscape/Spoops/urban_spoops_night/sound_12",
   "dur": 16.9,
   "cen": 4339,
@@ -21721,16 +21751,6 @@
  },
  {
   "ch": "urban",
-  "stem": "ambient/soundscape/Spoops/urban_spoops_night/sound_38",
-  "dur": 3.7,
-  "cen": 545,
-  "flat": 0.025,
-  "crest": 2.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "urban",
   "stem": "ambient/soundscape/Spoops/urban_spoops_night/sound_39",
   "dur": 10.0,
   "cen": 2722,
@@ -21756,16 +21776,6 @@
   "cen": 8035,
   "flat": 0.333,
   "crest": 9.9,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "urban",
-  "stem": "ambient/soundscape/Spoops/urban_spoops_night/sound_41",
-  "dur": 12.4,
-  "cen": 6416,
-  "flat": 0.281,
-  "crest": 5.6,
   "bright": "bright",
   "tone": "mixed"
  },
@@ -21838,16 +21848,6 @@
   "crest": 15.6,
   "bright": "bright",
   "tone": "noisy"
- },
- {
-  "ch": "urban",
-  "stem": "ambient/soundscape/Spoops/urban_spoops_night/sound_49",
-  "dur": 5.5,
-  "cen": 8003,
-  "flat": 0.299,
-  "crest": 6.9,
-  "bright": "bright",
-  "tone": "mixed"
  },
  {
   "ch": "urban",

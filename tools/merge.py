@@ -268,6 +268,11 @@ DEDUP_XCORR = 0.90  # PCM cross-correlation DECIDER: >= this confirms a candidat
 # a real quiet sound), so it is DROPPED, not shipped. No near-silent files survive.
 TARGET_PEAK_DB = -1.0
 CULL_PEAK_DB   = -30.0
+# astats reads the FLOAT-decoded samples, and a handful of vorbis decode outliers can report an
+# impossible peak (measured +42..+82 dB on files that peak at 0 dBFS per volumedetect, Peak count=2).
+# _norm_bv would turn that into a ~0 base_volume and ship the file SILENT. A peak above this ceiling is
+# not a real inter-sample overshoot (those stay under ~+6 dB) - clamp it to the 0 dBFS physical ceiling.
+PEAK_FLOAT_CEILING = 12.0
                     # Frozen as validated (MANGLE=0); see architecture.md I3.
 # Long-file handling (n117): a sound whose ACTIVE (silence-removed) length exceeds the max emission tick
 # outlives its slot and overlaps the next fire, so it is CULLED - EXCEPT dark_signal, which is SLICED into
@@ -347,9 +352,10 @@ def _loudness_cull(effects):
         if not m or m.group(1) == "-inf":
             return None
         try:
-            return float(m.group(1))
+            p = float(m.group(1))
         except ValueError:
             return None
+        return 0.0 if p > PEAK_FLOAT_CEILING else p
     paths = list({e["abs"] for cat in effects for e in effects[cat]})
     pk = dict(zip(paths, sp.pmap(peak, paths, sp.DEF_JOBS)))
     dropped = 0
