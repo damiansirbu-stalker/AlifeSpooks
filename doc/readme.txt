@@ -33,11 +33,11 @@ A base in daylight is silent. A lab with a mutant near at night is loud and clos
 Where you are. Selection is geography, checked in order.
 The map you are on has a curated list of what belongs there, traced from the source packs, so a lab level plays facility and machine sound, a swamp plays its own mutant atmosphere, and a wild forest never plays the radio signal.
 A base near, spotted by a live trader, medic, or mechanic, cancels everything: a base is a safe hub and goes silent, whatever faction owns it.
-Indoor, outdoor, or underground then filters the rest, so the open never plays doors or machinery and an interior never plays leaves or wind.
+Outdoor, indoor, underground, or a lab then filters the rest, so the open never plays doors or machinery and an interior never plays leaves or wind.
 
-How much dread. Dread is one plain sum, with no multiplier and no floor: the level's own baseline, plus indoor or underground, plus the hour, plus the single scariest thing near, minus your own people around.
+How much dread. Dread is one plain sum, with no multiplier and no floor: the level's own baseline, plus how enclosed you are, plus the hour, plus the single scariest thing near, minus your own people around.
 The level baseline is the dread a place carries on its own, grim in the psi north and the labs, mundane in the fields.
-The scariest thing near is one reading and never a body count: an apex mutant weighs most, a lesser threat less, and being truly alone weighs a little on its own.
+The scariest thing near is one reading and never a body count, and a man is weighed like a monster by its strength: the strongest one near weighs most, a weaker one less, and being truly alone weighs a little on its own.
 Allies near are the only thing that calms you, so a place with your people falls quiet while a grim empty place still carries its dread.
 Dread drives how close a sound spawns and how often it fires, never how loud.
 

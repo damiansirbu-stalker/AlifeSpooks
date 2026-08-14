@@ -119,102 +119,94 @@ and accounted, never silently.
 
 ## The director
 
-> STATUS: this section describes v1 (geography). v2 (a sensor board on one round-robin tick, rank-tiered
-> dread) is BUILT in `as_director.script` and specced in `doc/todo/todo-alifespooks.md` n119; this section
-> is rewritten to v2 after playtest settles the model and the dread magnitudes.
+The director owns playback on ONE 100ms tick (`("as_director","tick")`, separate from the base-ambient
+observer). Each tick round-robins ONE producer that writes its sensor into a flat board, derives dread
+and the eligible set from the board, and emits at most one positioned one-shot. The per-tick cost is the
+single heaviest scan, never the sum; the whole board refreshes over the producer count (~0.6s).
 
-SELECT is GEOGRAPHY - "where am I" decides what is eligible. One scheduled loop (its own
-`("as_director","dread_director")` time-event, separate from the base-ambient observer) runs a
-fixed-cadence pipeline and plays at most one sound per emission:
+    tick   -> run one producer (a scan), writing its sensor into the board
+    sense  -> the board: environment, time, stalkers{}, monsters{}, anomalies{}
+    select -> eligible = map (as_static_map.ltx) & environment & presence -> two-level shuffle-bag
+    apply  -> dread (grounded, additive) -> spawn distance + emission frequency -> position + play
 
-    load     -> static data: the category table (env + need, in as_director), the per-map list (as_static_map.ltx)
-    where    -> geography: level, enclosure (outdoor/indoor/underground), base owner - plus presence, anomaly, time
-    select   -> which sound: eligible (map + enclosure + need) -> category-bag -> sound-bag
-    apply    -> how: dread -> distance + frequency -> position + play
+Smart terrains are deliberately NOT an input - they proved unreliable for filtering (the trader/base
+cases); place identity comes from the level, the environment, and a live seller check, never smart config.
 
-The category's runtime attributes live HERE, not in the manifest: each category name maps to its `env`
-(the enclosure states it may play in) and its `need` (a live gate). The smart terrain is deliberately NOT
-a select input - smart terrains proved unreliable for filtering (the trader/base cases), so selection reads
-the LEVEL, and the only place-identity signal kept is the base, detected by NPC (a seller near), never by
-smart config. Methods, one per part:
+### The board - the world as tokens
 
-- LOAD: `_load_map(level)` (the level's category list) / the category table (`CAT`, a module constant)
-- WHERE: `_where` -> `{ level, enclosure = xcombat.enclosure(pos), base_owner = xsmart.base_owner_near(pos) }`
-  + `_presence` (xcreature.any_mutant_online / any_human_online) / `_anomaly_near` / `_time`
-- SELECT: `_select` -> `_eligible(cat, where)` (map + enclosure + need) / `_pick_category` / `_pick_sound`
-- APPLY: `_apply` -> `_dread` (+ `_dread_lore/_enclosure/_time/_threat/_company` and the base override) /
-  `_spawn_distance` / `_next_gap` / `_play_positioned`
-- LOOP: `_director_execute` -> refresh WHERE if stale -> `_select` -> `_apply` -> arm next
+The board is the single source of truth: producers write it, SELECT / APPLY / the HUD read it. Values are
+readable tokens, never raw ints or paired flags. Two sensor classes - SCAN (polled on the round-robin) and,
+later (n118), EVENT (bumped by callbacks, decayed). A sensor's fields match what is useful: mobile things
+carry `online` + `near`, static anomalies carry only `near`.
 
-### Loop cadence and the emission gate
+- `environment` - "outdoor" | "indoor" | "underground" | "labs". `GetEvent("underground")` says you are on
+  an underground level; `LAB_LEVELS` splits the sci-fi labs from the tunnel/mine/bunker levels; else the
+  `is_indoor` raycast (cached by cell) gives indoor vs outdoor.
+- `time` - "day" | "dusk" | "dawn" | "night" | "deep_night".
+- `stalkers` - one pass over the dedicated `db.OnlineStalkers` array (`_scan_stalkers`): `online` (any
+  stalker online, the gunfire gate), `enemy_near` / `ally_near` (strongest near hostile / friendly as a
+  low/med/high power), `service_near` ("none"|"allied"|"hostile" - a trader/medic/mechanic within 60m = a base).
+- `monsters` - one pass over the online set filtered by `is_mutant` (`_scan_monsters`; no dedicated monster
+  collection yet - sim-board squads / a demonized `db.OnlineMonsters` registry are the deferred optimisation):
+  `online` (the mutant gate), `enemy_near` (strongest near monster as a power).
+- `anomalies` - `near` (an anomaly within range, `xsmart.anomaly_near`), the drone gate.
 
-`_director_execute` runs on a fixed cadence and never stops, so a rising dread is always caught. Emission
-is separate: a sound fires at most every 5-15s (`_next_gap`), and dread shortens that gap (scarier ->
-denser). Below ~0.10 dread nothing is emitted (calm places quiet, a friendly base silent), but the loop
-keeps evaluating and resumes the instant dread rises. No per-category cooldowns, no weights; the gap has
-a floor so peak dread never machine-guns.
+### Power - man and monster on one scale
 
-### SELECT - which sound plays
+Every hostile near thing is graded "none"|"low"|"med"|"high" by `_tier(rank)`: a stalker's `character_rank()`
+(0-27000, cuts 9000/14500) and a monster's `se:rank()` (1-20, cuts 5/16) collapse to the SAME token. So
+`stalkers.enemy_near` and `monsters.enemy_near` are the same type, and threat reads both with one rule
+(`max`). The engine facts and the probe-verified monster rank table are in
+`doc/library/modding/npc-strength-evaluation.md`.
 
-A category is eligible only if ALL three geography checks pass, in order:
+### The tick and the emission gate
 
-- **map** - the level's list in `as_static_map.ltx` names it. `[default]` holds the universal cues
-  (spook, scream, mutant, drone, gunfire) on every level; each `[level]` adds its terrain flavor, its
-  interior/facility kinds, and the `dark_signal` lore placement. This is the big differentiator: a lab
-  level lists `labs`, a swamp lists `mutant_ambient_swamp`, a wild forest never lists `dark_signal`.
-- **enclosure** - the category's `env` (a subset of `{outdoor, indoor, underground}`) contains the
-  current enclosure state (`xcombat.enclosure`). Outdoor never plays the inside kinds (structural, labs,
-  drip, rats); indoor never plays the outside kinds (foliage, wind, wildlife, urban, the zones).
-- **need** - a live gate: `mutant` needs a mutant present (`xcreature.any_mutant_online`), `gunfire`
-  needs a human present (`any_human_online`), `drone` needs an anomaly near; the rest, none.
+The tick runs a fixed 100ms and never stops, so a rising dread is always caught; the board refreshes over
+the producer rotation. Emission is separate: a sound fires at most every 5-15s and dread shortens that gap
+(scarier -> denser). Below ~0.10 dread nothing emits (calm places quiet, a friendly base silent), while the
+tick keeps sensing. No per-category cooldowns, no weights.
 
-The base is NOT a select filter: a friendly base is silenced by APPLY (dread -> 0), not by category
-gating. The survivors are the eligible set. Selection is a **symmetrical two-level shuffle-bag**, no weights:
+### SELECT - which categories can play
 
-- **category-bag** - cycle every eligible category once before any repeats, refilled from the current
-  eligible list each cycle. So a 2-sound category can never be hammered while others wait.
-- **sound-bag** (per category) - cycle every sound once before any repeats.
+A category is eligible only if all three checks pass, in order (`_eligible`, reading the board):
 
-Rarity emerges from rotation: with N eligible categories each plays once per full cycle, so a scream
-lands roughly once every N ticks - rare by rotation, not by any limiter. Each bag is self-contained, so
-the dynamically-changing eligible set never has to be reconciled into a global pool.
+- **map** - the level's list in `as_static_map.ltx` names it. `[default]` holds the universal cues on
+  every level; each `[level]` adds its terrain flavor, its interior/facility kinds, and the `dark_signal`
+  lore placement. A lab level lists `labs`, a swamp lists `mutant_ambient_swamp`, a wild forest never
+  lists `dark_signal`.
+- **environment** - the category's `env` set contains the current `board.environment` (labs counts as
+  underground for the gate). Outdoor never plays the inside kinds (structural, labs, drip, rats); indoor
+  never plays the outside kinds (foliage, wind, wildlife, urban, the zones).
+- **need** - a live gate: `mutant` needs `monsters.online`, `gunfire` needs `stalkers.online`, `drone`
+  needs `anomalies.near`; the rest, none.
+
+The base is NOT a select filter: a friendly base is silenced by APPLY (dread -> 0), not by category gating.
+Selection is a **symmetrical two-level shuffle-bag**, no weights: a category-bag cycles every eligible
+category once before repeats (a 2-sound category can never be hammered while others wait), and a per-category
+sound-bag cycles every sound once. Rarity emerges from rotation, not from any limiter.
 
 ### APPLY - dread drives distance and frequency
 
-Dread is a scalar 0..1, additive, **no baseline constant** - it is the sum of whatever grounded
-conditions are true right now, and nothing when none are:
+Dread is a scalar 0..1, additive, **no baseline constant** - the sum of whatever grounded conditions hold now:
 
-    dread = lore + enclosure + time + threat + company
+    dread = lore + environment + time + threat + company + anomaly
 
-- **lore** - the level's own dread, a per-LEVEL default. The per-smart lore table is dropped: smart
-  terrains proved unreliable to filter or score on (the trader/base cases), so place identity comes from
-  the level plus the base check, not the smart.
-- **enclosure** - exactly ONE state from `xcombat.enclosure`: outdoor +0; indoor (surface building,
-  `is_indoor` raycast) +small; underground level +big (the engine's own underground flag). A below-ground
-  spot on a surface level reads `indoor`, the accepted trade (no per-spot depth signal exists).
-- **time** - night raises dread: day +0, dusk/dawn +small, night/deep-night +medium (capped at medium).
-- **threat** - the single scariest thing present, never a sum: an apex mutant (gigant, controller,
-  burer, chimera) +big; else a lesser threat (an enemy, or a mid mutant) +small; else, if no living
-  soul at all is near, +small (loneliness).
-- **company** - allied stalkers near (excluding companions) -big (equal in magnitude to an apex mutant);
-  companions -small.
+- **lore** - the level's own baseline (grim in the psi north and the labs, mundane in the fields).
+  Coordinate overrides supersede this later (n114).
+- **environment** - outdoor +0; indoor +small; underground +med; labs +big.
+- **time** - day +0; dusk/dawn +small; night +med; deep night +big.
+- **threat** - the single scariest near thing, `max(stalkers.enemy_near, monsters.enemy_near)`, scaled by
+  its low/med/high power (man and monster the same); if no living thing is near at all, loneliness +small.
+- **company** - a near ally calms, scaled by the ally's power (a veteran ally calms more).
+- **anomaly** - an anomaly near adds a little.
 
-Every term is grounded (a real, checkable condition), so there is no "+X just because." Dread feeds
-APPLY only, never SELECT: **distance** (higher dread spawns the sound closer, via `HORROR_PULL`) and
-**frequency** (higher dread shortens the loop gap). It does not touch **volume** - volume is the sound's
-own normalized level x a single master MCM volume slider (no per-category volume). Positioning uses Anomaly's
-own geometry (a random point in the sound's source min..max band, halved, random angle, source height);
-the engine's baked attenuation does the fade, the max is never used as the spawn position.
-
-### Base override - detected by the seller, cancels dread
-
-A base is detected by a live SELLER near - `xsmart.base_owner_near(pos)` returns the nearest
-trader/barman/medic/mechanic's faction, measured to the NPC itself, never to a smart center, so it is
-warfare-correct (a captured base's seller changes faction) and does not depend on the over-assigned
-`is_base` prop. When a base is near, dread is REPLACED with 0 - fully silent, whatever the owner's
-faction. A base is a safe hub, and computing a small per-base dread was judged vague, so any base simply
-suppresses every category at once (dread below the emission gate). The owner faction is recorded for the
-HUD only, not used to grade the dread.
+A `service_near` of "allied" (a safe hub) REPLACES the sum with 0 - fully silent; "hostile" (an enemy-held
+base) adds. The base is detected by a live service NPC (trader/medic/mechanic) within 60m, per-NPC relation
+deciding allied vs hostile - warfare-correct, never the over-assigned `is_base` prop. Every term is grounded,
+so there is no "+X just because." Dread feeds APPLY only, never SELECT: **distance** (closer at peak,
+`HORROR_PULL`) and **frequency** (shorter gap). It never touches **volume** - volume is the sound's own
+normalized level x one master MCM slider. Positioning uses Anomaly's own geometry (a random point in the
+source min..max band, halved, random angle, source height); the engine's baked attenuation does the fade.
 
 ### Visual layer
 
@@ -224,11 +216,12 @@ on the continuous dread still matters; there is no grade ladder otherwise.
 
 ### Debug HUD (`as_hud`, off by default)
 
-A three-column readout (MCM `hud_position`), dread palette (gold headers, off-white body): SPOOK (the
-director's current one-shot, bright while sounding, gray once stopped), BASE (the base-ambient the
-observer is replaying, same treatment), AVAILABLE (the eligible categories now), SENSORS (each dread
-term with its contribution, plus the raw checks), and the DREAD summary tinted green->red by value.
-Players never see it; it feeds off `as_director.get_hud_rows`.
+A three-column readout (MCM `hud_position`), built lazily on read so it costs nothing on the tick, grouped
+by stage: PLAYING (the director's current one-shot + the base ambient the observer replays, each bright
+while sounding, gray once stopped), SELECT (the available category list + the DREAD number, tinted gray /
+amber / red by value, no rainbow), and SENSORS (every board field by its exact name - `stalkers.enemy_near`,
+`monsters.online`, worded tokens, never a raw int). Players never see it; it feeds off
+`as_director.get_hud_rows`.
 
 ## Categories - the rule table
 
