@@ -16,7 +16,7 @@ the ambient system play them. That is gone. AlifeSpooks now owns playback end to
 
 - Content lives in our own category directories under `gamedata/sounds/zs/<category>/`, never in an
   engine channel. The deploy writes no `sound_channels.ltx` definitions for our content.
-- The director (`gamedata/scripts/as_effect.script`) plays each sound as a positioned one-shot
+- The director (`gamedata/scripts/as_director.script`) plays each sound as a positioned one-shot
   through `xsound.play`. There are no loops and no continuous beds. A long horror drone or a psy bed
   plays as a one-shot on a long period, not as a continuous loop.
 - The base's own copy of a sound we ship is removed from its ambient channels statically by a DLTX
@@ -119,14 +119,14 @@ and accounted, never silently.
 
 ## The director
 
-> STATUS: REDESIGN (target). Supersedes the shipped `as_effect.script`; not fully built. Build stages and
+> STATUS: REDESIGN (target). Supersedes the shipped `as_director.script`; not fully built. Build stages and
 > progress in `doc/todo/todo-alifespooks.md` n117.
 
 SELECT is GEOGRAPHY - "where am I" decides what is eligible. One scheduled loop (its own
-`("as_effect","dread_director")` time-event, separate from the base-ambient observer) runs a
+`("as_director","dread_director")` time-event, separate from the base-ambient observer) runs a
 fixed-cadence pipeline and plays at most one sound per emission:
 
-    load     -> static data: the category table (env + need, in as_effect), the per-map list (as_static_map.ltx)
+    load     -> static data: the category table (env + need, in as_director), the per-map list (as_static_map.ltx)
     where    -> geography: level, enclosure (outdoor/indoor/underground), base owner - plus presence, anomaly, time
     select   -> which sound: eligible (map + enclosure + need) -> category-bag -> sound-bag
     apply    -> how: dread -> distance + frequency -> position + play
@@ -205,15 +205,15 @@ own normalized level x a single master MCM volume slider (no per-category volume
 own geometry (a random point in the sound's source min..max band, halved, random angle, source height);
 the engine's baked attenuation does the fade, the max is never used as the spawn position.
 
-### Base override - detected by the seller, cancels the sum
+### Base override - detected by the seller, cancels dread
 
 A base is detected by a live SELLER near - `xsmart.base_owner_near(pos)` returns the nearest
 trader/barman/medic/mechanic's faction, measured to the NPC itself, never to a smart center, so it is
 warfare-correct (a captured base's seller changes faction) and does not depend on the over-assigned
-`is_base` prop. If a base is near, the additive sum is REPLACED: owner friendly to you (same community or
-`is_factions_friends`, via `xcreature.relation`) -> dread 0, fully silent; owner hostile
-(`is_factions_enemies`) -> dread high. There is no per-smart curation and no mini-dread at a base - a
-friendly base is simply silent (dread below the emission gate), which suppresses every category at once.
+`is_base` prop. When a base is near, dread is REPLACED with 0 - fully silent, whatever the owner's
+faction. A base is a safe hub, and computing a small per-base dread was judged vague, so any base simply
+suppresses every category at once (dread below the emission gate). The owner faction is recorded for the
+HUD only, not used to grade the dread.
 
 ### Visual layer
 
@@ -227,7 +227,7 @@ A three-column readout (MCM `hud_position`), dread palette (gold headers, off-wh
 director's current one-shot, bright while sounding, gray once stopped), BASE (the base-ambient the
 observer is replaying, same treatment), AVAILABLE (the eligible categories now), SENSORS (each dread
 term with its contribution, plus the raw checks), and the DREAD summary tinted green->red by value.
-Players never see it; it feeds off `as_effect.get_hud_rows`.
+Players never see it; it feeds off `as_director.get_hud_rows`.
 
 ## Categories - the rule table
 
@@ -235,7 +235,7 @@ A category is atomic: one coherent thing (one dread kind, one zone), never a gra
 the unit of organization - it is the shipped folder (`zs/<name>/`) and the manifest key. **The pipeline
 category list carries only the name and the folder routing** (`CATEGORIES` + `route` in `merge.py`); it
 holds no play rules. A category's runtime attributes - its `env` set, its `requires` gate, the per-map
-eligibility, the presence checks - live in the director (`as_effect`) and the per-map LTX, keyed by the
+eligibility, the presence checks - live in the director (`as_director`) and the per-map LTX, keyed by the
 category name. The manifest carries sound paths and distances only; the category NAME is the entire
 contract between the pipeline and the runtime.
 
@@ -361,11 +361,11 @@ a separate slot from the director's `dread_director`; the two never share.
 Scripts add control, an in-game trace, and the MCM, mirroring the alife-family pattern (`as_mcm`,
 `as_debug`, `xmcm`, `xlog`). All are guarded. Without xlibs they degrade to no-ops.
 
-- `as_effect.script` owns the director (its own `dread_director` slot), the score, the pick and pace,
+- `as_director.script` owns the director (its own `dread_director` slot), the score, the pick and pace,
   the positioned play, and the base-ambient observer (the separate `update_ambient` slot; the muting
   itself is the static DLTX overlay the deploy generates).
 - `as_hud.script` is the debug HUD (off by default), a three-column readout built from
-  `as_effect.get_hud_rows`.
+  `as_director.get_hud_rows`.
 - `as_debug.script` is the trace facade. At DEBUG it records every sound played and every term of the
   dread score to `alifespooks.log`, so the soundscape is checked by observation. Below DEBUG the off
   path marshals nothing and crosses no luabind bridge.

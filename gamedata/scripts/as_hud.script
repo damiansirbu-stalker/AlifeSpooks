@@ -1,8 +1,8 @@
 --- as_hud: live debug HUD - the AlifeSpooks spook readout (grade/score, place, what's playing, each
---- term's contribution, gates) from as_effect.get_hud_rows(), laid out on a fixed two-column grid
+--- term's contribution, gates) from as_director.get_hud_rows(), laid out on a fixed two-column grid
 --- (label | value) so everything aligns by construction. Mirrors at_hud: a CUIScriptWnd built once
 --- and shown via AddDialogToRender, a self-rearming, visibility-gated refresh, position from the MCM
---- hud_position preset. Off by default; players never see it. Inert without xmcm or as_effect.
+--- hud_position preset. Off by default; players never see it. Inert without xmcm or as_director.
 
 local RegisterScriptCallback, math_floor = RegisterScriptCallback, math.floor
 
@@ -151,7 +151,7 @@ local function _refresh()
     if not _wanted() then _tr("_refresh: not wanted, skip"); return end
     if not _hud then _hud = UISpookHUD(); _tr("_refresh: built UISpookHUD") end
     if not _shown then get_hud():AddDialogToRender(_hud); _shown = true; _tr("_refresh: AddDialogToRender, shown=true") end
-    local rows = (as_effect and as_effect.get_hud_rows and as_effect.get_hud_rows()) or {}
+    local rows = (as_director and as_director.get_hud_rows and as_director.get_hud_rows()) or {}
     _tr("_refresh: rows=%d hud=%s shown=%s", #rows, tostring(_hud ~= nil), tostring(_shown))
     _hud:set_rows(rows)
 end
