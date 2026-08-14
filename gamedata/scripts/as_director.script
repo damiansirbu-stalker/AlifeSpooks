@@ -79,7 +79,6 @@ local SPACE_MAX_MS = 15000
 local HORROR_PULL  = 0.25
 local BASE_TICK_S  = 1
 local CTX_PERIOD   = 3000
-local VOL_MIN, VOL_MAX = 0.70, 1.00
 local INSANE_DREAD   = 0.80
 local PLAY_WINDOW_MS = 6000
 local TYPE_WRAP      = 34
@@ -350,7 +349,7 @@ local function _play(snd, dread)
     dist = dist * (1 - HORROR_PULL * dread) * distance
     local angle = math_rad(math_random(0, 359))
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + height, pos.z + math_sin(angle) * dist)
-    local vol = (VOL_MIN + (VOL_MAX - VOL_MIN) * dread) * vol_global * opt_ambient_volume
+    local vol = vol_global * opt_ambient_volume
     xsound.play(snd[1], { position = vec, volume = vol })
     as_debug.dbg("[PLAY] %s dist=%.1f h=%.0f vol=%.2f dread=%.2f", snd[1], dist, height, vol, dread)
 end
@@ -360,13 +359,25 @@ end
 --- Refresh the cached context: geography (level, enclosure, base owner), presence, anomaly, time, dread,
 --- and the eligible set. Builds the HUD rows. Called every CTX_PERIOD by the director loop.
 local function _evaluate(actor, hour)
+    local dbg = as_debug.on()
     local level_name = level.name()
     _load_map(level_name)
     local apos = actor:position()
     local enclosure = _enclosure(actor)
+
+    local tmr = xprofiler.new_if(dbg):start()
     local presence = _evaluate_presence(actor)
+    tmr:stop()
+    if dbg then as_debug.dbg("[PRESENCE] mutant=%s human=%s threat=%d allied=%d comp=%d [%.2fms]",
+        tostring(presence.any_mutant), tostring(presence.any_human), presence.threat,
+        presence.allied, presence.companion, tmr:get_ms()) end
+
     local anomaly = (xsmart and xsmart.anomaly_near and xsmart.anomaly_near(apos)) or false
+    local btmr = xprofiler.new_if(dbg):start()
     local base_owner = xsmart and xsmart.base_owner_near and xsmart.base_owner_near(apos, BASE_RADIUS)
+    btmr:stop()
+    if dbg then as_debug.dbg("[BASE-NEAR] owner=%s [%.2fms]", tostring(base_owner or "-"), btmr:get_ms()) end
+
     local dread, terms = _dread(level_name, enclosure, presence, hour, base_owner)
     local eligible = _eligible_categories(enclosure, presence, anomaly)
 
@@ -376,10 +387,11 @@ local function _evaluate(actor, hour)
 
     _build_hud({ level_name = level_name, enclosure = enclosure, presence = presence,
                  terms = terms, dread = dread, eligible = eligible, hour = hour })
-    if as_debug.on() then
-        as_debug.dbg("dread %.2f | %s enc=%s lore=%.2f thr=%d comp=%d base=%s elig=%d",
-            dread, level_name, enclosure, terms.lore, presence.threat, presence.allied + presence.companion,
-            tostring(terms.base or "-"), #eligible)
+    if dbg then
+        as_debug.dbg("[WHERE] lvl=%s enc=%s anomaly=%s", level_name, enclosure, tostring(anomaly))
+        as_debug.dbg("[DREAD] score=%.2f lore=%.2f enc=%.2f time=%.2f threat=%.2f comp=%.2f base=%s",
+            dread, terms.lore, terms.enc, terms.time, terms.threat, terms.company, tostring(terms.base or "-"))
+        as_debug.dbg("[SELECT] elig=%d [%s]", #eligible, table_concat(eligible, ","))
     end
 end
 
@@ -428,6 +440,7 @@ local function _emit_tick(tg)
         _play(snd, dread)
         _last_play = snd[1]
         _play_at = tg
+        as_debug.dbg("[PICK] cat=%s snd=%s dread=%.2f", name, snd[1], dread)
     end
 end
 
@@ -518,7 +531,9 @@ local function _base_fire(ch, tg)
     vol = vol * opt_ambient_volume
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + ch.height, pos.z + math_sin(angle) * dist)
     xsound.play(file, { position = vec, volume = vol })
-    as_debug.dbg("[BASE] lvl=%s ch=%s file=%s dist=%.1f vol=%.2f", level.name(), ch.name, tostring(file), dist, vol)
+    if as_debug.on() then
+        as_debug.dbg("[BASE] lvl=%s ch=%s file=%s dist=%.1f vol=%.2f", level.name(), ch.name, tostring(file), dist, vol)
+    end
 end
 
 local function update_ambient_owned()

@@ -119,9 +119,6 @@ and accounted, never silently.
 
 ## The director
 
-> STATUS: REDESIGN (target). Supersedes the shipped `as_director.script`; not fully built. Build stages and
-> progress in `doc/todo/todo-alifespooks.md` n117.
-
 SELECT is GEOGRAPHY - "where am I" decides what is eligible. One scheduled loop (its own
 `("as_director","dread_director")` time-event, separate from the base-ambient observer) runs a
 fixed-cadence pipeline and plays at most one sound per emission:
@@ -340,7 +337,7 @@ a separate slot from the director's `dread_director`; the two never share.
 - I6 Capture from folder trees, not just wired files. The ledger proof is what drives UNUSED-DARK to
   0.
 - I7 Selection is manual and per-pack. A pack's folders are mapped to categories by hand in
-  `DARK_FILL` after the pack is assessed. The substring match only pulls.
+  `ROUTE` after the pack is assessed. The folder-path match only pulls.
 - I8 Remove, do not inject. The static DLTX overlay removes a base sound the mod ships from its
   channel, matched by audio identity, per item. It never adds a channel and never injects a sound into
   the base ambient. The base's other sounds are untouched.
