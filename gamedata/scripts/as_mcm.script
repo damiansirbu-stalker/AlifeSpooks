@@ -23,15 +23,6 @@ local _key_to_tab = {
     btn_reset_all = "development",
 }
 
--- Per-category volume: one slider per director category, so each kind of spook is mixed
--- independently (screams down, underground up). The category is the shipped directory unit.
-local CAT_VOLS = { "drone", "spook", "scream", "growl", "machine",
-                   "gunfire", "underground", "creak", "wind_creep", "animals" }
-for _, c in ipairs(CAT_VOLS) do
-    defaults["vol_" .. c] = 1.0
-    _key_to_tab["vol_" .. c] = "spooks"
-end
-
 local function path_builder(key)
     return "as/" .. (_key_to_tab[key] or "spooks") .. "/" .. key
 end
@@ -68,26 +59,22 @@ local function _title()
              text = "ui_mcm_as_title", size = {512, 50}, spacing = 20 }
 end
 
---- Spooks: overall volume, rarity, distance, then per-category volume
+--- Spooks: one master volume for our sounds, plus the rarity and distance feel knobs. No per-category
+--- volume - the director mixes every category off the single master (the geography model has no per-category weight).
 local function spooks_page()
-    local gr = {
-        _title(),
-        { id = "desc", type = "desc", text = "ui_mcm_as_spooks_desc" },
-        { id = "vol_global",  type = "track", val = 2, min = 0.0, max = 5.0, step = 0.05, def = 1.0, hint = "as_vol_global" },
+    return {
+        id = "spooks", sh = true,
+        gr = {
+            _title(),
+            { id = "desc", type = "desc", text = "ui_mcm_as_spooks_desc" },
+            { id = "vol_global", type = "track", val = 2, min = 0.0, max = 5.0, step = 0.05, def = 1.0, hint = "as_vol_global" },
 
-        { id = "div_feel", type = "line" },
-        { id = "hdr_feel", type = "desc", text = "ui_mcm_as_hdr_feel", clr = GREY },
-        { id = "rarity",   type = "track", val = 2, min = 0.5, max = 3.0, step = 0.05, def = 1.0, hint = "as_rarity" },
-        { id = "distance", type = "track", val = 2, min = 0.5, max = 2.0, step = 0.05, def = 1.0, hint = "as_distance" },
-
-        { id = "div_vol", type = "line" },
-        { id = "hdr_vol", type = "desc", text = "ui_mcm_as_hdr_vol", clr = GREY },
+            { id = "div_feel", type = "line" },
+            { id = "hdr_feel", type = "desc", text = "ui_mcm_as_hdr_feel", clr = GREY },
+            { id = "rarity",   type = "track", val = 2, min = 0.5, max = 3.0, step = 0.05, def = 1.0, hint = "as_rarity" },
+            { id = "distance", type = "track", val = 2, min = 0.5, max = 2.0, step = 0.05, def = 1.0, hint = "as_distance" },
+        },
     }
-    for _, c in ipairs(CAT_VOLS) do
-        gr[#gr + 1] = { id = "vol_" .. c, type = "track", val = 2, min = 0.0, max = 3.0,
-                        step = 0.05, def = 1.0, hint = "as_vol_" .. c }
-    end
-    return { id = "spooks", sh = true, gr = gr }
 end
 
 --- Visuals: the subtle screen distortion at peak dread

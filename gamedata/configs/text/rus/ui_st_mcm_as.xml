@@ -9,12 +9,6 @@
   <string id="ui_mcm_as_vol_global_desc">
     <text>Множитель громкости для каждого одиночного динамического звука.</text>
   </string>
-  <string id="ui_mcm_as_vol_underground">
-    <text>Громкость подземелья</text>
-  </string>
-  <string id="ui_mcm_as_vol_underground_desc">
-    <text>Громкость акцентов туннелей и лабораторий: крысы, металл, капли, механизмы.</text>
-  </string>
   <string id="ui_mcm_as_hdr_feel">
     <text>Частота и расстояние</text>
   </string>
@@ -92,63 +86,6 @@
   </string>
   <string id="ui_mcm_as_sensitivity_desc">
     <text>Масштабирует весь отклик жути. Выше делает места тревожными раньше и чаще выводит на пик. Ниже держит жуть реже и слабее.</text>
-  </string>
-  <string id="ui_mcm_as_hdr_vol">
-    <text>Громкость по категориям</text>
-  </string>
-  <string id="ui_mcm_as_vol_drone">
-    <text>Громкость дронов</text>
-  </string>
-  <string id="ui_mcm_as_vol_drone_desc">
-    <text>Громкость низких тёмных дронов и гнетущих подложек.</text>
-  </string>
-  <string id="ui_mcm_as_vol_spook">
-    <text>Громкость жути</text>
-  </string>
-  <string id="ui_mcm_as_vol_spook_desc">
-    <text>Громкость призрачных звуков, шёпотов и тёмных присутствий.</text>
-  </string>
-  <string id="ui_mcm_as_vol_scream">
-    <text>Громкость криков</text>
-  </string>
-  <string id="ui_mcm_as_vol_scream_desc">
-    <text>Громкость далёких криков.</text>
-  </string>
-  <string id="ui_mcm_as_vol_growl">
-    <text>Громкость рыков</text>
-  </string>
-  <string id="ui_mcm_as_vol_growl_desc">
-    <text>Громкость рыков мутантов, только когда рядом настоящий мутант.</text>
-  </string>
-  <string id="ui_mcm_as_vol_machine">
-    <text>Громкость машин</text>
-  </string>
-  <string id="ui_mcm_as_vol_machine_desc">
-    <text>Громкость промышленных гулов и обломков.</text>
-  </string>
-  <string id="ui_mcm_as_vol_gunfire">
-    <text>Громкость стрельбы</text>
-  </string>
-  <string id="ui_mcm_as_vol_gunfire_desc">
-    <text>Громкость далёкой стрельбы на поверхности, где есть люди.</text>
-  </string>
-  <string id="ui_mcm_as_vol_creak">
-    <text>Громкость скрипов</text>
-  </string>
-  <string id="ui_mcm_as_vol_creak_desc">
-    <text>Громкость скрипа веток и деревьев.</text>
-  </string>
-  <string id="ui_mcm_as_vol_wind_creep">
-    <text>Громкость ветра</text>
-  </string>
-  <string id="ui_mcm_as_vol_wind_creep_desc">
-    <text>Громкость крадущегося и воющего ветра.</text>
-  </string>
-  <string id="ui_mcm_as_vol_animals">
-    <text>Громкость живности</text>
-  </string>
-  <string id="ui_mcm_as_vol_animals_desc">
-    <text>Громкость ворон и жуткой живности.</text>
   </string>
   <string id="ui_mcm_as_visuals">
     <text>Визуальные эффекты</text>

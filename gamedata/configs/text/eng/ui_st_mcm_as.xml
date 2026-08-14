@@ -15,7 +15,6 @@
   <string id="ui_mcm_as_title">
     <text>AlifeSpooks</text>
   </string>
-
   <string id="ui_mcm_as_spooks_desc">
     <text>The spook layer. It stays silent in safe and mundane places and, only where a place is genuinely unsettling, fires curated spook one-shots that grow closer and denser the worse it gets. It plays nothing else - no weather, no nature - and never replaces the base ambience.</text>
   </string>
@@ -46,70 +45,6 @@
   <string id="ui_mcm_as_distance_desc">
     <text>How far the one-shots spawn. Higher is farther and quieter.</text>
   </string>
-  <string id="ui_mcm_as_hdr_vol">
-    <text>Per-category volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_drone">
-    <text>Drone volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_drone_desc">
-    <text>Volume of the low dark drones and spook beds.</text>
-  </string>
-  <string id="ui_mcm_as_vol_spook">
-    <text>Spook volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_spook_desc">
-    <text>Volume of the spooks, whispers, and dark presences.</text>
-  </string>
-  <string id="ui_mcm_as_vol_scream">
-    <text>Scream volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_scream_desc">
-    <text>Volume of the distant screams.</text>
-  </string>
-  <string id="ui_mcm_as_vol_growl">
-    <text>Growl volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_growl_desc">
-    <text>Volume of the mutant growls, played only when a real mutant is near.</text>
-  </string>
-  <string id="ui_mcm_as_vol_machine">
-    <text>Machine volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_machine_desc">
-    <text>Volume of the industrial drones and debris.</text>
-  </string>
-  <string id="ui_mcm_as_vol_gunfire">
-    <text>Gunfire volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_gunfire_desc">
-    <text>Volume of the distant gunfire, outdoors where people are.</text>
-  </string>
-  <string id="ui_mcm_as_vol_underground">
-    <text>Underground volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_underground_desc">
-    <text>Volume of the tunnel and lab spook on underground levels.</text>
-  </string>
-  <string id="ui_mcm_as_vol_creak">
-    <text>Creak volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_creak_desc">
-    <text>Volume of the branch and tree creaks.</text>
-  </string>
-  <string id="ui_mcm_as_vol_wind_creep">
-    <text>Wind volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_wind_creep_desc">
-    <text>Volume of the creeping and howling wind.</text>
-  </string>
-  <string id="ui_mcm_as_vol_animals">
-    <text>Wildlife volume</text>
-  </string>
-  <string id="ui_mcm_as_vol_animals_desc">
-    <text>Volume of the crows and eerie wildlife.</text>
-  </string>
-
   <string id="ui_mcm_as_visuals_page_desc">
     <text>At peak spook, in the worst places, a brief and subtle screen distortion.</text>
   </string>
@@ -119,7 +54,6 @@
   <string id="ui_mcm_as_visuals_desc">
     <text>In the worst places, a brief, subtle screen distortion that lasts a couple of seconds. Off disables the visual layer entirely; sound is unaffected.</text>
   </string>
-
   <string id="ui_mcm_as_development_desc">
     <text>Tracing and the debug HUD for tuning the spook layer. No effect on gameplay.</text>
   </string>
@@ -150,7 +84,6 @@
   <string id="ui_mcm_as_log_flush_desc">
     <text>Write every line immediately. Slower; use only when hunting a crash.</text>
   </string>
-
   <string id="ui_mcm_as_hud_hdr">
     <text>Debug HUD</text>
   </string>
@@ -160,14 +93,27 @@
   <string id="ui_mcm_as_development_hud_position_desc">
     <text>A live on-screen breakdown of the spook calculation - grade, score, place, what is playing, each term and the gates - for tuning. Refreshes twice per second, hides while the PDA is open. Pick a corner to show it; Off hides it. Players never see it unless enabled here.</text>
   </string>
-  <string id="as_development_hud_position_lst_off"><text>Off</text></string>
-  <string id="as_development_hud_position_lst_topleft"><text>Top Left</text></string>
-  <string id="as_development_hud_position_lst_topright"><text>Top Right</text></string>
-  <string id="as_development_hud_position_lst_centerleft"><text>Center Left</text></string>
-  <string id="as_development_hud_position_lst_centerright"><text>Center Right</text></string>
-  <string id="as_development_hud_position_lst_bottomleft"><text>Bottom Left</text></string>
-  <string id="as_development_hud_position_lst_bottomright"><text>Bottom Right</text></string>
-
+  <string id="as_development_hud_position_lst_off">
+    <text>Off</text>
+  </string>
+  <string id="as_development_hud_position_lst_topleft">
+    <text>Top Left</text>
+  </string>
+  <string id="as_development_hud_position_lst_topright">
+    <text>Top Right</text>
+  </string>
+  <string id="as_development_hud_position_lst_centerleft">
+    <text>Center Left</text>
+  </string>
+  <string id="as_development_hud_position_lst_centerright">
+    <text>Center Right</text>
+  </string>
+  <string id="as_development_hud_position_lst_bottomleft">
+    <text>Bottom Left</text>
+  </string>
+  <string id="as_development_hud_position_lst_bottomright">
+    <text>Bottom Right</text>
+  </string>
   <string id="ui_mcm_as_development_btn_reset_all">
     <text>Reset to defaults</text>
   </string>

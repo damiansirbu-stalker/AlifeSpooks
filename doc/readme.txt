@@ -27,35 +27,27 @@ It needs xlibs, the library that plays its sounds. Without xlibs the mod is iner
 
 1. The director
 
-The director is the core. It scores the dread of your surroundings, and the score decides which sounds are eligible, how close they play, and how loud.
-A friendly base in daylight is quiet. A psi lab with a mutant near at night is loud. Most of the Zone sits in between.
-The dread is one plain sum, lore plus who's around plus indoor plus time, with no multiplier and no floor.
+The director is the core. It reads where you are and plays to it. Two things drive it: WHERE you stand decides which sounds can play, and how much DREAD the place carries decides how close and how often they play.
+A base in daylight is silent. A lab with a mutant near at night is loud and close. Most of the Zone sits in between.
 
-Lore. The smart terrain you stand in is looked up in a hand-curated table taken to canon.
-That covers the psi zones (Yantar, Radar, Red Forest, the reactor), the labs, the dens, the ruined cities, and the eerie wilds.
-A place not in the table falls to a per-level baseline. This is the dread a place carries on its own, before anything happens.
+Where you are. Selection is geography, checked in order.
+The map you are on has a curated list of what belongs there, traced from the source packs, so a lab level plays facility and machine sound, a swamp plays its own mutant atmosphere, and a wild forest never plays the radio signal.
+A base near, spotted by a live trader, medic, or mechanic, cancels everything: a base is a safe hub and goes silent, whatever faction owns it.
+Indoor, outdoor, or underground then filters the rest, so the open never plays doors or machinery and an interior never plays leaves or wind.
 
-Who's around. One reading of your company: alone, among allies, near enemies, near mutants, or a mix.
-Your own people are the only thing that calms you. Alone or with a threat near, the Zone stays uneasy on its own. Enemy ground counts as hostile even when the base sits empty.
-Safety is a live fact, not a spot marked safe on a list, so an emptied or infiltrated base at night is not safe.
-Faction hostility is read from the game's own relations, so a base is friendly or hostile by the faction you play, not a fixed assumption that you are a loner.
-It is not a body count or a threat meter, only what kind of company you keep.
+How much dread. Dread is one plain sum, with no multiplier and no floor: the level's own baseline, plus indoor or underground, plus the hour, plus the single scariest thing near, minus your own people around.
+The level baseline is the dread a place carries on its own, grim in the psi north and the labs, mundane in the fields.
+The scariest thing near is one reading and never a body count: an apex mutant weighs most, a lesser threat less, and being truly alone weighs a little on its own.
+Allies near are the only thing that calms you, so a place with your people falls quiet while a grim empty place still carries its dread.
+Dread drives how close a sound spawns and how often it fires, never how loud.
 
-Indoor. Enclosed spaces feel scarier than the open. A real roof-and-wall raycast or a surge shelter decides it.
-
-Time. A few steps through the day: calm by day, a nudge at dusk and dawn, up at night, most in the dead of night.
-
-Your own people settle the unease, so a calm place with allies falls quiet, and a truly grim place still carries its dread.
-It is one plain sum with no artificial floor and no cutout, so the Zone is never dead quiet where it should not be, and never forced silent where it should not be either.
-
-The palette. The sounds are grouped into categories, each with the condition it fires under and a minimum spacing, so a scream stays rare against the wind.
-Spooks, screams, and dark drones play wherever the dread is up. Growls need a real mutant near.
-Tunnel and machine sound plays on an actual underground level, read from the engine's own underground flag, not in a surface building.
-Gunfire plays outdoors where humans are present, because someone has to fire the shot. Wind, creaks, and eerie wildlife play everywhere as texture.
-The loud scares stay rare and spaced, and no call plays twice in a row.
+The palette. The sounds are grouped into categories, each playing only where it fits and only when its condition is met.
+Spooks, screams, and dark drones play wherever the map allows. A mutant category needs a real mutant present, gunfire needs a person present, and the radio signal plays only where a signal source makes sense.
+Wind, foliage, and eerie wildlife are outdoor texture, while doors, machinery, drips, and facility sound belong indoors and underground.
+Every category rotates so a scare stays rare against the texture, and no call plays twice in a row.
 
 Each one-shot is positioned around you with the game's own ambient geometry, a little closer at peak dread, and left to the engine's own distance rolloff, so a near sound is full and a far one fades.
-A long horror drone or a psy bed plays as a spaced one-shot, never a continuous loop.
+A long horror drone or the radio signal plays as a spaced one-shot, never a continuous loop.
 
 
 2. The veto
@@ -94,8 +86,8 @@ It reads cheap signals every few seconds, never per frame, and caches them, so t
 
 
 MCM:
-The MCM has three tabs. Atmosphere holds an overall volume, rarity, distance, and a per-category volume slider for each kind of sound.
-The categories are drone, spook, scream, growl, machine, gunfire, underground, creak, wind, and wildlife, so you can turn screams down and underground up on their own.
+The MCM has three tabs. Atmosphere holds one master volume for the mod's sounds, plus rarity and distance.
+There are no per-category sliders: the director mixes every kind of sound off the single master.
 Visuals toggles the screen distortion at peak dread. Development holds the trace level, a log flush, the debug HUD, and a reset-to-defaults button.
 The in-game HUD reads out the current dread, each term that fed it, what is playing, and what the base ambience is playing, so you can see exactly why a place sounds the way it does.
 
