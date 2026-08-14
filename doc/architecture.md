@@ -119,6 +119,10 @@ and accounted, never silently.
 
 ## The director
 
+> STATUS: this section describes v1 (geography). v2 (a sensor board on one round-robin tick, rank-tiered
+> dread) is BUILT in `as_director.script` and specced in `doc/todo/todo-alifespooks.md` n119; this section
+> is rewritten to v2 after playtest settles the model and the dread magnitudes.
+
 SELECT is GEOGRAPHY - "where am I" decides what is eligible. One scheduled loop (its own
 `("as_director","dread_director")` time-event, separate from the base-ambient observer) runs a
 fixed-cadence pipeline and plays at most one sound per emission:

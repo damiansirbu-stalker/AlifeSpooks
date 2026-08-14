@@ -1,9 +1,9 @@
---- as_director: geography dread director. SELECT is "where am I" - the level's category list
---- (as_static_map.ltx), the enclosure state, and a live seller-detected base decide what is eligible; a
---- symmetrical two-level shuffle-bag picks; dread (additive lore + enclosure + time + threat + company,
---- or 0 at any base near) drives spawn distance and emission frequency, never volume. Runs on its own
---- dread_director slot. A separate observer owns the vanilla update_ambient slot only to replay+LOG the
---- base ambient; the base's copies of our sounds are removed statically by the DLTX overlay.
+--- as_director: dread director v2. One 100ms tick round-robins a sensor board (environment, stalkers,
+--- monsters, anomalies, time), SELECT gates categories by map + environment + presence, a two-level
+--- shuffle-bag picks, and grounded additive dread drives spawn distance and emission frequency, never
+--- volume. Man and monster collapse to one low/med/high power (se:rank), so threat reads both with one
+--- rule. A separate observer owns the vanilla update_ambient slot only to replay+LOG the base ambient;
+--- the base's copies of our sounds are removed statically by the DLTX overlay.
 
 local math_random, math_rad = math.random, math.rad
 local math_cos, math_sin = math.cos, math.sin
@@ -18,9 +18,9 @@ local MAP_FILE      = "scripts\\as_static_map.ltx"
 local CHANNELS_FILE = "environment\\sound_channels.ltx"
 local SEC_DEFAULT   = "default"
 
--- Category runtime attributes: env (the enclosure states it may play in) + need (a live gate). The MAP
--- list (as_static_map.ltx) decides per-level eligibility; THIS decides enclosure + need, keyed by name.
--- env flags out/ind/ug = outdoor/indoor/underground. need "mutant"|"human"|"anomaly"|nil.
+-- Category runtime attributes: env (enclosure states it may play in) + need (a live gate). The MAP list
+-- (as_static_map.ltx) decides per-level eligibility; THIS decides enclosure + need, keyed by name.
+-- env flags out/ind/ug = outdoor/indoor/underground; labs satisfies ug. need "mutant"|"human"|"anomaly"|nil.
 local CAT = {
     mutant                = { out = true, ind = true, ug = true, need = "mutant" },
     mutant_ambient_forest = { out = true },
@@ -44,13 +44,19 @@ local CAT = {
     bats        = { out = true, ug = true },
 }
 
--- Threat tiers for the dread threat term (the single scariest thing near, never a sum).
-local APEX = { gigant = true, pseudo_gigant = true, controller = true, burer = true, chimera = true }
-local REAL = { bloodsucker = true, psysucker = true, snork = true, poltergeist = true, psy_dog = true,
-               zombie = true, fracture = true, karlik = true, lurker = true, pseudodog = true }
+-- Shared power scale; man (character_rank) and monster (se:rank) both map to one of these tokens.
+local POWER = { none = 0, low = 1, med = 2, high = 3 }
+-- Rank cut points (see doc/library/modding/npc-strength-evaluation.md; probe-verified cross-install).
+local STALKER_MED, STALKER_HIGH = 9000, 14500
+local MONSTER_MED, MONSTER_HIGH = 6, 17
 
--- Per-LEVEL lore dread (the place's own baseline, the ONLY place identity kept - smart lore is dropped).
--- Psy north + labs are grim; field/rural mundane. Unlisted -> LORE_DEFAULT.
+-- The sci-fi lab levels, split off from generic underground (tunnels/mines/bunker) for the labs environment.
+local LAB_LEVELS = {
+    labx8 = true, l04u_labx18 = true, l08u_brainlab = true,
+    l13u_warlab = true, l12u_sarcofag = true, l12u_control_monolith = true,
+}
+
+-- Per-LEVEL lore dread (the place's own baseline; coordinate overrides supersede this later, n114).
 local LORE_DEFAULT = 0.15
 local LORE_LEVEL = {
     l12u_control_monolith = 0.50, l10_radar = 0.45, l08u_brainlab = 0.45, l10u_bunker = 0.45,
@@ -62,14 +68,17 @@ local LORE_LEVEL = {
     k00_marsh = 0.20, zaton = 0.20, l04_darkvalley = 0.20,
 }
 
--- Dread terms (additive, no baseline). enclosure by state; threat by tier (0 no soul near = loneliness,
--- 1 lesser, 2 apex); company negative (allies calm). Any base near replaces the whole sum with 0 (silent).
-local ENC_ADD    = { outdoor = 0.00, indoor = 0.10, underground = 0.20 }
-local THREAT_ADD = { [0] = 0.08, [1] = 0.10, [2] = 0.25 }
-local COMPANY_ALLIED     = -0.15
-local COMPANY_COMPANION  = -0.05
-local BASE_RADIUS = 60
-local PRESENCE_R2 = 150 * 150
+-- Dread value tables (additive, no baseline, clamped 0..1). Tuned for good dread + variation (n119).
+local ENV_ADD      = { outdoor = 0.00, indoor = 0.08, underground = 0.15, labs = 0.25 }
+local TIME_ADD     = { day = 0.00, dawn = 0.04, dusk = 0.05, night = 0.12, deep_night = 0.18 }
+local THREAT_ADD   = { [1] = 0.08, [2] = 0.15, [3] = 0.30 }
+local LONELINESS   = 0.06
+local ALLY_CALM    = { none = 0, low = -0.05, med = -0.10, high = -0.15 }
+local ANOMALY_ADD  = 0.05
+local SERVICE_HOSTILE = 0.30
+
+local NEAR_R2  = 100 * 100
+local BASE_R2  = 60 * 60
 
 -- Emission + pacing. One sound at most every SPACE_MIN..MAX (dread shortens it); below DREAD_ON nothing
 -- emits. HORROR_PULL: up to this fraction closer at peak dread. Volume is dread-FREE.
@@ -77,9 +86,9 @@ local DREAD_ON     = 0.10
 local SPACE_MIN_MS = 5000
 local SPACE_MAX_MS = 15000
 local HORROR_PULL  = 0.25
+local TICK_S       = 0.1
 local BASE_TICK_S  = 1
-local CTX_PERIOD   = 3000
-local INSANE_DREAD   = 0.80
+local INSANE_DREAD = 0.80
 local PLAY_WINDOW_MS = 6000
 local TYPE_WRAP      = 34
 
@@ -99,9 +108,20 @@ local vol_global         = 1
 local opt_ambient_volume = 1
 local visuals_on         = true
 
--- Runtime state. _cats: category -> sound list from as_manifest. _map/_map_set: the level's eligible
--- category set from as_static_map. _cat_bag/_snd_bag: the two shuffle-bags. ctx: the cached evaluation.
--- _enc: the enclosure cache (by cell). _vis: the visual-pulse state.
+-- The sensor board: single source of truth, filled by the producers, read by SELECT/APPLY/GUI.
+local board = {
+    environment = "outdoor",
+    time        = "day",
+    stalkers = { online = false, enemy_near = "none", ally_near = "none", service_near = "none" },
+    monsters = { online = false, enemy_near = "none" },
+    anomalies = { near = false },
+    dread    = 0,
+    eligible = {},
+    elig_set = {},
+}
+
+-- Runtime state. _cats: category -> sound list from as_manifest. _map/_map_set: the level's category set.
+-- _cat_bag/_snd_bag: the two shuffle-bags. _enc: the environment raycast cache (by cell). _vis: visual state.
 local _cats      = {}
 local _loaded    = false
 local _map       = nil
@@ -109,7 +129,6 @@ local _map_level = nil
 local _map_set   = {}
 local _cat_bag   = {}
 local _snd_bag   = {}
-local ctx        = { dread = 0, enclosure = "outdoor", eligible = {}, base_owner = nil, elig_set = {} }
 local _next_play = 0
 local _play_at   = 0
 local _last_play = "-"
@@ -120,9 +139,9 @@ local _enc = { level = nil, cx = nil, cz = nil, val = "outdoor" }
 local _vis = { insane_since = nil, next_ok = 0, handle = nil }
 
 -- Forward declarations for helpers referenced before their definition line (kept local, never global).
-local _tally_human, _tally_mutant, _build_hud, _vis_pulse, _visual_tick
+local _build_hud, _vis_pulse, _visual_tick
 
---- Comma-join short strings into lines each <= width chars (the wrapped HUD AVAILABLE list).
+--- Comma-join short strings into lines each <= width chars (the wrapped HUD available list).
 local function _wrap_csv(items, width)
     local lines, buf, len = {}, {}, 0
     for i = 1, #items do
@@ -135,6 +154,21 @@ local function _wrap_csv(items, width)
     end
     if len > 0 then lines[#lines + 1] = table_concat(buf) end
     return lines
+end
+
+--- A raw rank -> "none"|"low"|"med"|"high" power token against a scale's med/high cut points.
+local function _tier(rank, med, high)
+    if not rank or rank <= 0 then return "low" end
+    if rank >= high then return "high" end
+    if rank >= med then return "med" end
+    return "low"
+end
+
+--- True if an online NPC fills a base-marking service role (trader/medic/mechanic).
+local function _is_service(npc)
+    if not (xsmart and xsmart.get_npc_roles) then return false end
+    local roles = xsmart.get_npc_roles(npc)
+    return (roles.trader or roles.medic or roles.mechanic) and true or false
 end
 
 -- ---- LOAD -----------------------------------------------------------------
@@ -151,9 +185,9 @@ local function _load_channels()
 end
 
 --- Build the per-level eligible-category set from as_static_map.ltx ([default] + [level]), once per level.
-local function _load_map(level)
-    if _map_level == level then return end
-    _map_level = level
+local function _load_map(level_name)
+    if _map_level == level_name then return end
+    _map_level = level_name
     if not _map then _map = ini_file(MAP_FILE) end
     _map_set = {}
     local function add(section)
@@ -163,123 +197,121 @@ local function _load_map(level)
         end
     end
     add(SEC_DEFAULT)
-    add(level)
+    add(level_name)
     _cat_bag = {}
 end
 
--- ---- WHERE (geography + presence + time) ----------------------------------
+-- ---- SCANS (producers -> the board) ---------------------------------------
 
---- Enclosure state at the actor, cached by (level, coarse cell) so the raycast fires only on a cell change.
-local function _enclosure(actor)
+--- Environment token at the actor: labs / underground (engine underground flag, split by LAB_LEVELS),
+--- else indoor (is_indoor raycast, cached by cell) else outdoor.
+local function _read_environment(actor)
     local pos = actor:position()
     local level_name = level.name()
+    if GetEvent("underground") then return LAB_LEVELS[level_name] and "labs" or "underground" end
     local cx, cz = math_floor(pos.x / 4), math_floor(pos.z / 4)
     if _enc.level ~= level_name or _enc.cx ~= cx or _enc.cz ~= cz then
         _enc.level, _enc.cx, _enc.cz = level_name, cx, cz
-        _enc.val = (xcombat and xcombat.enclosure and xcombat.enclosure(pos)) or "outdoor"
+        _enc.val = (xcombat and xcombat.is_indoor and xcombat.is_indoor(pos)) and "indoor" or "outdoor"
     end
     return _enc.val
 end
 
---- Fold one online object into the presence tally: level-wide any-mutant / any-human, plus (when near)
---- the threat tier and the allied/companion counts.
-local function _tally_object(obj, near, out)
-    if xcreature.is_stalker(obj) then
-        out.any_human = true
-        if near then _tally_human(obj, out) end
-    elseif xcreature.is_mutant(obj) then
-        out.any_mutant = true
-        if near then _tally_mutant(obj, out) end
+--- Fold one online stalker id into the stalkers sensor (guard-clause; near-only past the distance test).
+local function _fold_stalker(id, actor_id, apos, out)
+    if id == actor_id then return end
+    local st = db.storage[id]
+    local npc = st and st.object
+    if not npc then return end
+    out.online = true
+    local dist_sqr = apos:distance_to_sqr(npc:position())
+    if dist_sqr > NEAR_R2 then return end
+    local rel  = xcreature.relation(npc, db.actor)
+    local tier = _tier(npc:character_rank(), STALKER_MED, STALKER_HIGH)
+    if rel == "enemy" then
+        if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
+    else
+        if POWER[tier] > POWER[out.ally_near] then out.ally_near = tier end
+    end
+    if dist_sqr <= BASE_R2 and _is_service(npc) then
+        out.service_near = (rel == "enemy") and "hostile" or "allied"
     end
 end
 
---- One scan of the online set: any-mutant / any-human (level-wide, for SELECT), plus the nearest-tier
---- threat and the near allied/companion counts (range-bound, for the dread terms). One pass, cheap.
-local function _evaluate_presence(actor)
-    local out = { any_mutant = false, any_human = false, threat = -1, allied = 0, companion = 0 }
-    if not xcreature then return out end
-    local apos, actor_id = actor:position(), actor:id()
-    for id, obj in xcreature.online_iter_with_id() do
-        if id ~= actor_id and obj then
-            local dist_sqr = apos:distance_to_sqr(obj:position())
-            _tally_object(obj, dist_sqr <= PRESENCE_R2, out)
-        end
-    end
+--- Scan the dedicated online-stalker array (db.OnlineStalkers) in one pass.
+local function _scan_stalkers(actor)
+    local out = { online = false, enemy_near = "none", ally_near = "none", service_near = "none" }
+    local online = db.OnlineStalkers
+    if not online then return out end
+    local actor_id, apos = actor:id(), actor:position()
+    for i = 1, #online do _fold_stalker(online[i], actor_id, apos, out) end
     return out
 end
 
---- Tally a near stalker into the threat/company terms (enemy = lesser threat; companion/allied calm).
-function _tally_human(obj, out)
-    if xcreature.is_enemy_to_actor(obj) then out.threat = math_max(out.threat, 1)
-    elseif obj:has_info("npcx_is_companion") then out.companion = out.companion + 1
-    else out.allied = out.allied + 1 end
+--- Fold one online object into the monsters sensor if it is a monster (guard-clause; near-only tiering).
+local function _fold_monster(id, obj, actor_id, apos, out)
+    if id == actor_id or not obj then return end
+    if not xcreature.is_mutant(obj) then return end
+    out.online = true
+    if apos:distance_to_sqr(obj:position()) > NEAR_R2 then return end
+    local se = xobject.se(id)
+    if not se then return end
+    local tier = _tier(se:rank(), MONSTER_MED, MONSTER_HIGH)
+    if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
 end
 
---- Tally a near mutant into the threat term (apex = big, real = lesser; trash tier ignored).
-function _tally_mutant(obj, out)
-    local sp = xcreature.get_mutant_species(obj)
-    if sp and APEX[sp] then out.threat = math_max(out.threat, 2)
-    elseif sp and REAL[sp] then out.threat = math_max(out.threat, 1) end
+--- Scan the online set for monsters (no dedicated collection yet; sim-board squads / db.OnlineMonsters
+--- PR are the noted optimisation - n119). One walk, monster-filtered.
+local function _scan_monsters(actor)
+    local out = { online = false, enemy_near = "none" }
+    if not xcreature then return out end
+    local apos, actor_id = actor:position(), actor:id()
+    for id, obj in xcreature.online_iter_with_id() do _fold_monster(id, obj, actor_id, apos, out) end
+    return out
 end
 
---- Time stage add: day calm, dusk/dawn a nudge, night up, deep night most.
-local function _time_add(hour)
-    if not hour then return 0 end
-    if hour >= 7 and hour < 19 then return 0.00 end
-    if hour >= 19 and hour < 21 then return 0.05 end
-    if hour >= 5 and hour < 7  then return 0.04 end
-    if hour >= 0 and hour < 4  then return 0.12 end
-    return 0.10
+--- Anomaly within range of the actor (proven scan over db.anomaly_by_name).
+local function _read_anomalies(actor)
+    return (xsmart and xsmart.anomaly_near and xsmart.anomaly_near(actor:position())) or false
 end
 
-local function _time_name(hour)
-    if not hour then return "-" end
+--- Time band for the current hour.
+local function _time_band(hour)
+    if not hour then return "day" end
     if hour >= 7 and hour < 19 then return "day" end
     if hour >= 19 and hour < 21 then return "dusk" end
     if hour >= 5 and hour < 7  then return "dawn" end
-    if hour >= 0 and hour < 4  then return "deep night" end
+    if hour >= 0 and hour < 4  then return "deep_night" end
     return "night"
 end
 
 -- ---- SELECT (eligibility + two-level shuffle-bag) --------------------------
 
---- True if a category's live need is met (level-wide presence for mutant/human, anomaly-near for drone).
-local function _need_ok(need, presence, anomaly)
-    if need == "mutant" then return presence.any_mutant end
-    if need == "human" then return presence.any_human end
-    if need == "anomaly" then return anomaly end
-    return true
-end
-
---- True if a category is eligible now: the level's map list names it, its env allows the enclosure state,
---- and its live need is met.
-local function _eligible(name, enclosure, presence, anomaly)
+--- True if a category is eligible now: the level's map list names it, its env allows the environment,
+--- and its live need (level-wide presence / anomaly-near) is met. Reads the board.
+local function _eligible(name)
     if not _map_set[name] then return false end
     local def = CAT[name]
-    if enclosure == "outdoor" and not def.out then return false end
-    if enclosure == "indoor" and not def.ind then return false end
-    if enclosure == "underground" and not def.ug then return false end
-    return _need_ok(def.need, presence, anomaly)
-end
-
---- The eligible category names now (a fresh array each evaluation).
-local function _eligible_categories(enclosure, presence, anomaly)
-    local out = {}
-    for name in pairs(CAT) do
-        if _eligible(name, enclosure, presence, anomaly) then out[#out + 1] = name end
-    end
-    return out
+    local env = board.environment
+    if env == "outdoor" and not def.out then return false end
+    if env == "indoor" and not def.ind then return false end
+    if (env == "underground" or env == "labs") and not def.ug then return false end
+    local need = def.need
+    if need == "mutant" then return board.monsters.online end
+    if need == "human" then return board.stalkers.online end
+    if need == "anomaly" then return board.anomalies.near end
+    return true
 end
 
 --- Category shuffle-bag: cycle every eligible category once before any repeat. Stale names (no longer
 --- eligible after the set changed) are dropped; the bag refills from the current eligible list when empty.
-local function _pick_category(eligible, elig_set)
+local function _pick_category()
     local live = {}
     for i = 1, #_cat_bag do
-        if elig_set[_cat_bag[i]] then live[#live + 1] = _cat_bag[i] end
+        if board.elig_set[_cat_bag[i]] then live[#live + 1] = _cat_bag[i] end
     end
     if #live == 0 then
-        for i = 1, #eligible do live[i] = eligible[i] end
+        for i = 1, #board.eligible do live[i] = board.eligible[i] end
     end
     if #live == 0 then _cat_bag = {}; return nil end
     local pick = math_random(#live)
@@ -307,33 +339,36 @@ local function _pick_sound(name)
     return sounds[idx]
 end
 
--- ---- APPLY (dread + base override + positioned play) ----------------------
+-- ---- APPLY (dread + positioned play) --------------------------------------
 
---- Company dread: allies near calm the actor (the only negative term); companions calm less.
-local function _company_add(presence)
-    if presence.allied > 0 then return COMPANY_ALLIED end
-    if presence.companion > 0 then return COMPANY_COMPANION end
+--- The threat dread term: the scariest near thing (man or monster, one power), or loneliness if none near.
+local function _threat_add(s, m)
+    local worst = math_max(POWER[s.enemy_near], POWER[m.enemy_near])
+    if worst > 0 then return THREAT_ADD[worst] end
+    if s.ally_near == "none" then return LONELINESS end
     return 0
 end
 
---- Dread: additive lore + enclosure + time + threat + company, clamped 0..1. ANY base near replaces the
---- whole sum with 0 (silent - a base is a safe hub). Returns dread and a terms table for the HUD.
-local function _dread(level_name, enclosure, presence, hour, base_owner)
-    local lore = LORE_LEVEL[level_name] or LORE_DEFAULT
-    local enc = ENC_ADD[enclosure] or 0
-    local time_add = _time_add(hour)
-    local threat = THREAT_ADD[presence.threat] or 0
-    local company = _company_add(presence)
-    local terms = { lore = lore, enc = enc, time = time_add, threat = threat, company = company, base = nil }
-    local score
-    if base_owner then
-        terms.base = tostring(base_owner)
-        score = 0
-    else
-        score = lore + enc + time_add + threat + company
-    end
-    if score < 0 then score = 0 elseif score > 1 then score = 1 end
-    return score, terms
+local function _clamp01(v)
+    if v < 0 then return 0 end
+    if v > 1 then return 1 end
+    return v
+end
+
+--- Grounded additive dread from the board, clamped 0..1. An allied service near (a safe hub) forces 0;
+--- a hostile service adds. Writes board.dread + board.terms (for the HUD).
+local function _dread()
+    local s, m = board.stalkers, board.monsters
+    local lore = LORE_LEVEL[level.name()] or LORE_DEFAULT
+    local env  = ENV_ADD[board.environment] or 0
+    local tm   = TIME_ADD[board.time] or 0
+    local threat = _threat_add(s, m)
+    local company = ALLY_CALM[s.ally_near] or 0
+    local anom = board.anomalies.near and ANOMALY_ADD or 0
+    if s.service_near == "allied" then board.dread = 0; return end
+    local score = lore + env + tm + threat + company + anom
+    if s.service_near == "hostile" then score = score + SERVICE_HOSTILE end
+    board.dread = _clamp01(score)
 end
 
 --- Place and fire one sound { path, min, max, height }. Vanilla spawn geometry (random point in the
@@ -344,7 +379,8 @@ local function _play(snd, dread)
     if not actor then return end
     local min_dist, max_dist, height = snd[2], snd[3], snd[4] or 0
     local pos = actor:position()
-    local near_bound = (ctx.enclosure == "underground") and min_dist or ((max_dist + min_dist) / 2)
+    local deep = board.environment == "underground" or board.environment == "labs"
+    local near_bound = deep and min_dist or ((max_dist + min_dist) / 2)
     local dist = math_random(near_bound, max_dist) / 2
     dist = dist * (1 - HORROR_PULL * dread) * distance
     local angle = math_rad(math_random(0, 359))
@@ -354,94 +390,49 @@ local function _play(snd, dread)
     as_debug.dbg("[PLAY] %s dist=%.1f h=%.0f vol=%.2f dread=%.2f", snd[1], dist, height, vol, dread)
 end
 
--- ---- evaluate (world -> ctx, cached) --------------------------------------
+-- ---- derive (board -> dread + eligible + HUD, each tick) -------------------
 
---- Refresh the cached context: geography (level, enclosure, base owner), presence, anomaly, time, dread,
---- and the eligible set. Builds the HUD rows. Called every CTX_PERIOD by the director loop.
-local function _evaluate(actor, hour)
-    local dbg = as_debug.on()
-    local level_name = level.name()
-    _load_map(level_name)
-    local apos = actor:position()
-    local enclosure = _enclosure(actor)
-
-    local tmr = xprofiler.new_if(dbg):start()
-    local presence = _evaluate_presence(actor)
-    tmr:stop()
-    if dbg then as_debug.dbg("[PRESENCE] mutant=%s human=%s threat=%d allied=%d comp=%d [%.2fms]",
-        tostring(presence.any_mutant), tostring(presence.any_human), presence.threat,
-        presence.allied, presence.companion, tmr:get_ms()) end
-
-    local anomaly = (xsmart and xsmart.anomaly_near and xsmart.anomaly_near(apos)) or false
-    local btmr = xprofiler.new_if(dbg):start()
-    local base_owner = xsmart and xsmart.base_owner_near and xsmart.base_owner_near(apos, BASE_RADIUS)
-    btmr:stop()
-    if dbg then as_debug.dbg("[BASE-NEAR] owner=%s [%.2fms]", tostring(base_owner or "-"), btmr:get_ms()) end
-
-    local dread, terms = _dread(level_name, enclosure, presence, hour, base_owner)
-    local eligible = _eligible_categories(enclosure, presence, anomaly)
-
-    ctx.dread, ctx.enclosure, ctx.eligible, ctx.base_owner = dread, enclosure, eligible, base_owner
-    ctx.elig_set = {}
-    for i = 1, #eligible do ctx.elig_set[eligible[i]] = true end
-
-    _build_hud({ level_name = level_name, enclosure = enclosure, presence = presence,
-                 terms = terms, dread = dread, eligible = eligible, hour = hour })
-    if dbg then
-        as_debug.dbg("[WHERE] lvl=%s enc=%s anomaly=%s", level_name, enclosure, tostring(anomaly))
-        as_debug.dbg("[DREAD] score=%.2f lore=%.2f enc=%.2f time=%.2f threat=%.2f comp=%.2f base=%s",
-            dread, terms.lore, terms.enc, terms.time, terms.threat, terms.company, tostring(terms.base or "-"))
-        as_debug.dbg("[SELECT] elig=%d [%s]", #eligible, table_concat(eligible, ","))
+--- Recompute the derived state from the current board: dread, the eligible set + fast lookup, the HUD.
+local function _derive()
+    _dread()
+    local elig = {}
+    for name in pairs(CAT) do
+        if _eligible(name) then elig[#elig + 1] = name end
     end
+    board.eligible = elig
+    board.elig_set = {}
+    for i = 1, #elig do board.elig_set[elig[i]] = true end
 end
 
---- Build the debug HUD rows (SPOOK / BASE / AVAILABLE / SENSORS / DREAD) from an evaluation snapshot.
-function _build_hud(data)
-    local terms, presence = data.terms, data.presence
-    local function pv(v) return (v and v ~= 0) and string_format("%+.2f", v) or "-" end
+--- Build the debug HUD rows (PLAYING / SELECT / SENSORS) from the board.
+function _build_hud()
     local playing = _play_at > 0 and (time_global() - _play_at) < PLAY_WINDOW_MS
     local base_playing = _base_at > 0 and (time_global() - _base_at) < PLAY_WINDOW_MS
+    local dread = board.dread
+    local grade = (dread >= INSANE_DREAD) and "g_insane" or (dread >= DREAD_ON) and "g_med" or "g_none"
+    local s, m = board.stalkers, board.monsters
     _rows = {
-        { "SPOOK", "", "", "hdr" }, { _last_play, "", "", playing and "play" or "stop" }, { "", "", "" },
-        { "BASE", "", "", "hdr" }, { _base_last, "", "", base_playing and "play" or "stop" }, { "", "", "" },
-        { "AVAILABLE", "", "", "hdr" },
+        { "PLAYING", "", "", "hdr" },
+        { "spook", _last_play, "", playing and "play" or "stop" },
+        { "base", _base_last, "", base_playing and "play" or "stop" },
+        { "", "", "" },
+        { "SELECT", "", "", "hdr" },
     }
-    for _, wrapped in ipairs(_wrap_csv(data.eligible, TYPE_WRAP)) do _rows[#_rows + 1] = { wrapped, "", "" } end
+    local avail = _wrap_csv(board.eligible, TYPE_WRAP)
+    if #avail == 0 then avail = { "-" } end
+    for i = 1, #avail do _rows[#_rows + 1] = { i == 1 and "available" or "", avail[i], "" } end
+    _rows[#_rows + 1] = { "dread", string_format("%.2f", dread), "", grade }
     _rows[#_rows + 1] = { "", "", "" }
-    _rows[#_rows + 1] = { "SENSORS", "", "" }
-    _rows[#_rows + 1] = { "lore", data.level_name, string_format("%.2f", terms.lore) }
-    _rows[#_rows + 1] = { "enclosure", data.enclosure, pv(terms.enc) }
-    _rows[#_rows + 1] = { "time", _time_name(data.hour), pv(terms.time) }
-    _rows[#_rows + 1] = { "threat", tostring(presence.threat), pv(terms.threat) }
-    _rows[#_rows + 1] = { "company", tostring(presence.allied + presence.companion), pv(terms.company) }
-    _rows[#_rows + 1] = { "base", tostring(terms.base or "-"), tostring(ctx.base_owner or "-") }
-    _rows[#_rows + 1] = { "", "", "" }
-    local grade = "quiet"
-    if data.dread >= INSANE_DREAD then grade = "insane"
-    elseif data.dread >= DREAD_ON then grade = "on" end
-    _rows[#_rows + 1] = { "DREAD", string_format("%.2f", data.dread), grade, "g_" .. grade }
-end
-
--- ---- emission (jittered self-schedule) ------------------------------------
-
---- Emit one one-shot if the jittered spacing has elapsed. Density is constant; dread drives SELECTION and
---- (below) frequency, never crosses DREAD_ON -> nothing. Reads the cached ctx.
-local function _emit_tick(tg)
-    _visual_tick(tg)
-    if tg < _next_play then return end
-    local dread = ctx.dread
-    local span = SPACE_MIN_MS + (SPACE_MAX_MS - SPACE_MIN_MS) * (1 - dread)
-    _next_play = tg + math_floor(math_random(SPACE_MIN_MS, span) * math_max(rarity, 0.1))
-    if dread < DREAD_ON then return end
-    local name = _pick_category(ctx.eligible, ctx.elig_set)
-    if not name then return end
-    local snd = _pick_sound(name)
-    if snd then
-        _play(snd, dread)
-        _last_play = snd[1]
-        _play_at = tg
-        as_debug.dbg("[PICK] cat=%s snd=%s dread=%.2f", name, snd[1], dread)
-    end
+    _rows[#_rows + 1] = { "SENSORS", "", "", "hdr" }
+    _rows[#_rows + 1] = { "environment", board.environment, "" }
+    _rows[#_rows + 1] = { "time", board.time, "" }
+    _rows[#_rows + 1] = { "stalkers.online", s.online and "yes" or "no", "" }
+    _rows[#_rows + 1] = { "stalkers.enemy_near", s.enemy_near, "" }
+    _rows[#_rows + 1] = { "stalkers.ally_near", s.ally_near, "" }
+    _rows[#_rows + 1] = { "stalkers.service_near", s.service_near, "" }
+    _rows[#_rows + 1] = { "monsters.online", m.online and "yes" or "no", "" }
+    _rows[#_rows + 1] = { "monsters.enemy_near", m.enemy_near, "" }
+    _rows[#_rows + 1] = { "anomalies.near", board.anomalies.near and "yes" or "no", "" }
 end
 
 -- ---- visual layer ---------------------------------------------------------
@@ -465,7 +456,7 @@ end
 
 --- Peak-dread visual gate: require sustained peak (dwell), then once per cooldown roll to pulse.
 function _visual_tick(tg)
-    if not (visuals_on and xpp) or ctx.dread < INSANE_DREAD then
+    if not (visuals_on and xpp) or board.dread < INSANE_DREAD then
         _vis.insane_since = nil
         return
     end
@@ -473,6 +464,28 @@ function _visual_tick(tg)
     if tg < _vis.next_ok or tg - _vis.insane_since < VIS_DWELL_MS then return end
     _vis.next_ok = tg + VIS_COOLDOWN_MS
     if math_random() < VIS_CHANCE then _vis_pulse() end
+end
+
+-- ---- emission (jittered self-schedule) ------------------------------------
+
+--- Emit one one-shot if the jittered spacing has elapsed. Dread shortens the gap; below DREAD_ON nothing
+--- fires but the pacing keeps advancing so a rising dread resumes at once. Reads the board.
+local function _emit_tick(tg)
+    _visual_tick(tg)
+    if tg < _next_play then return end
+    local dread = board.dread
+    local span = SPACE_MIN_MS + (SPACE_MAX_MS - SPACE_MIN_MS) * (1 - dread)
+    _next_play = tg + math_floor(math_random(SPACE_MIN_MS, span) * math_max(rarity, 0.1))
+    if dread < DREAD_ON then return end
+    local name = _pick_category()
+    if not name then return end
+    local snd = _pick_sound(name)
+    if snd then
+        _play(snd, dread)
+        _last_play = snd[1]
+        _play_at = tg
+        as_debug.dbg("[PICK] cat=%s snd=%s dread=%.2f", name, snd[1], dread)
+    end
 end
 
 -- ---- base ambient observer (own update_ambient; a LOGGING clone, not the veto) --------
@@ -561,13 +574,31 @@ local function _apply_owned()
     CreateTimeEvent("sound_channels", "update_ambient", 1, update_ambient_owned)
 end
 
--- ---- director loop (OUR OWN slot) -----------------------------------------
-local _ctx_next = 0
-local function _director_tick()
-    ResetTimeEvent("as_director", "dread_director", BASE_TICK_S)
+-- ---- director loop (one tick, round-robin one producer per tick) -----------
+
+-- Each producer writes one sensor into the board. The tick runs ONE per tick, so the per-tick cost is
+-- the single heaviest scan, never the sum; the full board refreshes over #producers ticks (~0.6s).
+local _prod = {
+    { "stalkers",    function(actor) board.stalkers = _scan_stalkers(actor) end },
+    { "monsters",    function(actor) board.monsters = _scan_monsters(actor) end },
+    { "environment", function(actor) board.environment = _read_environment(actor) end },
+    { "anomalies",   function(actor) board.anomalies.near = _read_anomalies(actor) end },
+    { "time",        function()      if level.present() then board.time = _time_band(level.get_time_hours()) end end },
+}
+local _cursor = 1
+
+local function _tick()
+    ResetTimeEvent("as_director", "tick", TICK_S)
     if not (level.present() and db.actor) then return false end
     local tg = time_global()
-    if tg >= _ctx_next then _evaluate(db.actor, level.get_time_hours()); _ctx_next = tg + CTX_PERIOD end
+    local dbg = as_debug.on()
+    local entry = _prod[_cursor]
+    local tmr = xprofiler.new_if(dbg):start()
+    entry[2](db.actor)
+    tmr:stop()
+    _cursor = _cursor % #_prod + 1
+    _derive()
+    if dbg then as_debug.dbg("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
     _emit_tick(tg)
     return false
 end
@@ -589,25 +620,21 @@ local function _on_first_update()
     refresh()
     if not xsound then as_debug.warn("as_director: xlibs (xsound) absent - director inert"); return end
     _load_channels()
-    _next_play, _ctx_next = 0, 0
+    _load_map(level.name())
+    _next_play, _cursor = 0, 1
     _map_level, _cat_bag, _snd_bag = nil, {}, {}
     if _vis.handle and level then level.remove_pp_effector(_vis.handle) end
     _vis.insane_since, _vis.next_ok, _vis.handle = nil, 0, nil
     _apply_owned()
-    RemoveTimeEvent("as_director", "dread_director")
-    CreateTimeEvent("as_director", "dread_director", BASE_TICK_S, _director_tick)
-    as_debug.info("as_director: armed - geography director on dread_director; base observer on update_ambient")
+    RemoveTimeEvent("as_director", "tick")
+    CreateTimeEvent("as_director", "tick", TICK_S, _tick)
+    as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient")
 end
 
---- The debug HUD rows. The two sound lines refresh here every read so "what's playing" has no lag.
+--- The debug HUD rows, built fresh from the board on demand (as_hud reads this only while visible, so
+--- the rows are never built on the tick - no per-frame garbage when the HUD is off).
 function get_hud_rows()
-    if _rows[2] and _rows[5] then
-        local tg = time_global()
-        local playing = _play_at > 0 and (tg - _play_at) < PLAY_WINDOW_MS
-        local base_playing = _base_at > 0 and (tg - _base_at) < PLAY_WINDOW_MS
-        _rows[2] = { _last_play, "", "", playing and "play" or "stop" }
-        _rows[5] = { _base_last, "", "", base_playing and "play" or "stop" }
-    end
+    _build_hud()
     return _rows
 end
 
