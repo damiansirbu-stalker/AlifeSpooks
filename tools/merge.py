@@ -29,7 +29,6 @@ CATEGORIES = [
     "industrial", "structural", "labs", "drip",
     "wind", "foliage", "wildlife", "urban", "gunfire", "rats", "bats",
 ]
-CATEGORY_NAMES = set(CATEGORIES)
 
 # Out-of-scope / misfiled source paths to skip (n109). psi-storm is emission-domain (readme: "does not
 # touch emission or psi-storm sound"); giant_underground is a monster roar misfiled into an ambient tree;
@@ -441,7 +440,7 @@ def cmd_plan(_):
         sroot = Path(gd) / "sounds"
         if not sroot.is_dir():
             continue
-        for f in sroot.rglob("*.ogg"):
+        for f in sorted(sroot.rglob("*.ogg")):
             cat = route(f.as_posix())
             if not cat:
                 dropped_scope += 1
@@ -460,7 +459,7 @@ def cmd_plan(_):
     merged = {}
     tot_in = tot_kept = 0
     kept_hashes = set()
-    for cat in CATEGORY_NAMES:
+    for cat in CATEGORIES:
         files = pool.get(cat, [])
         tot_in += len(files)
         chosen = dedup_pick(files) if files else []
