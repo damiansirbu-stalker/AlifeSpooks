@@ -316,14 +316,11 @@ function as_test.snapshot(note)
     local log = _logger()
     local actor = db.actor
     if not (log and xcreature and xsmart and xlevel and xcombat and actor and level.present()) then return end
-    -- sink: every collected line goes to BOTH the log file and an on-screen buffer, so the probe
-    -- shows what it gathered on screen AND records it. Same call shape as the log facade (.info).
-    local lines = {}
+    -- sink: full diagnostic detail goes to the LOG only; the on-screen tip is a compact, aligned
+    -- override-record block (note + level + coordinate), ready to paste into the per-map override LTX.
     local sink = { info = function(fmt, ...)
         local ok, msg = pcall(string_format, fmt, ...)
-        if not ok then msg = tostring(fmt) end
-        log.info("%s", msg)
-        lines[#lines + 1] = msg
+        log.info("%s", ok and msg or tostring(fmt))
     end }
     sink.info("=== SNAPSHOT note=[%s] level=%s ===", tostring(note or "?"), tostring(level.name()))
     local apos = actor:position()
@@ -336,7 +333,9 @@ function as_test.snapshot(note)
     _timed(sink, "presence-bands", function() _snap_bands(sink, actor, apos) end)
     _timed(sink, "vertical",       function() _snap_vertical(sink, actor, apos) end)
     log.flush()
-    news_manager.send_tip(actor, table_concat(lines, "\n"), nil, nil, 25000)
+    news_manager.send_tip(actor, string_format(
+        "SPOT  [%s]\nlevel   %s\npos     %.1f  %.1f  %.1f\nradius  ?\n(detail -> alifespooks_probe.log)",
+        tostring(note or "?"), tostring(level.name()), apos.x, apos.y, apos.z), nil, nil, 20000)
 end
 
 -- ---- note box + probe key (debug-gated) -----------------------------------
@@ -398,6 +397,39 @@ local function _on_key(key)
     if key == INSERT_KEY and db.actor and as_debug and as_debug.on() then
         _open_note_box()
     end
+end
+
+-- ---- monster rank probe (does se:rank() tier cleanly at runtime?) ----------
+-- Spawn one of each variant at the actor and log its server rank. sim:create on a MISSING section
+-- CTDs in C++ (pcall cannot catch that), so section_exist GUARDS every create - guard-first, no pcall.
+-- Run in god mode:  run_string as_test.probe_zoo()  -> alifespooks_probe.log
+local ZOO = {
+    "tushkano_normal", "rat_normal", "dog_normal", "boar_normal", "flesh_normal",
+    "snork_normal", "bloodsucker_normal", "pseudodog_normal", "psy_dog_normal", "fracture_normal",
+    "zombie_normal", "psysucker_normal",
+    "gigant_normal", "m_controller_normal", "burer_normal", "chimera_normal", "bibliotekar_normal",
+}
+
+-- Spawn one existing variant and log its runtime server rank + species (guard-clause on missing section)
+local function _probe_spawn(sec, sim, pos, lvid, gvid, log)
+    if not ini_sys:section_exist(sec) then log.info("sec=%s MISSING-skip", sec); return end
+    local se = sim:create(sec, pos, lvid, gvid)
+    log.info("sec=%s species=%s rank=%s", sec,
+        tostring(se and xcreature.get_mutant_species(se.id) or "-"),
+        tostring(se and se:rank() or "nil"))
+end
+
+--- Spawn each ZOO variant that exists and log its runtime server rank + species
+function as_test.probe_zoo()
+    local log = _logger()
+    local actor = db.actor
+    local sim = alife()
+    if not (log and actor and sim and xcreature and ini_sys) then return end
+    local pos, lvid, gvid = actor:position(), actor:level_vertex_id(), actor:game_vertex_id()
+    log.info("=== ZOO RANK PROBE ===")
+    for i = 1, #ZOO do _probe_spawn(ZOO[i], sim, pos, lvid, gvid, log) end
+    log.flush()
+    _tip("zoo rank probe -> alifespooks_probe.log")
 end
 
 function on_game_start()
