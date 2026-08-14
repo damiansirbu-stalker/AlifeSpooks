@@ -92,7 +92,7 @@ This runs among the source packs only, within a pack and between the packs we pu
 does not deduplicate against the target modpack. It never drops a sound because the install already
 plays it. Doubling with the base is handled by the static DLTX veto overlay at config load.
 
-## Verbatim audio, loudness-normalized blob
+## Byte-for-byte audio, loudness-normalized blob
 
 Every kept sound's AUDIO ships byte for byte - no re-encode, the vorbis pages are untouched. What the
 deploy writes is only the X-Ray ogg comment blob (min distance, max distance, base_volume), a lossless
@@ -286,7 +286,7 @@ there is no slot to lose.
   bed empty. See "Muting a channel: the `ambient\no_sound` trick" in the ambient-sound-system note.
 
 The removal is on the sound's original path, matched to the base list item exactly (the engine removes
-by exact string, `Xr_ini.cpp:1259-1263`), so the overlay emits each channel's path verbatim as the
+by exact string, `Xr_ini.cpp:1259-1263`), so the overlay emits each channel's path exactly as the
 source config wrote it. No folder blocking, no mod names, no runtime lookup, no `provenance.tsv`.
 
 ### The observer hook (tracing only)

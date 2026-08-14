@@ -4,7 +4,7 @@
 --- and shown via AddDialogToRender, a self-rearming, visibility-gated refresh, position from the MCM
 --- hud_position preset. Off by default; players never see it. Inert without xmcm or as_director.
 
-local RegisterScriptCallback, math_floor = RegisterScriptCallback, math.floor
+local RegisterScriptCallback, math_floor, tostring = RegisterScriptCallback, math.floor, tostring
 
 local REFRESH_SEC = 0.5
 local MARGIN   = 15
@@ -32,15 +32,15 @@ local _clr
 local function _row_color(style)
     if not _clr then
         _clr = {
-            hdr      = GetARGB(255, 235, 200, 120),   -- section header, warm gold
-            norm     = GetARGB(235, 210, 205, 195),   -- body label/value, warm off-white
-            play     = GetARGB(255, 130, 225, 150),   -- sound line, live (green)
-            stop     = GetARGB(190, 135, 135, 135),   -- sound line, stopped (dim gray)
-            g_none   = GetARGB(210, 150, 150, 150),   -- DREAD grade: none (gray)
-            g_low    = GetARGB(255, 130, 220, 140),   --             low (green)
-            g_med    = GetARGB(255, 230, 215, 120),   --             med (yellow)
-            g_high   = GetARGB(255, 240, 165,  90),   --             high (orange)
-            g_insane = GetARGB(255, 235, 105,  95),   --             insane (red)
+            hdr      = GetARGB(255, 235, 200, 120),
+            norm     = GetARGB(235, 210, 205, 195),
+            play     = GetARGB(255, 130, 225, 150),
+            stop     = GetARGB(190, 135, 135, 135),
+            g_none   = GetARGB(210, 150, 150, 150),
+            g_low    = GetARGB(255, 130, 220, 140),
+            g_med    = GetARGB(255, 230, 215, 120),
+            g_high   = GetARGB(255, 240, 165,  90),
+            g_insane = GetARGB(255, 235, 105,  95),
         }
     end
     return _clr[style] or _clr.norm
@@ -103,11 +103,11 @@ function UISpookHUD:set_rows(rows)
     local count = #rows
     if count > MAX_ROWS then count = MAX_ROWS end
     for row = 1, count do
-        local r = rows[row]
-        local clr = _row_color(r[4])
-        self.c1[row]:SetText(r[1] or ""); self.c1[row]:SetTextColor(clr)
-        self.c2[row]:SetText(r[2] or ""); self.c2[row]:SetTextColor(clr)
-        self.c3[row]:SetText(r[3] or ""); self.c3[row]:SetTextColor(clr)
+        local row_data = rows[row]
+        local clr = _row_color(row_data[4])
+        self.c1[row]:SetText(row_data[1] or ""); self.c1[row]:SetTextColor(clr)
+        self.c2[row]:SetText(row_data[2] or ""); self.c2[row]:SetTextColor(clr)
+        self.c3[row]:SetText(row_data[3] or ""); self.c3[row]:SetTextColor(clr)
     end
     for row = count + 1, self.used do
         self.c1[row]:SetText(""); self.c2[row]:SetText(""); self.c3[row]:SetText("")

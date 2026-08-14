@@ -7,8 +7,7 @@ as_test = as_test or {}
 
 local pairs, tostring, ipairs, pcall = pairs, tostring, ipairs, pcall
 local table_concat, table_sort, string_format = table.concat, table.sort, string.format
-local profile_timer = profile_timer
-local RegisterScriptCallback, GetEvent = RegisterScriptCallback, GetEvent
+local RegisterScriptCallback, GetEvent, alife_object = RegisterScriptCallback, GetEvent, alife_object
 local news_manager, ui_options, game_fast_travel = news_manager, ui_options, game_fast_travel
 
 local INSERT_KEY = 210
@@ -58,8 +57,9 @@ end
 --   run_string as_test.snd(3)       -- play_at_pos 3D at 5m: vanilla's method, no kept reference
 --   run_string as_test.snd(4)       -- play_at_pos 3D at 5m + kept reference: vanilla exact
 --   run_string as_test.snd(3, 50)   -- any method at a chosen distance (attenuation check)
-local SND_OURS    = "zs\\growl\\131"       -- our LOUDEST shipped sound (max -0.5 dB)
-local SND_VANILLA = "anomaly\\emi_blowout" -- a known-good, LOUD vanilla sound (unmissable)
+-- SND_OURS: one of our shipped sounds; SND_VANILLA: a known-good loud vanilla sound for the A/B check.
+local SND_OURS    = "zs\\spook\\1"
+local SND_VANILLA = "anomaly\\emi_blowout"
 -- Fire the play 3s AFTER the call, so it happens during live gameplay, not while the console is open
 -- (an open console pauses the game and paused sounds never sound). Close the console after running it.
 function as_test.snd(method, dist)
@@ -67,19 +67,19 @@ function as_test.snd(method, dist)
     local path = (method == 5) and SND_VANILLA or SND_OURS
     RemoveTimeEvent("as_snd", "play")
     CreateTimeEvent("as_snd", "play", 3, function()
-        local a = db.actor
-        if not a then return true end
-        local pos = a:position()
+        local actor = db.actor
+        if not actor then return true end
+        local pos = actor:position()
         local vec = vector():set(pos.x + dist, pos.y, pos.z)
-        local s = sound_object(path)
-        if not s then _tip("snd: sound_object NIL for " .. path); return true end
+        local snd = sound_object(path)
+        if not snd then _tip("snd: sound_object NIL for " .. path); return true end
         if method == 1 then
-            s:play_no_feedback(a, sound_object.s2d, 0, vector():set(0, 0, 0), 1.0, 1.0)
+            snd:play_no_feedback(actor, sound_object.s2d, 0, vector():set(0, 0, 0), 1.0, 1.0)
         elseif method == 2 then
-            s:play_no_feedback(a, sound_object.s3d, 0, vec, 1.0, 1.0)
+            snd:play_no_feedback(actor, sound_object.s3d, 0, vec, 1.0, 1.0)
         else
-            s:play_at_pos(a, vec); s.volume = 1.0
-            if method ~= 3 then as_test._kept = s end
+            snd:play_at_pos(actor, vec); snd.volume = 1.0
+            if method ~= 3 then as_test._kept = snd end
         end
         _tip("PLAYED m" .. tostring(method) .. "  " .. path)
         return true
@@ -311,6 +311,7 @@ local function _timed(sink, label, fn)
 end
 
 --- Log one atmosphere snapshot with a note. Cheap; run on demand only, never per frame.
+--- @safety pcall: the per-check sink wraps string.format on diagnostic args, see doc/library/modding/pcall-safety.md
 function as_test.snapshot(note)
     local log = _logger()
     local actor = db.actor
