@@ -77,8 +77,9 @@ local ALLY_CALM    = { none = 0, low = -0.05, med = -0.10, high = -0.15 }
 local ANOMALY_ADD  = 0.05
 local SERVICE_HOSTILE = 0.30
 
-local NEAR_R2  = 100 * 100
-local BASE_R2  = 60 * 60
+-- One vicinity radius for every proximity sensor (creature-near, service/base, anomaly): 60m = "in my area".
+local NEAR_R  = 60
+local NEAR_R2 = NEAR_R * NEAR_R
 
 -- Emission + pacing. One sound at most every SPACE_MIN..MAX (dread shortens it); below DREAD_ON nothing
 -- emits. HORROR_PULL: up to this fraction closer at peak dread. Volume is dread-FREE.
@@ -116,6 +117,7 @@ local board = {
     monsters = { online = false, enemy_near = "none" },
     anomalies = { near = false },
     dread    = 0,
+    terms    = {},
     eligible = {},
     elig_set = {},
 }
@@ -233,7 +235,7 @@ local function _fold_stalker(id, actor_id, apos, out)
     else
         if POWER[tier] > POWER[out.ally_near] then out.ally_near = tier end
     end
-    if dist_sqr <= BASE_R2 and _is_service(npc) then
+    if _is_service(npc) then
         out.service_near = (rel == "enemy") and "hostile" or "allied"
     end
 end
@@ -248,10 +250,9 @@ local function _scan_stalkers(actor)
     return out
 end
 
---- Fold one online object into the monsters sensor if it is a monster (guard-clause; near-only tiering).
-local function _fold_monster(id, obj, actor_id, apos, out)
-    if id == actor_id or not obj then return end
-    if not xcreature.is_mutant(obj) then return end
+--- Fold one online monster into the monsters sensor (the iterator yields monsters; near-only tiering).
+local function _fold_monster(id, obj, apos, out)
+    if not obj then return end
     out.online = true
     if apos:distance_to_sqr(obj:position()) > NEAR_R2 then return end
     local se = xobject.se(id)
@@ -260,19 +261,19 @@ local function _fold_monster(id, obj, actor_id, apos, out)
     if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
 end
 
---- Scan the online set for monsters (no dedicated collection yet; sim-board squads / db.OnlineMonsters
---- PR are the noted optimisation - n119). One walk, monster-filtered.
+--- Scan online monsters via the xlibs monster iterator (db.OnlineMonsters when present, else a capped
+--- best-effort is_mutant walk - the demonized registry PR is the parity fix, n119).
 local function _scan_monsters(actor)
     local out = { online = false, enemy_near = "none" }
-    if not xcreature then return out end
-    local apos, actor_id = actor:position(), actor:id()
-    for id, obj in xcreature.online_iter_with_id() do _fold_monster(id, obj, actor_id, apos, out) end
+    if not (xcreature and xcreature.online_monster_iter) then return out end
+    local apos = actor:position()
+    for id, obj in xcreature.online_monster_iter() do _fold_monster(id, obj, apos, out) end
     return out
 end
 
 --- Anomaly within range of the actor (proven scan over db.anomaly_by_name).
 local function _read_anomalies(actor)
-    return (xsmart and xsmart.anomaly_near and xsmart.anomaly_near(actor:position())) or false
+    return (xsmart and xsmart.anomaly_near and xsmart.anomaly_near(actor:position(), NEAR_R)) or false
 end
 
 --- Time band for the current hour.
@@ -356,19 +357,19 @@ local function _clamp01(v)
 end
 
 --- Grounded additive dread from the board, clamped 0..1. An allied service near (a safe hub) forces 0;
---- a hostile service adds. Writes board.dread + board.terms (for the HUD).
+--- a hostile service adds. Writes board.dread + board.terms (the HUD breakdown, one persistent table).
 local function _dread()
     local s, m = board.stalkers, board.monsters
-    local lore = LORE_LEVEL[level.name()] or LORE_DEFAULT
-    local env  = ENV_ADD[board.environment] or 0
-    local tm   = TIME_ADD[board.time] or 0
-    local threat = _threat_add(s, m)
-    local company = ALLY_CALM[s.ally_near] or 0
-    local anom = board.anomalies.near and ANOMALY_ADD or 0
+    local terms = board.terms
+    terms.lore    = LORE_LEVEL[level.name()] or LORE_DEFAULT
+    terms.env     = ENV_ADD[board.environment] or 0
+    terms.time    = TIME_ADD[board.time] or 0
+    terms.threat  = _threat_add(s, m)
+    terms.company = ALLY_CALM[s.ally_near] or 0
+    terms.anomaly = board.anomalies.near and ANOMALY_ADD or 0
+    terms.service = (s.service_near == "hostile") and SERVICE_HOSTILE or 0
     if s.service_near == "allied" then board.dread = 0; return end
-    local score = lore + env + tm + threat + company + anom
-    if s.service_near == "hostile" then score = score + SERVICE_HOSTILE end
-    board.dread = _clamp01(score)
+    board.dread = _clamp01(terms.lore + terms.env + terms.time + terms.threat + terms.company + terms.anomaly + terms.service)
 end
 
 --- Place and fire one sound { path, min, max, height }. Vanilla spawn geometry (random point in the
@@ -378,6 +379,7 @@ local function _play(snd, dread)
     local actor = db.actor
     if not actor then return end
     local min_dist, max_dist, height = snd[2], snd[3], snd[4] or 0
+    if min_dist > max_dist then min_dist = max_dist end
     local pos = actor:position()
     local deep = board.environment == "underground" or board.environment == "labs"
     local near_bound = deep and min_dist or ((max_dist + min_dist) / 2)
@@ -390,11 +392,11 @@ local function _play(snd, dread)
     as_debug.dbg("[PLAY] %s dist=%.1f h=%.0f vol=%.2f dread=%.2f", snd[1], dist, height, vol, dread)
 end
 
--- ---- derive (board -> dread + eligible + HUD, each tick) -------------------
+-- ---- derive (board -> eligible set, built on demand) -----------------------
 
---- Recompute the derived state from the current board: dread, the eligible set + fast lookup, the HUD.
-local function _derive()
-    _dread()
+--- Rebuild the eligible category list + fast lookup from the current board. Called at emission and by the
+--- HUD only, never on the tick - the set is consumed only there, so a per-tick rebuild was pure garbage.
+local function _rebuild_eligible()
     local elig = {}
     for name in pairs(CAT) do
         if _eligible(name) then elig[#elig + 1] = name end
@@ -406,6 +408,7 @@ end
 
 --- Build the debug HUD rows (PLAYING / SELECT / SENSORS) from the board.
 function _build_hud()
+    _rebuild_eligible()
     local playing = _play_at > 0 and (time_global() - _play_at) < PLAY_WINDOW_MS
     local base_playing = _base_at > 0 and (time_global() - _base_at) < PLAY_WINDOW_MS
     local dread = board.dread
@@ -422,6 +425,16 @@ function _build_hud()
     if #avail == 0 then avail = { "-" } end
     for i = 1, #avail do _rows[#_rows + 1] = { i == 1 and "available" or "", avail[i], "" } end
     _rows[#_rows + 1] = { "dread", string_format("%.2f", dread), "", grade }
+    _rows[#_rows + 1] = { "", "", "" }
+    _rows[#_rows + 1] = { "APPLY", "", "", "hdr" }
+    local terms = board.terms
+    _rows[#_rows + 1] = { "lore",        string_format("%+.2f", terms.lore or 0), "" }
+    _rows[#_rows + 1] = { "environment", string_format("%+.2f", terms.env or 0), "" }
+    _rows[#_rows + 1] = { "time",        string_format("%+.2f", terms.time or 0), "" }
+    _rows[#_rows + 1] = { "threat",      string_format("%+.2f", terms.threat or 0), "" }
+    _rows[#_rows + 1] = { "company",     string_format("%+.2f", terms.company or 0), "" }
+    _rows[#_rows + 1] = { "anomaly",     string_format("%+.2f", terms.anomaly or 0), "" }
+    _rows[#_rows + 1] = { "service",     string_format("%+.2f", terms.service or 0), "" }
     _rows[#_rows + 1] = { "", "", "" }
     _rows[#_rows + 1] = { "SENSORS", "", "", "hdr" }
     _rows[#_rows + 1] = { "environment", board.environment, "" }
@@ -477,6 +490,7 @@ local function _emit_tick(tg)
     local span = SPACE_MIN_MS + (SPACE_MAX_MS - SPACE_MIN_MS) * (1 - dread)
     _next_play = tg + math_floor(math_random(SPACE_MIN_MS, span) * math_max(rarity, 0.1))
     if dread < DREAD_ON then return end
+    _rebuild_eligible()
     local name = _pick_category()
     if not name then return end
     local snd = _pick_sound(name)
@@ -597,8 +611,8 @@ local function _tick()
     entry[2](db.actor)
     tmr:stop()
     _cursor = _cursor % #_prod + 1
-    _derive()
-    if dbg then as_debug.dbg("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
+    _dread()
+    if dbg then _rebuild_eligible(); as_debug.dbg("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
     _emit_tick(tg)
     return false
 end
@@ -623,7 +637,6 @@ local function _on_first_update()
     _load_map(level.name())
     _next_play, _cursor = 0, 1
     _map_level, _cat_bag, _snd_bag = nil, {}, {}
-    if _vis.handle and level then level.remove_pp_effector(_vis.handle) end
     _vis.insane_since, _vis.next_ok, _vis.handle = nil, 0, nil
     _apply_owned()
     RemoveTimeEvent("as_director", "tick")

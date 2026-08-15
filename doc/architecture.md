@@ -144,10 +144,12 @@ carry `online` + `near`, static anomalies carry only `near`.
   `is_indoor` raycast (cached by cell) gives indoor vs outdoor.
 - `time` - "day" | "dusk" | "dawn" | "night" | "deep_night".
 - `stalkers` - one pass over the dedicated `db.OnlineStalkers` array (`_scan_stalkers`): `online` (any
-  stalker online, the gunfire gate), `enemy_near` / `ally_near` (strongest near hostile / friendly as a
-  low/med/high power), `service_near` ("none"|"allied"|"hostile" - a trader/medic/mechanic within 60m = a base).
-- `monsters` - one pass over the online set filtered by `is_mutant` (`_scan_monsters`; no dedicated monster
-  collection yet - sim-board squads / a demonized `db.OnlineMonsters` registry are the deferred optimisation):
+  stalker online, the gunfire gate), `enemy_near` / `ally_near` (strongest near hostile / non-hostile as a
+  low/med/high power - neutral counts as company, only per-NPC enemy relation is a threat), `service_near`
+  ("none"|"allied"|"hostile" - a trader/medic/mechanic within 60m = a base).
+- `monsters` - one pass over `xcreature.online_monster_iter` (`_scan_monsters`): a demonized `db.OnlineMonsters`
+  id-array when present, else a best-effort `is_mutant` walk capped at `MONSTER_ITER_CAP` online objects so the
+  scan stays bounded under soak (a monster past the cap is missed); the registry PR is the parity fix (n119):
   `online` (the mutant gate), `enemy_near` (strongest near monster as a power).
 - `anomalies` - `near` (an anomaly within range, `xsmart.anomaly_near`), the drone gate.
 
@@ -197,7 +199,8 @@ Dread is a scalar 0..1, additive, **no baseline constant** - the sum of whatever
 - **time** - day +0; dusk/dawn +small; night +med; deep night +big.
 - **threat** - the single scariest near thing, `max(stalkers.enemy_near, monsters.enemy_near)`, scaled by
   its low/med/high power (man and monster the same); if no living thing is near at all, loneliness +small.
-- **company** - a near ally calms, scaled by the ally's power (a veteran ally calms more).
+- **company** - a near non-hostile stalker calms (neutral or friendly - any human presence breaks the
+  isolation), scaled by its power (a veteran calms more).
 - **anomaly** - an anomaly near adds a little.
 
 A `service_near` of "allied" (a safe hub) REPLACES the sum with 0 - fully silent; "hostile" (an enemy-held
@@ -286,8 +289,10 @@ source config wrote it. No folder blocking, no mod names, no runtime lookup, no 
 ### The observer hook (tracing only)
 
 A separate time-event on the vanilla `update_ambient` slot (`update_ambient_owned`, installed by
-`_apply_owned`) owns that slot ONLY to replay and LOG the base ambient - a faithful clone of
-`sound_ambient.update_ambient`. It does no muting (the composed config it reads already has our sounds
+`_apply_owned`) owns that slot ONLY to replay and LOG the base ambient - a clone of
+`sound_ambient.update_ambient` (same channel rotation, timing, and volume rule, with added nil-guards),
+except it replays through `xsound.play` (an engine-owned one-shot), so a base sound is not cut on channel
+re-fire the way vanilla's retained-handle GC cut it. It does no muting (the composed config it reads already has our sounds
 removed) and no injection; it exists so the base soundscape stays traceable at DEBUG (`[BASE]` / `[LOOP]`
 lines and the HUD BASE row). If another script wins the slot back (e.g. TestZone's ambient logger), only
 the trace is lost - the muting still holds because it is the static overlay, not this hook. This hook is
