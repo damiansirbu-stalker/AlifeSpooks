@@ -1,0 +1,30 @@
+--- pda_dynamic_tabs: AlifeSpooks PDA integration. Adds the dev Player as a RUNTIME PDA tab through the
+--- engine's native dynamic-tab hook (Demonized/monolith AddTab + build_extra_tabs), gated by the MCM
+--- dev_tab toggle. No core UI file is overridden. The functor name is fixed by the engine (UIPdaWnd.cpp).
+
+local TAB_ID = "eptAlifeSpooks"
+
+--- Engine hook: called on every PDA tab rebuild (after RemoveDynamicTabs). Add our tab when the toggle is on.
+function build_extra_tabs(tab_control)
+    if not tab_control then return end
+    if as_mcm and as_mcm.get_config and as_mcm.get_config("dev_tab") then
+        tab_control:AddTab(TAB_ID, "AlifeSpooks", "eptLogs")
+    end
+end
+
+local _orig_set_active_subdialog
+
+--- Route our tab id to the Player window; defer every other section to the vanilla handler.
+local function _patched_set_active_subdialog(section)
+    if section == TAB_ID then return ui_as_player_tab.get_ui() end
+    return _orig_set_active_subdialog(section)
+end
+
+--- Install the routing patch once pda.script is loaded (not at module top - the load validator loads
+--- this in isolation where pda is nil). Idempotent across save loads.
+function on_game_start()
+    if pda and pda.set_active_subdialog ~= _patched_set_active_subdialog then
+        _orig_set_active_subdialog = pda.set_active_subdialog
+        pda.set_active_subdialog = _patched_set_active_subdialog
+    end
+end

@@ -372,24 +372,28 @@ local function _dread()
     board.dread = _clamp01(terms.lore + terms.env + terms.time + terms.threat + terms.company + terms.anomaly + terms.service)
 end
 
---- Place and fire one sound { path, min, max, height }. Vanilla spawn geometry (random point in the
---- source min..max band, halved), HORROR_PULL closer at peak dread, MCM distance knob. Volume is
---- dread-free (normalized level x master x ambient option). Fire-and-forget.
-local function _play(snd, dread)
+--- Fire one positioned one-shot at `path`. opts.dist = an explicit metre distance used as-is (the audition
+--- player); else the director curve from opts.min/max/deep (random point in the band, halved), pulled
+--- closer by HORROR_PULL x opts.dread and the MCM distance knob. Volume is dread-free. Returns the distance.
+function emit(path, opts)
     local actor = db.actor
-    if not actor then return end
-    local min_dist, max_dist, height = snd[2], snd[3], snd[4] or 0
-    if min_dist > max_dist then min_dist = max_dist end
+    if not (actor and path and xsound) then return end
+    local height = opts.height or 0
+    local dist = opts.dist
+    if not dist then
+        local min_dist, max_dist = opts.min or 1, opts.max or 300
+        if min_dist > max_dist then min_dist = max_dist end
+        local near_bound = opts.deep and min_dist or ((max_dist + min_dist) / 2)
+        dist = math_random(near_bound, max_dist) / 2
+        dist = dist * (1 - HORROR_PULL * (opts.dread or 0)) * distance
+    end
     local pos = actor:position()
-    local deep = board.environment == "underground" or board.environment == "labs"
-    local near_bound = deep and min_dist or ((max_dist + min_dist) / 2)
-    local dist = math_random(near_bound, max_dist) / 2
-    dist = dist * (1 - HORROR_PULL * dread) * distance
     local angle = math_rad(math_random(0, 359))
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + height, pos.z + math_sin(angle) * dist)
-    local vol = vol_global * opt_ambient_volume
-    xsound.play(snd[1], { position = vec, volume = vol })
-    as_debug.dbg("[PLAY] %s dist=%.1f h=%.0f vol=%.2f dread=%.2f", snd[1], dist, height, vol, dread)
+    local vol = opts.vol or (vol_global * opt_ambient_volume)
+    xsound.play(path, { position = vec, volume = vol })
+    as_debug.dbg("[PLAY] %s dist=%.1f h=%.0f vol=%.2f dread=%.2f", path, dist, height, vol, opts.dread or 0)
+    return dist
 end
 
 -- ---- derive (board -> eligible set, built on demand) -----------------------
@@ -495,7 +499,8 @@ local function _emit_tick(tg)
     if not name then return end
     local snd = _pick_sound(name)
     if snd then
-        _play(snd, dread)
+        emit(snd[1], { min = snd[2], max = snd[3], height = snd[4], dread = dread,
+                       deep = board.environment == "underground" or board.environment == "labs" })
         _last_play = snd[1]
         _play_at = tg
         as_debug.dbg("[PICK] cat=%s snd=%s dread=%.2f", name, snd[1], dread)
@@ -649,6 +654,11 @@ end
 function get_hud_rows()
     _build_hud()
     return _rows
+end
+
+--- The live sensor board (read-only): the Player tab's Inspector reads dread + environment for a spot readout.
+function get_board()
+    return board
 end
 
 function on_game_start()

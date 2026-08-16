@@ -87,6 +87,12 @@
   <string id="ui_mcm_as_hud_hdr">
     <text>Debug HUD</text>
   </string>
+  <string id="ui_mcm_as_dev_tab">
+    <text>Dev player tab (PDA)</text>
+  </string>
+  <string id="ui_mcm_as_dev_tab_desc">
+    <text>Adds a "spooks" tab to the PDA: an audition player that browses every shipped sound off disk and plays it at a chosen distance, plus a spot inspector for marking dread coordinates. A dev tool, off by default. Players never see it unless enabled here.</text>
+  </string>
   <string id="ui_mcm_as_development_hud_position">
     <text>Spook HUD</text>
   </string>
