@@ -47,7 +47,7 @@ Spooks, screams, and dark drones play wherever the map allows. A mutant category
 Wind, foliage, and eerie wildlife are outdoor texture, while doors, machinery, drips, and facility sound belong indoors and underground.
 Every category rotates so a scare stays rare against the texture, and no call plays twice in a row.
 
-Each one-shot is positioned around you with the game's own ambient geometry, a little closer at peak dread, and left to the engine's own distance rolloff, so a near sound is full and a far one fades.
+Each one-shot is placed in 3D around and above you, faithful to the sound's original distance and elevation from the pack it came from, then pulled a little closer at peak dread. A near sound is full, a far one fades, and a sound the author meant to come from overhead still comes from overhead. Nothing is a flat 2D beep at a fixed spot.
 A long horror drone or the radio signal plays as a spaced one-shot, never a continuous loop.
 
 

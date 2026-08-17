@@ -374,9 +374,13 @@ local function _dread()
     board.dread = _clamp01(terms.lore + terms.env + terms.time + terms.threat + terms.company + terms.anomaly + terms.service)
 end
 
---- Fire one positioned one-shot at `path`. opts.dist = an explicit metre distance used as-is (the audition
---- player); else the director curve from opts.min/max/deep (random point in the band, halved), pulled
---- closer by HORROR_PULL x opts.dread and the MCM distance knob. Volume is dread-free. Returns the distance.
+--- Fire one positioned one-shot at `path`. `dist` is the HORIZONTAL distance; opts.dist = an explicit metre
+--- distance used as-is (the audition player); else the director curve from opts.min/max/deep (random point in
+--- the band, halved), pulled closer by HORROR_PULL x opts.dread and the MCM distance knob. opts.height offsets
+--- the placement VERTICALLY (`pos.y + height`) - the sound's ORIGINAL source-channel elevation, carried per
+--- sound in the manifest (snd[4]) and recovered by merge.py `_source_height_map`, so an overhead sound (bird,
+--- vent, thunder) stays overhead instead of at ear level. Height is pulled DOWN by dread by the same factor as
+--- distance, so an overhead cue descends toward ear level as the place turns. Volume is dread-free. Returns the distance.
 function emit(path, opts)
     local actor = db.actor
     if not (actor and path and xsound) then return end
@@ -387,8 +391,10 @@ function emit(path, opts)
         if min_dist > max_dist then min_dist = max_dist end
         local near_bound = opts.deep and min_dist or ((max_dist + min_dist) / 2)
         dist = math_random(near_bound, max_dist) / 2
-        dist = dist * (1 - HORROR_PULL * (opts.dread or 0)) * distance
-    end
+        local pull = 1 - HORROR_PULL * (opts.dread or 0)
+        dist = dist * pull * distance
+        height = height * pull                  -- dread also pulls the sound DOWN toward you: an overhead
+    end                                         -- cue descends to ear level as the place turns, mirroring distance
     local pos = actor:position()
     local angle = math_rad(math_random(0, 359))
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + height, pos.z + math_sin(angle) * dist)

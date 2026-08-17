@@ -235,9 +235,33 @@ A `service_near` of "allied" (a safe hub) REPLACES the sum with 0 - fully silent
 base) adds. The base is detected by a live service NPC (trader/medic/mechanic) within 60m, per-NPC relation
 deciding allied vs hostile - warfare-correct, never the over-assigned `is_base` prop. Every term is grounded,
 so there is no "+X just because." Dread feeds APPLY only, never SELECT: **distance** (closer at peak,
-`HORROR_PULL`) and **frequency** (shorter gap). It never touches **volume** - volume is the sound's own
-normalized level x one master MCM slider. Positioning uses Anomaly's own geometry (a random point in the
-source min..max band, halved, random angle, source height); the engine's baked attenuation does the fade.
+`HORROR_PULL`), **height** (an overhead cue descends toward you at peak, same `HORROR_PULL`), and **frequency**
+(shorter gap). It never touches **volume** - volume is the sound's own normalized level x one master MCM slider.
+Positioning uses Anomaly's own geometry: `emit` places the sound at a HORIZONTAL `dist` (a random point in the
+source min..max band, halved, pulled closer by dread) in a random direction, and VERTICALLY at `pos.y + height` -
+the sound's ORIGINAL source-channel elevation, recovered per sound by merge.py `_source_height_map` (aggregated
+across packs, highest non-zero wins) and carried in the manifest as `snd[4]`, so an overhead sound (bird, vent,
+thunder) stays overhead when calm - and, by the same dread pull as distance, descends toward ear level as the
+place turns. The engine's baked attenuation then does the fade.
+
+### Emission model - how the final loudness is set (engine-grounded)
+
+The engine computes the audible gain per play (`SoundRender_Emitter_FSM.cpp:383`):
+
+    gain = base_volume x volume_att x effect_volume x occlusion x fade
+
+- **base_volume** - the per-file value in the ogg comment blob (X-Ray native, `SoundRender_Source_loader.cpp:129-136`).
+  The source authors bake it (78% of files ship a real one, n108); the deploy preserves it, or writes a
+  loudness-levelled one for blob-less files. A direct multiplier, applied to mono AND stereo alike.
+- **volume_att** - LINEAR distance attenuation `(max_dist - dist)/(max_dist - min_dist)` (`:361-362`): full at
+  `min_distance`, silent at `max_distance`, NOT inverse-square. min/max sit in the same blob (the engine reads
+  them) and in the manifest (the director reads them to position).
+- **stereo** - OpenAL does not positionally spatialise a stereo buffer (`TargetA:212`), so a stereo sound loses
+  DIRECTION (panning); the engine gain still applies, so it likely still fades with distance (runtime-confirm).
+  Downmix is a directionality fix, not a loudness fix.
+
+So the two per-file levers we control are `base_volume` (loudness) and `min/max` (attenuation range), both in the
+blob; `height` (elevation) and the placement are the director's, in the manifest and `emit`.
 
 ### Visual layer
 
@@ -337,7 +361,7 @@ a separate slot from the director's `dread_director`; the two never share.
 - Audio is byte for byte, proven. `cmd_provenance` re-derives the deploy and compares each shipped
   file's audio hash to its source. The current build reports every shipped file matched, zero
   mismatch, comment-blob-agnostic so a written blob does not count as a change.
-- Volume and distance ride in the X-Ray blob. A source file that shipped with a blob keeps it exact.
+- Volume and distance sit in the X-Ray blob. A source file that shipped with a blob keeps it exact.
   A blob-less file gets the category-folder median, base_volume 1.0, which is an approximation and is
   booked as one, not counted as preserved.
 - `provenance.tsv` (`cmd_provenance`) maps every shipped sound to its origin mod, directory,
