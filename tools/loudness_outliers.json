@@ -1,33 +1,13 @@
 [
  {
   "ch": "dark_signal",
-  "stem": "ambient/soundscape/dark_signal/darksignal3",
-  "gain_db": -6.1
+  "stem": "ambient/lar_ambients/metro_horror/walkie_talkie_signal8",
+  "gain_db": 50.7
  },
  {
   "ch": "dark_signal",
-  "stem": "ambient/soundscape/dark_signal/darksignal5",
-  "gain_db": 6.7
- },
- {
-  "ch": "dark_signal",
-  "stem": "ambient/soundscape/dark_signal/darksignal6",
-  "gain_db": 6.2
- },
- {
-  "ch": "dark_signal",
-  "stem": "ambient/soundscape/dark_signal/radiosignal10",
-  "gain_db": 7.5
- },
- {
-  "ch": "dark_signal",
-  "stem": "radio/white_noise/white_noise_heavy_horror_1#white_noise_heavy_horror_1_000",
-  "gain_db": -6.4
- },
- {
-  "ch": "dark_signal",
-  "stem": "radio/white_noise/white_noise_heavy_horror_1#white_noise_heavy_horror_1_008",
-  "gain_db": 6.4
+  "stem": "ambient/lar_nature/metro_horror/walkie_talkie_signal8",
+  "gain_db": 50.7
  },
  {
   "ch": "drone",
@@ -105,6 +85,96 @@
   "gain_db": -20.7
  },
  {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_01",
+  "gain_db": -28.5
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_02",
+  "gain_db": -26.4
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_03",
+  "gain_db": -25.6
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_04",
+  "gain_db": -28.6
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_05",
+  "gain_db": -28.4
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_06",
+  "gain_db": -31.2
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_07",
+  "gain_db": -24.2
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_08",
+  "gain_db": -21.1
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_09",
+  "gain_db": -26.5
+ },
+ {
+  "ch": "foliage",
+  "stem": "ambient/lar_ambients/lar_tree/tree_creak_10",
+  "gain_db": -24.0
+ },
+ {
+  "ch": "foliage",
+  "stem": "material/step/rustle/rustle_01",
+  "gain_db": -27.4
+ },
+ {
+  "ch": "foliage",
+  "stem": "material/step/rustle/rustle_02",
+  "gain_db": -27.8
+ },
+ {
+  "ch": "foliage",
+  "stem": "material/step/rustle/rustle_03",
+  "gain_db": -30.6
+ },
+ {
+  "ch": "foliage",
+  "stem": "material/step/rustle/rustle_04",
+  "gain_db": -26.8
+ },
+ {
+  "ch": "gunfire",
+  "stem": "ambient/rnd_outdoor/rnd_shooting_7",
+  "gain_db": -18.1
+ },
+ {
+  "ch": "gunfire",
+  "stem": "ambient/rnd_outdoor/rnd_shooting_1",
+  "gain_db": -18.3
+ },
+ {
+  "ch": "gunfire",
+  "stem": "ambient/rnd_outdoor/rnd_shooting_3",
+  "gain_db": -18.5
+ },
+ {
+  "ch": "gunfire",
+  "stem": "ambient/rnd_outdoor/rnd_shooting_6",
+  "gain_db": -18.1
+ },
+ {
   "ch": "industrial",
   "stem": "ambient/soundscape/Spoops/day_drones/drone18",
   "gain_db": -15.0
@@ -127,157 +197,477 @@
  {
   "ch": "labs",
   "stem": "ambient/soundscape/background/Underground/underground_3",
-  "gain_db": 41.8
+  "gain_db": 44.0
  },
  {
   "ch": "labs",
   "stem": "ambient/soundscape/background/Underground/underground_3",
-  "gain_db": 41.8
+  "gain_db": 44.0
  },
  {
   "ch": "labs",
   "stem": "ambient/soundscape/background/underground_2",
-  "gain_db": 41.8
+  "gain_db": 44.0
+ },
+ {
+  "ch": "labs",
+  "stem": "ambient/soundscape/underground/under_97",
+  "gain_db": 27.1
  },
  {
   "ch": "labs",
   "stem": "ambient/x16/x16_brain_death",
-  "gain_db": 31.4
+  "gain_db": 33.6
  },
  {
   "ch": "labs",
   "stem": "ambient/soundscape/underground/spooks_below/ambient/sound_02",
-  "gain_db": 29.8
+  "gain_db": 32.0
+ },
+ {
+  "ch": "labs",
+  "stem": "ambient/trx/spooks_below/machine/sound_08",
+  "gain_db": 27.1
  },
  {
   "ch": "labs",
   "stem": "ambient/underground/rnd_drop_4",
-  "gain_db": -38.2
+  "gain_db": -36.0
  },
  {
   "ch": "labs",
   "stem": "ambient/underground/rnd_drop_5",
-  "gain_db": -38.2
+  "gain_db": -36.0
+ },
+ {
+  "ch": "labs",
+  "stem": "ambient/underground/rnd_drop_4",
+  "gain_db": -36.0
+ },
+ {
+  "ch": "labs",
+  "stem": "ambient/underground/rnd_drop_5",
+  "gain_db": -36.0
  },
  {
   "ch": "mutant",
   "stem": "ambient/soundscape/mutants/bloodsucker/distant_1",
-  "gain_db": 18.8
+  "gain_db": 19.7
  },
  {
   "ch": "mutant",
   "stem": "ambient/soundscape/mutants/bloodsucker/distant_4",
-  "gain_db": 20.6
+  "gain_db": 21.5
  },
  {
   "ch": "mutant",
-  "stem": "monsters/burer/burer_eat_0",
-  "gain_db": 24.3
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/burer/burer_eat_1",
-  "gain_db": 22.5
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/cat/c_eat_0",
-  "gain_db": 17.1
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/dog/bdog_eat_2",
-  "gain_db": 49.7
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/dog/bdog_idle_2",
-  "gain_db": 49.7
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/dog/bdog_idle_4",
-  "gain_db": 49.7
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/lurker/idle_3",
-  "gain_db": -30.3
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/pauk/pauk_eat_0",
-  "gain_db": 49.7
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/pauk/pauk_eat_1",
-  "gain_db": 49.7
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/pauk/pauk_eat_2",
-  "gain_db": 49.7
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/pauk/pauk_eat_3",
-  "gain_db": 49.7
- },
- {
-  "ch": "mutant",
-  "stem": "monsters/chimera/chimera_idle_3",
-  "gain_db": -30.3
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_01",
-  "gain_db": 26.2
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_02",
-  "gain_db": 24.1
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_03",
-  "gain_db": 18.7
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_04",
-  "gain_db": 23.6
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_05",
-  "gain_db": 19.5
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_07",
-  "gain_db": 16.7
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_09",
-  "gain_db": 27.3
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_10",
-  "gain_db": 17.4
- },
- {
-  "ch": "mutant",
-  "stem": "ambient/trx/spooks_above/mutants/sound_11",
+  "stem": "ambient/soundscape/mutants/flesh/distant_5",
   "gain_db": 17.2
  },
  {
   "ch": "mutant",
+  "stem": "ambient/soundscape/mutants/snork/bck/distant_4b",
+  "gain_db": 16.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/burer/burer_eat_0",
+  "gain_db": 25.2
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/burer/burer_eat_1",
+  "gain_db": 23.4
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/cat/c_eat_0",
+  "gain_db": 18.0
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_0",
+  "gain_db": 17.4
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_0",
+  "gain_db": 18.0
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/cat/c_eat_1",
+  "gain_db": 17.2
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_1",
+  "gain_db": 17.2
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_idle_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_idle_4",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/lurker/idle_3",
+  "gain_db": -29.4
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/pauk/pauk_eat_0",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/pauk/pauk_eat_1",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/pauk/pauk_eat_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/pauk/pauk_eat_3",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/chimera/chimera_idle_3",
+  "gain_db": -29.4
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_01",
+  "gain_db": 27.1
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_02",
+  "gain_db": 25.0
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_03",
+  "gain_db": 19.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_04",
+  "gain_db": 24.5
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_05",
+  "gain_db": 20.4
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_07",
+  "gain_db": 17.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_09",
+  "gain_db": 28.2
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_10",
+  "gain_db": 18.3
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/trx/spooks_above/mutants/sound_11",
+  "gain_db": 18.1
+ },
+ {
+  "ch": "mutant",
   "stem": "ambient/trx/spooks_above/mutants/sound_13",
-  "gain_db": 17.9
+  "gain_db": 18.8
+ },
+ {
+  "ch": "mutant",
+  "stem": "ambient/lar_ambients/af3/rnd_growl_2",
+  "gain_db": 16.3
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/chimera/chimera_growl_1",
+  "gain_db": -29.4
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_idle_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_idle_4",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_idle_6",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_1",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_4",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_5",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/stalker/hiccup/idle_8",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_0",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_3",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_4",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_7",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/guard_dog_eat_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog1/bdog_distant_0",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog1/bdog_distant_6",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog1/bdog_distant_7",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog1/bdog_idle_4",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/himera1/idle_12",
+  "gain_db": -29.4
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_1",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_4",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_5",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat_strong/idle_1",
+  "gain_db": 17.0
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/tushkano1/idle_3",
+  "gain_db": 16.0
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/pauk/pauk_eat_0",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/pauk/pauk_eat_1",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/pauk/pauk_eat_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/pauk/pauk_eat_3",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_4",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_5",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/ratlike/ratlike_idle_1",
+  "gain_db": 18.7
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/tarakan/idle_3",
+  "gain_db": 18.9
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_eat_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/dog/bdog_idle_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_1",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_2",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/karlik/idle_6",
+  "gain_db": 23.7
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/karlik/idle_7",
+  "gain_db": 21.0
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/karlik/idle_8",
+  "gain_db": 15.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/karlik/idle_9",
+  "gain_db": 16.5
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/distant_2",
+  "gain_db": 19.4
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_0",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_1",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_10",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_3",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_5",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_6",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_7",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/rat/idle_9",
+  "gain_db": 50.6
+ },
+ {
+  "ch": "mutant",
+  "stem": "monsters/ratwolf/idle_0",
+  "gain_db": 20.3
  },
  {
   "ch": "mutant_ambient_field",
@@ -310,339 +700,484 @@
   "gain_db": 8.0
  },
  {
+  "ch": "scream",
+  "stem": "ambient/random/rnd_fallscream",
+  "gain_db": -11.7
+ },
+ {
+  "ch": "scream",
+  "stem": "ambient/rnd_outdoor/night_scream5",
+  "gain_db": -10.6
+ },
+ {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_07",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_02",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_03",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_01",
-  "gain_db": 24.0
+  "gain_db": 33.1
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_13",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_01",
-  "gain_db": 29.5
+  "gain_db": 38.5
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_02",
-  "gain_db": 29.0
+  "gain_db": 38.1
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_03",
-  "gain_db": 27.4
+  "gain_db": 36.4
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_04",
-  "gain_db": 27.5
+  "gain_db": 36.5
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_05",
-  "gain_db": 27.4
+  "gain_db": 36.4
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_06",
-  "gain_db": 27.8
+  "gain_db": 36.9
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_08",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_04",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_09",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_09",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_10",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_11",
-  "gain_db": 31.8
+  "gain_db": 40.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_12",
-  "gain_db": 33.5
+  "gain_db": 42.5
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_13",
-  "gain_db": 33.0
+  "gain_db": 42.1
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_21",
-  "gain_db": 33.0
+  "gain_db": 42.1
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_14",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_25",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_15",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_16",
-  "gain_db": 29.3
+  "gain_db": 38.4
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_17",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_14",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_18",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_19",
-  "gain_db": 33.2
+  "gain_db": 42.3
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_20",
-  "gain_db": 32.0
+  "gain_db": 41.1
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_21",
-  "gain_db": 30.3
+  "gain_db": 39.4
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_22",
-  "gain_db": 28.5
+  "gain_db": 37.5
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_23",
-  "gain_db": 32.3
+  "gain_db": 41.4
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_24",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_26",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_26",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_27",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_27",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_28",
-  "gain_db": 32.5
+  "gain_db": 41.5
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_29",
-  "gain_db": 30.2
+  "gain_db": 39.2
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_30",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_31",
-  "gain_db": 30.5
+  "gain_db": 39.5
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_32",
-  "gain_db": 27.1
+  "gain_db": 36.2
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_32",
-  "gain_db": 27.1
+  "gain_db": 36.2
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_33",
-  "gain_db": 25.6
- },
- {
-  "ch": "spook",
-  "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_33",
-  "gain_db": -30.4
+  "gain_db": 34.7
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_34",
-  "gain_db": 27.0
+  "gain_db": 36.0
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_35",
-  "gain_db": 26.8
+  "gain_db": 35.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_36",
-  "gain_db": 26.8
+  "gain_db": 35.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_36",
-  "gain_db": 26.8
+  "gain_db": 35.8
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/sound_37",
-  "gain_db": 33.2
+  "gain_db": 42.3
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/spooks/~sound_21",
-  "gain_db": 26.1
+  "gain_db": 35.2
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/soundscape/underground/spooks_above/under_21",
+  "gain_db": 28.1
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/soundscape/underground/spooks_above/under_23",
+  "gain_db": 32.3
  },
  {
   "ch": "spook",
   "stem": "ambient/soundscape/underground/spooks_above/under_24",
-  "gain_db": 24.0
+  "gain_db": 33.1
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/soundscape/underground/spooks_above/under_29",
+  "gain_db": 30.9
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/trx/background/whisper_day",
+  "gain_db": 31.9
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_05",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_06",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_07",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_08",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_10",
-  "gain_db": 29.0
+  "gain_db": 38.0
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_11",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_12",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_15",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_16",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_17",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_18",
-  "gain_db": 30.5
+  "gain_db": 39.6
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_19",
-  "gain_db": 32.8
+  "gain_db": 41.9
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_20",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
   "stem": "ambient/trx/spooks_above/spooks/sound_22",
-  "gain_db": 33.8
+  "gain_db": 42.8
  },
  {
   "ch": "spook",
-  "stem": "ambient/soundscape/underground/spooks_below/spooks/sound_01",
-  "gain_db": -24.9
+  "stem": "affects/psy_blackout_l",
+  "gain_db": -37.2
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_beep_1",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_click_1",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_click_2",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_click_3",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_click_3a",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/tuman/fog_ambient_dog_1",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/tuman/fog_ambient_dog_3",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/tuman/fog_raven_1",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_beep_1",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_click_1",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_click_2",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_click_3",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/marsh_click_3a",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "fear_sounds/outdoors/fear_sound_3",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "fear_sounds/stancia/fear_sound_8",
+  "gain_db": -37.2
+ },
+ {
+  "ch": "spook",
+  "stem": "fear_sounds/underground/fear_sound_1",
+  "gain_db": -37.2
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/beep",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/click",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/light_buzz_2",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/light_buzz_3",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/light_sizzles_1",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/light_sizzles_3",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/light_sizzles_4",
+  "gain_db": 42.8
+ },
+ {
+  "ch": "spook",
+  "stem": "ambient/special/light_sizzles_6",
+  "gain_db": 42.8
  },
  {
   "ch": "urban",
@@ -657,51 +1192,51 @@
  {
   "ch": "wildlife",
   "stem": "ambient/soundscape/crows/crow4",
-  "gain_db": 28.6
+  "gain_db": 28.8
  },
  {
   "ch": "wildlife",
   "stem": "ambient/trx/nature/owl/bak/sound_10",
-  "gain_db": 25.9
+  "gain_db": 26.1
  },
  {
   "ch": "wildlife",
   "stem": "ambient/trx/nature/owl/bak/sound_11",
-  "gain_db": 26.6
+  "gain_db": 26.8
  },
  {
   "ch": "wildlife",
   "stem": "ambient/trx/nature/owl/bak/sound_01",
-  "gain_db": 27.4
- },
- {
-  "ch": "wildlife",
-  "stem": "ambient/trx/nature/owl/bak/sound_03",
-  "gain_db": 48.4
- },
- {
-  "ch": "wildlife",
-  "stem": "ambient/trx/nature/owl/bak/sound_05",
-  "gain_db": 25.6
- },
- {
-  "ch": "wildlife",
-  "stem": "ambient/trx/nature/owl/bak/sound_07",
   "gain_db": 27.6
  },
  {
   "ch": "wildlife",
+  "stem": "ambient/trx/nature/owl/bak/sound_03",
+  "gain_db": 48.5
+ },
+ {
+  "ch": "wildlife",
+  "stem": "ambient/trx/nature/owl/bak/sound_05",
+  "gain_db": 25.8
+ },
+ {
+  "ch": "wildlife",
+  "stem": "ambient/trx/nature/owl/bak/sound_07",
+  "gain_db": 27.8
+ },
+ {
+  "ch": "wildlife",
   "stem": "ambient/trx/nature/owl/sound_03",
-  "gain_db": 42.9
+  "gain_db": 43.0
  },
  {
   "ch": "wildlife",
   "stem": "ambient/trx/nature/owl/sound_12",
-  "gain_db": 48.4
+  "gain_db": 48.5
  },
  {
   "ch": "wildlife",
   "stem": "ambient/trx/nature/owl/sound_13",
-  "gain_db": 48.4
+  "gain_db": 48.5
  }
 ]

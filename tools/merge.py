@@ -33,7 +33,8 @@ CATEGORIES = [
 # Out-of-scope / misfiled source paths to skip (n109). psi-storm is emission-domain (readme: "does not
 # touch emission or psi-storm sound"); giant_underground is a monster roar misfiled into an ambient tree;
 # ambience_exp is the Immersive Ambience Expansion weather tree (silent drip, non-dread wind - user-checked).
-EXCLUDE = ("psi_storm", "psistorm", "giant_underground", "ambience_exp")
+EXCLUDE = ("psi_storm", "psistorm", "giant_underground", "ambience_exp",
+           "music", "soundtrack")   # NO MUSIC: music/, soundtrack/, dyn_music/, **/music, radio_music, megafon/music
 
 # Zone terrains for the map-selected mutant_ambient_<zone> categories (n117: forest/swamp/urban/field).
 ZONES = ("forest", "swamp", "urban", "field")
@@ -47,6 +48,7 @@ MUTANT_KEEP = re.compile(r"(idle|growl|ambient_drone|_eat|distant|moan|breath|lu
 # specific-first. Whole-tree capture, not keyword matching. Anything unmatched is DROPPED (dark scope, I9).
 # Weather (storm/rain/thunder/pre_storm/tuman) and generic life (birds/bugs/insects/frogs) are left out.
 ROUTE = [
+    ("unused interior", "structural"),                          # Shrike's granted interior pack (slam + interior winds), all indoor
     ("/screams", "scream"),
     ("/dark_signal", "dark_signal"), ("radio/white_noise", "dark_signal"),   # the 4-min radio static bed
     # spooks_below/<sub> (the packs nest this under .../soundscape/underground/, so the sub-tree is the
@@ -90,6 +92,32 @@ ROUTE = [
     # loose ambient/underground, soundscape/underground/under_NN, ugrnd, x18/x16 files with no sub-tag)
     ("ugrnd_", "labs"), ("/ugrnd/", "labs"), ("/x18", "labs"), ("/x16", "labs"),
     ("ambient/underground/", "labs"), ("soundscape/underground/", "labs"), ("underground_", "labs"),
+    # standalone/spinoff old-build dread trees (SoC-lineage builds; x18/x16/ugrnd already routed above).
+    # NOTE: no /anomaly/ rule - the SoC anomaly/ tree is the full anomaly SFX set (activation/burst/hit),
+    # not dread ambient, and anomaly/blowout is its own system (I10). drone stays the spooks_*/drone hums.
+    ("metro_horror", "dark_signal"),                            # Lost-Alpha walkie-talkie radio horror
+    ("/horror/", "spook"), ("hotel_horror", "spook"), ("/inferno/", "spook"),
+    ("fear_sound", "spook"),                                    # NLC fear_sounds/<level>, Prosector pripyat fear
+    ("night_scream", "scream"), ("fallscream", "scream"),
+    ("rnd_horror", "spook"),
+    ("iron_moan", "structural"), ("organic_moan", "spook"), ("org_moan", "spook"), ("rnd_moan", "spook"),
+    ("wounded_psy", "spook"), ("psy_blackout", "spook"), ("psy_noise", "spook"), ("psy_voices", "spook"),
+    ("ghost", "spook"),
+    ("ambient/tuman", "spook"),                                 # fog night dread (whole tree)
+    # rnd_outdoor distant-cue tokens (mixed folder; route by filename, not the whole folder).
+    ("rnd_shooting", "gunfire"), ("fog_shooting", "gunfire"), ("distantmortar", "gunfire"),
+    ("rnd_mutant", "mutant"), ("ambient_mutant", "mutant"), ("rnd_growl", "mutant"), ("distant_growl", "mutant"),
+    ("rnd_howling", "wildlife"), ("outside_howl", "wildlife"), ("wolfhowl", "wildlife"),
+    ("metal_noise", "structural"),
+    ("ambient/special", "spook"),                               # SoC special dread ambience (psy/fear/scream)
+    # Dead Air's Lost Alpha (lar_) borrowed ambience, by subfolder (metro_horror already -> dark_signal above).
+    ("lar_indoor", "structural"), ("lar_war", "spook"), ("lar_suspense", "spook"), ("lar_ghosts", "spook"),
+    ("lar_call", "spook"), ("lar_howled", "wildlife"),
+    ("metro_swamp", "spook"), ("metro_tunnels", "labs"), ("metro_ambients", "labs"),
+    ("lar_crow", "wildlife"), ("lar_dog", "wildlife"), ("lar_owls", "wildlife"), ("lar_pigeon", "wildlife"),
+    ("lar_wolf", "wildlife"), ("lar_frog", "wildlife"),
+    ("lar_tree", "foliage"), ("lar_wind", "wind"),
+    ("howling_wind", "wind"), ("howling", "wildlife"),         # wind-first so howling_wind != animal howl
 ]
 
 
@@ -136,6 +164,21 @@ MODS = [
     ("DSMutants",      "C:/Users/damian/Downloads/anomaly_audio_mods/276- Dark Signal Mutants Audio - Shrike/gamedata"),
     # net-new underground dread + the terrain-split zone-mutant trees (trx/spooks_above/<zone>mutants).
     ("AudioExpansion", "C:/Users/damian/Downloads/anomaly_audio_mods/Audio Expansion/gamedata"),
+    # Standalone/spinoff STALKER builds mined for dread sources (doc: anomaly_audio_mods/STANDALONE_BUILDS.md).
+    # gd points at the extracted root (holds sounds/); SoC-lineage, so most content dedups to the game core.
+    ("DeadAir",   "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/DeadAir"),
+    ("OGSE",      "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/OGSE"),
+    ("Prosector", "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/Prosector"),
+    ("Solyanka",  "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/solyanka"),
+    ("NLC",       "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/NLC"),
+    ("SoP",       "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/sop"),
+    # Broader dark baseline from the audio-mod pool (dedup grounding = "what we already have").
+    ("DarkSignal274",     "C:/Users/damian/Downloads/anomaly_audio_mods/274- Dark Signal Audio Pack - Shrike/gamedata"),
+    ("DarkSignal285",     "C:/Users/damian/Downloads/anomaly_audio_mods/285- Dark Signal Blowout and Anomalies Audio - Shrike/gamedata"),
+    ("AmbientExtended",   "C:/Users/damian/Downloads/anomaly_audio_mods/Ambient Extended Reworked/gamedata"),
+    ("ImmersiveAmbience", "C:/Users/damian/Downloads/anomaly_audio_mods/Immersive Ambience Expansion/gamedata"),
+    # Shrike's unreleased Dark Signal interior audio, given directly (granted 2026-08-15, see doc/licensing.md).
+    ("ShrikeInterior", "C:/Users/damian/Downloads/anomaly_audio_mods/Dark Signal Unused Interior - Shrike/gamedata"),
     ("vanilla",        "D:/Games/GAMMA/Anomaly/tools/_unpacked"),
 ]
 
@@ -792,6 +835,23 @@ def _safe_audio_hash(path):
         return None
 
 
+def _slug(name):
+    """Filesystem-safe lowercase slug of a source filename: letters, digits, underscore only."""
+    s = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+    return s or "sound"
+
+
+def _deployed_stem(entry):
+    """The n124 deployed name (no extension): <source-name slug>_<audio hash>. Deterministic - depends
+    only on the entry's own filename and audio, so every stage recomputes the same name with no shared
+    counter, and the blob-agnostic audio hash means writing the ogg blob never changes it. The hash
+    disambiguates two distinct sounds a pack shipped under one filename; identical audio collapses to one
+    file. Replaces the positional N that re-indexed the whole tree whenever content was added or removed."""
+    base = _slug(Path(entry["stem"]).name)
+    h = (_safe_audio_hash(Path(entry["abs"])) or file_hash(entry["abs"]))[:10]
+    return f"{base}_{h}"
+
+
 # Config sources scanned for base ambient channels, so a removal exists for whatever channel any
 # installed pack files one of our sounds under. An absent channel is safely ignored by DLTX
 # (warn-and-discard, no CTD - Xr_ini.cpp:1383-1400).
@@ -847,20 +907,32 @@ def _veto_dltx(effects):
             hcache[k] = _safe_audio_hash(f)
         return hcache[k]
 
-    removals = {}    # channel(lower) -> set of raw sound strings to remove
+    removals = {}       # channel(lower) -> set of raw sound strings to remove
+    contributing = {}   # pack folder (under a scanned root) -> how many of our sounds it played
     for root in VETO_CONFIG_ROOTS:
-        for sc in Path(root).rglob("configs/environment/sound_channels.ltx"):
+        rootp = Path(root)
+        for sc in rootp.rglob("configs/environment/sound_channels.ltx"):
+            rel = sc.relative_to(rootp).parts
+            pack = rel[0] if rel and rel[0] not in ("configs", "gamedata") else rootp.name
             snd_root = sc.parents[2] / "sounds"
             for chan, entries in _sc_channel_sounds(sc).items():
                 for raw in entries:
                     f = snd_root / (raw.replace("\\", "/") + ".ogg")
                     if f.is_file() and ah(f) in want:
                         removals.setdefault(chan, set()).add(raw)
+                        contributing[pack] = contributing.get(pack, 0) + 1
     out = ["; GENERATED by tools/merge.py - do not edit. Static DLTX veto: removes AlifeSpooks' own",
            "; sounds from the base ambient channels so the base never doubles the director's copy.",
-           "; Matched by audio identity across every scanned pack; an absent channel is ignored by DLTX.",
-           "; Every removed-from channel gets ambient\\no_sound so a full removal never asserts an empty bed.",
-           ""]
+           "; Matched by audio identity (blob-agnostic) against every sound_channels.ltx under the roots below.",
+           "; An absent channel is ignored by DLTX; every removed-from channel gets ambient\\no_sound.",
+           ";",
+           "; TESTED-AGAINST - scanned roots (VETO_CONFIG_ROOTS):"]
+    for root in VETO_CONFIG_ROOTS:
+        out.append(";   %s" % root)
+    out.append("; Mods/packs that actually played one of our sounds and were vetoed (folder (count)):")
+    for pack in sorted(contributing):
+        out.append(";   %s (%d)" % (pack, contributing[pack]))
+    out.append("")
     for chan in sorted(removals):
         out.append("![%s]" % chan)
         for raw in sorted(removals[chan]):
@@ -881,16 +953,16 @@ def _normalize_blobs(effects, snd):
     it to TARGET_PEAK_DB. Lossless bitstream rewrite, no re-encode. Peak comes from _loudness_cull."""
     wrote = skipped = 0
     for cat in sorted(effects):
-        blobs = [_read_blob((snd / cat / f"{i}.ogg").read_bytes()) for i in range(1, len(effects[cat]) + 1)]
+        names = [_deployed_stem(e) for e in effects[cat]]
+        blobs = [_read_blob((snd / cat / f"{n}.ogg").read_bytes()) for n in names]
         carried = [b for b in blobs if b]
         cmin = _median(sorted(c[0] for c in carried)) if carried else 1.0
         cmax = _median(sorted(c[1] for c in carried)) if carried else 300.0
         if cmax <= cmin:
             cmax = cmin + 1.0
-        for i, e in enumerate(effects[cat], 1):
-            b = blobs[i - 1]
+        for e, n, b in zip(effects[cat], names, blobs):
             mn, mx = (b[0], b[1]) if b else (cmin, cmax)
-            if _write_blob(snd / cat / f"{i}.ogg", mn, mx, _norm_bv(e["peak"])):
+            if _write_blob(snd / cat / f"{n}.ogg", mn, mx, _norm_bv(e["peak"])):
                 wrote += 1
             else:
                 skipped += 1
@@ -948,8 +1020,8 @@ def cmd_deploy(a):
     # Emit each sound into our OWN category directory: zs\<category>\N.ogg. There is no engine
     # sound_channels.ltx for our content - the director reads as_manifest, not channels.
     for cat in sorted(effects):
-        for i, e in enumerate(effects[cat], 1):
-            _emit_audio(e, snd / cat / f"{i}.ogg")
+        for e in effects[cat]:
+            _emit_audio(e, snd / cat / f"{_deployed_stem(e)}.ogg")
 
     _normalize_blobs(effects, snd)    # peak-normalize base_volume + write the attenuation blob per file
 
@@ -978,10 +1050,11 @@ def cmd_deploy(a):
 
     for cat in sorted(effects):
         cells = []
-        for i, e in enumerate(effects[cat], 1):
-            b = _read_blob((snd / cat / f"{i}.ogg").read_bytes())
+        for e in effects[cat]:
+            n = _deployed_stem(e)
+            b = _read_blob((snd / cat / f"{n}.ogg").read_bytes())
             mn, mx = (round(b[0], 1), round(b[1], 1)) if b else (1, 300)
-            cells.append('{ "zs\\\\%s\\\\%d", %s, %s, %s }' % (cat, i, mn, mx, 0))
+            cells.append('{ "zs\\\\%s\\\\%s", %s, %s, %s }' % (cat, n, mn, mx, 0))
         man.append('\t["%s"] = {' % cat)
         man += _pack(cells, "\t\t")
         man.append("\t},")
@@ -1131,18 +1204,19 @@ def cmd_provenance(a):
     ch_to_cat = effect_group_map()
     effects = _build_layers(mc, cls, ch_to_cat)
     _loudness_cull(effects)              # SAME drop deploy applies, so the N-numbering matches the tree
-    zs = GDATA / "sounds/zs"
+    zs = (Path(a.root) if getattr(a, "root", None) else GDATA) / "sounds/zs"   # honor --root like deploy
 
     # Structural capture: a sound's origin is its SOURCE PATH (orig_dir/orig_file from the stem) + the
     # pack it came from. No channel/settings/sections columns - categories are not channels. min/max/
     # base_volume live in the deployed ogg blob. The audio self-verify is the preservation proof.
     cols = ["deployed", "category", "orig_mod", "orig_dir", "orig_file", "base_volume"]
     rows, verify_ok, verify_bad = [], 0, 0
-    for cat in sorted(effects):                       # every sound deploys to zs\<category>\N
-        for i, e in enumerate(effects[cat], 1):
-            dep = f"zs\\{cat}\\{i}"
+    for cat in sorted(effects):                       # every sound deploys to zs\<category>\<name>
+        for e in effects[cat]:
+            n = _deployed_stem(e)
+            dep = f"zs\\{cat}\\{n}"
             stem = e["stem"]
-            dfile = zs / cat / f"{i}.ogg"
+            dfile = zs / cat / f"{n}.ogg"
             bv = ""
             if dfile.exists():
                 b = _read_blob(dfile.read_bytes())
@@ -1165,13 +1239,24 @@ def cmd_provenance(a):
 def cmd_all(a):
     """Run the whole pipeline in order: plan -> classify -> loudness -> deploy -> ledger -> provenance.
     One command so the sequence (and the classify-after-plan rule) can never be got wrong by hand."""
-    import types
+    import types, time
     ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None))
+    timings = []
+    t_all = time.perf_counter()
     for name, fn in (("plan", cmd_plan), ("classify", cmd_classify), ("loudness", cmd_loudness),
                      ("deploy", cmd_deploy), ("ledger", cmd_ledger), ("provenance", cmd_provenance)):
         print(f"\n========== {name} ==========")
+        t0 = time.perf_counter()
         fn(ns)
+        dt = time.perf_counter() - t0
+        timings.append((name, dt))
+        print(f"[time] {name}: {dt:.1f}s")
+    total = time.perf_counter() - t_all
     print("\n========== done ==========")
+    print("stage timings (slowest first, so you know where to optimize):")
+    for name, dt in sorted(timings, key=lambda kv: -kv[1]):
+        print(f"  {name:11s} {dt:8.1f}s  {(100 * dt / total if total else 0):5.1f}%")
+    print(f"  {'TOTAL':11s} {total:8.1f}s")
 
 
 if __name__ == "__main__":

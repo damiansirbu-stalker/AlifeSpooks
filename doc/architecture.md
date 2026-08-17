@@ -74,6 +74,34 @@ match is only the mechanical pull that runs after that decision; anything unmatc
 scope). There is no keyword classifier that decides scope on its own. The `UNUSED-DARK = 0` ledger
 invariant then confirms the hand-written rules captured every dark file the pack holds.
 
+### Identity and build modes (identity DONE; additive/registry are n124-planned)
+
+`cmd_deploy` names each file by content, not position - `_deployed_stem` = `<origname>_<audiohash>`.
+The old positional `zs/<category>/<N>.ogg` (`N` = enumerate order) was a collision workaround (many
+packs ship the same filename), but it RE-INDEXED every file whenever content was added or removed, so a
+build could only run from scratch. The content name fixes that. IMPLEMENTED today:
+
+- Name = original name + audio hash: `zs/<category>/<origname>_<hash>.ogg`, `hash` = `_audio_hash`
+  (md5 of the audio pages only, blob-agnostic) in short form. Readable (keeps the source name), unique
+  (the hash disambiguates two files that share a name), stable (identical audio always maps to the same
+  name; adding content never renames an existing file).
+- Origin (mod, folder, original path) stays in `provenance.tsv` keyed by the name, never baked into the
+  filename - the path is long and shifts if a source reorganizes, while the audio does not.
+- Exact-dedup key = `_audio_hash` (the same value carried in the name), so no two survivors can collide
+  on a name; uniqueness holds by construction.
+- Re-encode / near-clone detection = Chromaprint fp + PCM xcorr, COMPUTED ON DEMAND from the `.ogg`
+  files during a build, never persisted. A fingerprint is derived data, not identity; only the exact
+  hash rides in the name, because the name itself needs a unique stable id with no side registry - that
+  is naming, not a cache. There is no fingerprint cache.
+- Two build modes:
+  - full (`build`): whole source pool -> route -> dedup -> name -> write. The canonical corpus.
+  - additive (`add <source>`): the published corpus is FROZEN. Route the new source, dedup it against
+    the frozen corpus plus itself (hash for exact copies, fp/xcorr for re-encodes), keep only net-new,
+    APPEND it (new names, existing untouched); provenance and ledger append rather than regenerate.
+- Honest limits: re-encode detection is heuristic (fp >= 0.88 candidate, xcorr >= 0.90 decide), not
+  exact; additive freezes existing choices, so it can diverge from a fresh full build at the margins -
+  `build` is canonical, and a full rebuild reconciles.
+
 ## Deduplication: waveform identity, source side only
 
 Identity is decided by the waveform, never the filename or the bytes. Three stages, cheapest first,
@@ -281,6 +309,12 @@ there is no slot to lose.
 - Bed-empty guard: a channel that is a bed anywhere (System A asserts on empty `sounds`,
   `Environment_misc.cpp:108`) also gets `>sounds = ambient\no_sound`, so a full removal never leaves a
   bed empty. See "Muting a channel: the `ambient\no_sound` trick" in the ambient-sound-system note.
+- TESTED-AGAINST baseline: Anomaly 1.5.3, GAMMA definition 920 (Soundscape Overhaul #3 + Dark Signal
+  Weather and Ambiance #304 active), plus every pack under `anomaly_audio_mods`. The generated overlay
+  self-documents its coverage in the file header - the scanned roots and every mod that actually played
+  one of our sounds and was vetoed (e.g. Soundscape Overhaul 338, Dark Signal 304 -> 328). Re-run to
+  refresh the list after any modlist change. The standalone builds under `stalker_versions_for_sound`
+  are sound SOURCES, not play targets (AlifeSpooks does not run in them), so they need no veto.
 
 The removal is on the sound's original path, matched to the base list item exactly (the engine removes
 by exact string, `Xr_ini.cpp:1259-1263`), so the overlay emits each channel's path exactly as the
