@@ -20,6 +20,7 @@ The Zone used to be frightening. Modern soundscape mods sharpened its realism an
 It is a dread director. It reads where you stand and who is near, scores the dread of the place, and plays curated horror one-shots to match.
 Nothing is a random timer and nothing is scripted.
 The soundscape follows the real state of the game around you, the way the rest of the Alife Collection reads state and decides rather than rolls dice.
+Part of its horror is unreleased Dark Signal audio, interior sound Shrike made and never shipped, given straight to this mod.
 
 The mod is three things. A director reads the Zone and plays to it. A veto keeps it from ever doubling the base ambience. A measured pipeline builds its sound library.
 It needs xlibs, the library that plays its sounds. Without xlibs the mod is inert.
@@ -112,17 +113,15 @@ When a feature cannot fit that budget it is reworked, replaced, or removed with 
 Compatibility:
 Built for GAMMA and the Dark Signal soundscape base, and it runs on vanilla Anomaly and any soundscape mod.
 Because it removes only its own sounds from the base channels and adds nothing, it never doubles or collides with the base ambience, whatever pack you run.
+Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and with the soundscape and ambient packs it draws from: Dark Signal Amplified Soundscape, DS Amplified Vanilla, DS Overhaul Atmospherics, the Dark Signal Audio, Mutants, and Blowout and Anomalies packs, RETUNE and RE-TUNE Ambient Sounds, myRETUNE Antares 2.1, Audio Expansion, Ambient Extended Reworked, Immersive Ambience Expansion, and Real Distant Mutants Sounds.
 You can install or remove it mid-save. Weather sound stays the base ambience's job, AlifeSpooks adds no storm or rain.
 
 Credits:
-The content is drawn from these community packs, with thanks to their authors.
-Dark Signal Weather and Ambiance, by Shrike.
-Dark Signal Amplified Soundscape, by Shrike.
-Soundscape Overhaul, by Solarint.
-RETUNE Ambient Sounds, by Aphrodite_child.
-Real Distant Mutants Sounds, distant creature calls, from moddb.
-Audio Expansion, underground and surface spook, from moddb.
-Used under the terms on each source page. Only the selected audio is redistributed, with attribution. If an author asks for removal, the pack is dropped from the build.
+Most of the sounds come from the original S.T.A.L.K.E.R. games and from the standalone builds that carry and rework their audio: Solyanka (NS OGSR), Dead Air, OGSE, Prosector, NLC, and OLR.
+The rest is dark ambience from community soundscape packs, with thanks to their authors: the Dark Signal family and Amplified Soundscape by Shrike, Soundscape Overhaul by Solarint, RETUNE by Aphrodite_child and myRETUNE Antares, Audio Expansion by AniHVX, Ambient Extended by Txiku, Immersive Ambience Expansion by Kutee, and Real Distant Mutants Sounds.
+Shrike also gave unreleased interior audio he made for Dark Signal and never shipped, for use here.
+Every author is credited above. Only selected audio is redistributed. If an author does not want their work included, it is removed from the build.
+Each source's license and the granting author's permission are recorded in licensing.md; nothing ships without a free license or the author's consent.
 
 Usage and License:
 Modpacks are allowed and encouraged. Keep the readme and license files.
