@@ -5,91 +5,94 @@
 		<texture>ui_inGame2_pda_buttons_background</texture>
 	</background>
 
-	<title x="28" y="48" width="764" height="26">
-		<text font="letterica18" align="c" r="200" g="170" b="120">AlifeSpooks</text>
-	</title>
-
-	<list_frame x="44" y="88" width="372" height="598">
+	<!-- LEFT: file browser. Breadcrumb sits with the files; the list is click-navigated (folder in, ".." up). -->
+	<lbl_path x="44" y="88" width="372" height="20">
+		<text font="letterica16" align="l" r="200" g="170" b="120"/>
+	</lbl_path>
+	<list_frame x="44" y="112" width="372" height="574">
 		<texture>ui_inGame2_servers_list_frame</texture>
 	</list_frame>
-	<list x="47" y="91" width="366" height="592" item_height="18" can_select="1">
-		<font font="letterica16"/>
+	<list x="47" y="115" width="366" height="568" item_height="22" can_select="1">
+		<font font="letterica18"/>
 	</list>
 
-	<hdr_player x="440" y="88" width="340" height="22">
+	<!-- RIGHT / PLAYER: a media-player widget - a display screen and a glyph transport. -->
+	<hdr_player x="444" y="88" width="332" height="22">
 		<text font="letterica18" align="l" r="200" g="170" b="120">PLAYER</text>
 	</hdr_player>
-	<line_player x="440" y="112" width="340" height="6" stretch="1">
+	<line_player x="444" y="112" width="332" height="6" stretch="1">
 		<texture>ui_inGame2_pda_line_horizontal</texture>
 	</line_player>
 
-	<lbl_cat x="440" y="124" width="340" height="20">
-		<text font="letterica16" align="l" r="200" g="200" b="200"/>
-	</lbl_cat>
-	<btn_cat_back x="440" y="146" width="48" height="30" stretch="1">
+	<chk_mute x="444" y="124" width="24" height="24" stretch="1">
+		<texture>ui_inGame2_checkbox</texture>
+	</chk_mute>
+	<cap_mute x="476" y="126" width="290" height="20">
+		<text font="letterica16" align="l" vert_align="c" r="200" g="200" b="200">silence the running soundscape</text>
+	</cap_mute>
+
+	<screen x="444" y="160" width="332" height="60" stretch="1">
+		<texture>ui_inGame2_pda_Filtr_plyer_interface_off</texture>
+	</screen>
+	<lbl_now x="460" y="168" width="300" height="20">
+		<text font="letterica16" align="l" vert_align="c" r="66" g="157" b="195"/>
+	</lbl_now>
+	<lbl_pos x="460" y="192" width="300" height="20">
+		<text font="letterica16" align="l" vert_align="c" r="66" g="157" b="195"/>
+	</lbl_pos>
+
+	<!-- transport: [ position - ] [ position + ]   [ prev ] [ play ] [ next ] -->
+	<btn_pos_down x="470" y="232" width="48" height="30" stretch="1">
+		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_down</texture>
+	</btn_pos_down>
+	<btn_pos_up x="520" y="232" width="48" height="30" stretch="1">
+		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_up</texture>
+	</btn_pos_up>
+	<btn_prior x="600" y="232" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_prev</texture>
-	</btn_cat_back>
-	<btn_cat_fwd x="492" y="146" width="48" height="30" stretch="1">
-		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_next</texture>
-	</btn_cat_fwd>
-
-	<lbl_dist x="440" y="186" width="340" height="20">
-		<text font="letterica16" align="l" r="200" g="200" b="200"/>
-	</lbl_dist>
-	<btn_dist_down x="440" y="208" width="48" height="30" stretch="1">
-		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_down</texture>
-	</btn_dist_down>
-	<btn_dist_up x="492" y="208" width="48" height="30" stretch="1">
-		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_up</texture>
-	</btn_dist_up>
-
-	<lbl_dread x="440" y="248" width="340" height="20">
-		<text font="letterica16" align="l" r="200" g="200" b="200"/>
-	</lbl_dread>
-	<btn_dread_down x="440" y="270" width="48" height="30" stretch="1">
-		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_down</texture>
-	</btn_dread_down>
-	<btn_dread_up x="492" y="270" width="48" height="30" stretch="1">
-		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_up</texture>
-	</btn_dread_up>
-	<btn_deep x="566" y="270" width="48" height="30" stretch="1">
-		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_shuffle</texture>
-	</btn_deep>
-
-	<btn_play x="440" y="314" width="100" height="30" stretch="1">
-		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_start</texture>
+	</btn_prior>
+	<btn_play x="650" y="232" width="48" height="30" stretch="1">
+		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_start2</texture>
 	</btn_play>
+	<btn_next x="700" y="232" width="48" height="30" stretch="1">
+		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_next</texture>
+	</btn_next>
 
-	<btn_flag x="440" y="356" width="150" height="26" stretch="1">
+	<btn_flag x="444" y="278" width="160" height="28" stretch="1">
 		<texture>ui_inGame2_pda_button</texture>
-		<text font="letterica16">flag suspect</text>
+		<text font="letterica16" align="c">flag suspect</text>
 	</btn_flag>
-	<btn_rescan x="596" y="356" width="150" height="26" stretch="1">
+	<btn_rescan x="616" y="278" width="160" height="28" stretch="1">
 		<texture>ui_inGame2_pda_button</texture>
-		<text font="letterica16">rescan disk</text>
+		<text font="letterica16" align="c">rescan disk</text>
 	</btn_rescan>
 
-	<hdr_insp x="440" y="440" width="340" height="22">
+	<!-- RIGHT / INSPECTOR: a data panel - a framed readout, a note field, command buttons. -->
+	<hdr_insp x="444" y="336" width="332" height="22">
 		<text font="letterica18" align="l" r="200" g="170" b="120">INSPECTOR</text>
 	</hdr_insp>
-	<line_insp x="440" y="464" width="340" height="6" stretch="1">
+	<line_insp x="444" y="360" width="332" height="6" stretch="1">
 		<texture>ui_inGame2_pda_line_horizontal</texture>
 	</line_insp>
 
-	<insp_read x="440" y="476" width="345" height="20">
-		<text font="letterica16" align="l" r="180" g="200" b="180"/>
+	<insp_frame x="444" y="372" width="332" height="44">
+		<texture>ui_inGame2_servers_list_frame</texture>
+	</insp_frame>
+	<insp_read x="456" y="384" width="308" height="20">
+		<text font="letterica16" align="l" vert_align="c" r="180" g="200" b="180"/>
 	</insp_read>
-	<insp_note x="440" y="504" width="340" height="26" stretch="1">
+
+	<insp_note x="444" y="428" width="332" height="28" stretch="1">
 		<text x="5" font="letterica16" vert_align="c" align="l"/>
 		<texture>ui_inGame2_edit_box_2</texture>
 	</insp_note>
-	<btn_beacon x="440" y="538" width="150" height="26" stretch="1">
+	<btn_beacon x="444" y="468" width="160" height="28" stretch="1">
 		<texture>ui_inGame2_pda_button</texture>
-		<text font="letterica16">drop beacon</text>
+		<text font="letterica16" align="c">drop beacon</text>
 	</btn_beacon>
-	<btn_snapshot x="596" y="538" width="150" height="26" stretch="1">
+	<btn_snapshot x="616" y="468" width="160" height="28" stretch="1">
 		<texture>ui_inGame2_pda_button</texture>
-		<text font="letterica16">full snapshot</text>
+		<text font="letterica16" align="c">full snapshot</text>
 	</btn_snapshot>
 
 	<status x="44" y="690" width="720" height="22">

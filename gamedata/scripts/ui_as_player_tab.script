@@ -2,29 +2,25 @@
 --- category), plays each sound through the director's own emit at at-ear / a literal distance / the exact
 --- director curve, and flags suspects to alifespooks_probe.log. Returned by pda.set_active_subdialog.
 
-local tonumber, table_sort = tonumber, table.sort
+local table_sort = table.sort
 local string_format, bit_or = string.format, bit_or
 local RegisterScriptCallback = RegisterScriptCallback
 
 local SND_ROOT    = "zs"
--- distance modes cycled by btn_dist: false = 2D at-ear (quality), "auto" = the director's exact emit
--- (min/max from as_manifest + dread + deep), a number = a literal 3D distance in metres.
+-- position modes cycled by the distance steppers: false = 2D at-ear (raw quality check), "auto" = the
+-- director's exact emit (min/max from as_manifest), a number = a literal 3D distance in metres.
 local DIST_STEPS  = { false, "auto", 5, 10, 25, 50, 100 }
-local DREAD_STEPS = { 0, 0.5, 1.0 }
 
 local _cats    = nil
 local _files   = {}
 local _cat_i   = 1
 local _at_root = true
 local _dist_i  = 1
-local _dread_i = 1
-local _deep    = false
 local _flags   = 0
 local _cur     = nil
 
 local function _cur_cat()   return _cats and _cats[_cat_i] end
 local function _cur_dist()  return DIST_STEPS[_dist_i] end
-local function _cur_dread() return DREAD_STEPS[_dread_i] end
 
 -- ---- disk enumeration (lazy per category) ---------------------------------
 
@@ -88,42 +84,41 @@ function as_player_tab:InitControls()
     local xml = CScriptXmlInit()
     xml:ParseFile("ui_as_player.xml")
     xml:InitStatic("background", self)
-    xml:InitStatic("title", self)
     xml:InitStatic("hdr_player", self)
     xml:InitStatic("line_player", self)
+    xml:InitStatic("cap_mute", self)
+    xml:InitStatic("screen", self)
     xml:InitStatic("hdr_insp", self)
     xml:InitStatic("line_insp", self)
+    xml:InitFrame("insp_frame", self)
     xml:InitFrame("list_frame", self)
     self.list = xml:InitListBox("list", self)
     self.list:ShowSelectedItem(true)
     self:Register(self.list, "list")
-    self.lbl_cat   = xml:InitStatic("lbl_cat", self):TextControl()
-    self.lbl_dist  = xml:InitStatic("lbl_dist", self):TextControl()
-    self.lbl_dread = xml:InitStatic("lbl_dread", self):TextControl()
+    self.lbl_path  = xml:InitStatic("lbl_path", self):TextControl()
+    self.lbl_now   = xml:InitStatic("lbl_now", self):TextControl()
+    self.lbl_pos   = xml:InitStatic("lbl_pos", self):TextControl()
     self.status    = xml:InitStatic("status", self):TextControl()
     self.insp_read = xml:InitStatic("insp_read", self):TextControl()
     self.insp_note = xml:InitEditBox("insp_note", self)
+    self.chk_mute  = xml:InitCheck("chk_mute", self); self:Register(self.chk_mute, "chk_mute")
     local function reg(name) local btn = xml:Init3tButton(name, self); self:Register(btn, name) end
-    reg("btn_cat_back"); reg("btn_cat_fwd")
-    reg("btn_dist_down"); reg("btn_dist_up"); reg("btn_dread_down"); reg("btn_dread_up")
-    reg("btn_deep"); reg("btn_play"); reg("btn_flag"); reg("btn_rescan")
-    reg("btn_beacon"); reg("btn_snapshot")
+    reg("btn_pos_down"); reg("btn_pos_up"); reg("btn_prior"); reg("btn_play"); reg("btn_next")
+    reg("btn_flag"); reg("btn_rescan"); reg("btn_beacon"); reg("btn_snapshot")
 end
 
 function as_player_tab:InitCallbacks()
-    self:AddCallback("list",           ui_events.LIST_ITEM_CLICKED, self.OnPlay,      self)
-    self:AddCallback("btn_cat_back",   ui_events.BUTTON_CLICKED,    self.OnCatBack,   self)
-    self:AddCallback("btn_cat_fwd",    ui_events.BUTTON_CLICKED,    self.OnCatFwd,    self)
-    self:AddCallback("btn_dist_down",  ui_events.BUTTON_CLICKED,    self.OnDistDown,  self)
-    self:AddCallback("btn_dist_up",    ui_events.BUTTON_CLICKED,    self.OnDistUp,    self)
-    self:AddCallback("btn_dread_down", ui_events.BUTTON_CLICKED,    self.OnDreadDown, self)
-    self:AddCallback("btn_dread_up",   ui_events.BUTTON_CLICKED,    self.OnDreadUp,   self)
-    self:AddCallback("btn_deep",       ui_events.BUTTON_CLICKED,    self.OnDeep,      self)
-    self:AddCallback("btn_play",       ui_events.BUTTON_CLICKED,    self.OnReplay,    self)
-    self:AddCallback("btn_flag",       ui_events.BUTTON_CLICKED,    self.OnFlag,      self)
-    self:AddCallback("btn_rescan",     ui_events.BUTTON_CLICKED,    self.OnRescan,    self)
-    self:AddCallback("btn_beacon",     ui_events.BUTTON_CLICKED,    self.OnBeacon,    self)
-    self:AddCallback("btn_snapshot",   ui_events.BUTTON_CLICKED,    self.OnSnapshot,  self)
+    self:AddCallback("list",         ui_events.LIST_ITEM_CLICKED,  self.OnPlay,     self)
+    self:AddCallback("chk_mute",     ui_events.BUTTON_CLICKED,     self.OnMute,     self)
+    self:AddCallback("btn_pos_down", ui_events.BUTTON_CLICKED,     self.OnPosNear,  self)
+    self:AddCallback("btn_pos_up",   ui_events.BUTTON_CLICKED,     self.OnPosFar,   self)
+    self:AddCallback("btn_prior",    ui_events.BUTTON_CLICKED,     self.OnPriorSound, self)
+    self:AddCallback("btn_play",     ui_events.BUTTON_CLICKED,     self.OnReplay,   self)
+    self:AddCallback("btn_next",     ui_events.BUTTON_CLICKED,     self.OnNextSound, self)
+    self:AddCallback("btn_flag",     ui_events.BUTTON_CLICKED,     self.OnFlag,     self)
+    self:AddCallback("btn_rescan",   ui_events.BUTTON_CLICKED,     self.OnRescan,   self)
+    self:AddCallback("btn_beacon",   ui_events.BUTTON_CLICKED,     self.OnBeacon,   self)
+    self:AddCallback("btn_snapshot", ui_events.BUTTON_CLICKED,     self.OnSnapshot, self)
 end
 
 function as_player_tab:FillList()
@@ -156,18 +151,36 @@ function as_player_tab:_fill_category(cat)
 end
 
 function as_player_tab:Refresh()
+    self:_refresh_browser()
+    self:_refresh_state()
+    self:_refresh_params()
+    if self.insp_read then self.insp_read:SetText(self:_read_spot()) end
+end
+
+--- Left pane: the breadcrumb (path with the files) and the context hint in the status bar.
+function as_player_tab:_refresh_browser()
     local cat = _cur_cat()
     if _at_root then
-        self.lbl_cat:SetText(string_format("sounds/    (%d categories)", _cats and #_cats or 0))
+        self.lbl_path:SetText(string_format("sounds/    (%d categories)", _cats and #_cats or 0))
+        self.status:SetText(string_format("flagged: %d    |    click a category to browse it", _flags))
     else
-        self.lbl_cat:SetText(string_format("sounds/%s/    (%d)", cat or "?", cat and #_scan_files(cat) or 0))
+        self.lbl_path:SetText(string_format("sounds/%s/    (%d)", cat or "?", cat and #_scan_files(cat) or 0))
+        self.status:SetText(string_format("flagged: %d    |    click a sound to play    -    '..' goes up", _flags))
     end
+end
+
+--- The player screen: the loaded sound line, plus the checkbox synced to the director's live mute state.
+function as_player_tab:_refresh_state()
+    self.lbl_now:SetText(_cur and ("loaded:  " .. _cur.cat .. "/" .. _cur.name) or "loaded:  (none - click a sound)")
+    local muted = as_director and as_director.is_muted and as_director.is_muted()
+    self.chk_mute:SetCheck(muted and true or false)
+end
+
+--- The player screen's position line: the current play mode (value only; the screen names it).
+function as_player_tab:_refresh_params()
     local dist = _cur_dist()
     local dtext = (dist == false) and "at-ear (2D)" or (dist == "auto") and "director-exact" or (dist .. "m")
-    self.lbl_dist:SetText("distance:  " .. dtext)
-    self.lbl_dread:SetText(string_format("dread:  %.1f    deep:  %s", _cur_dread(), _deep and "ON" or "off"))
-    self.status:SetText(string_format("flagged: %d    |    click a sound to play it", _flags))
-    if self.insp_read then self.insp_read:SetText(self:_read_spot()) end
+    self.lbl_pos:SetText("position:  " .. dtext)
 end
 
 function as_player_tab:_play_current()
@@ -176,12 +189,16 @@ function as_player_tab:_play_current()
     if dist == false then
         xsound.play(_cur.path, { volume = 1.0 })
     elseif dist == "auto" then
-        local cats = as_manifest and as_manifest.categories
-        local entry = cats and cats[_cur.cat] and cats[_cur.cat][tonumber(_cur.name)]
+        -- n124 names are <name>_<hash>, not a numeric index, so find the manifest row by its path.
+        local list = as_manifest and as_manifest.categories and as_manifest.categories[_cur.cat]
+        local entry
+        if list then
+            for k = 1, #list do if list[k][1] == _cur.path then entry = list[k]; break end end
+        end
         as_director.emit(_cur.path, { min = entry and entry[2] or 2, max = entry and entry[3] or 100,
-            height = entry and entry[4] or 0, dread = _cur_dread(), deep = _deep })
+            height = entry and entry[4] or 0 })
     else
-        as_director.emit(_cur.path, { dist = dist, dread = _cur_dread(), deep = _deep })
+        as_director.emit(_cur.path, { dist = dist })
     end
 end
 
@@ -205,6 +222,7 @@ function as_player_tab:OnPlay()
     if not name then return end
     _cur = { cat = cat, name = name, path = SND_ROOT .. "\\" .. cat .. "\\" .. name }
     self:_play_current()
+    self:_refresh_state()
     self.status:SetText(string_format("playing:  %s\\%s", cat, name))
 end
 
@@ -212,47 +230,47 @@ function as_player_tab:OnReplay()
     self:_play_current()
 end
 
-function as_player_tab:OnCatBack()
-    if not _cats or #_cats == 0 then return end
-    _cat_i = _cat_i - 1
-    if _cat_i < 1 then _cat_i = #_cats end
-    _at_root = false
-    self:FillList(); self:Refresh()
+--- Master silence checkbox: mute the running director (its one-shots + the base-ambient replay) so a
+--- clicked sound auditions alone. The tab's own play path is unaffected - only automatic emission is cut.
+function as_player_tab:OnMute()
+    if as_director and as_director.set_muted then
+        as_director.set_muted(self.chk_mute:GetCheck())
+    end
 end
 
-function as_player_tab:OnCatFwd()
-    if not _cats or #_cats == 0 then return end
-    _cat_i = _cat_i % #_cats + 1
-    _at_root = false
-    self:FillList(); self:Refresh()
-end
-
-function as_player_tab:OnDistDown()
+--- Position steppers: nearer walks toward at-ear, farther toward 100 m (both wrap), then re-auditions.
+function as_player_tab:OnPosNear()
     _dist_i = _dist_i - 1
     if _dist_i < 1 then _dist_i = #DIST_STEPS end
     self:Refresh(); self:_play_current()
 end
 
-function as_player_tab:OnDistUp()
+function as_player_tab:OnPosFar()
     _dist_i = _dist_i % #DIST_STEPS + 1
     self:Refresh(); self:_play_current()
 end
 
-function as_player_tab:OnDreadDown()
-    _dread_i = _dread_i - 1
-    if _dread_i < 1 then _dread_i = #DREAD_STEPS end
-    self:Refresh(); self:_play_current()
+--- Transport prev/next: step to the neighbouring sound in the current category and audition it.
+function as_player_tab:_step_sound(delta)
+    if _at_root then return end
+    local cat = _cur_cat()
+    local files = cat and _scan_files(cat)
+    if not (files and #files > 0) then return end
+    local i = 1
+    if _cur and _cur.cat == cat then
+        for k = 1, #files do if files[k] == _cur.name then i = k; break end end
+    end
+    i = (i - 1 + delta) % #files + 1
+    local name = files[i]
+    _cur = { cat = cat, name = name, path = SND_ROOT .. "\\" .. cat .. "\\" .. name }
+    self.list:SetSelectedIndex(i)
+    self:_play_current()
+    self:_refresh_state()
+    self.status:SetText(string_format("playing:  %s\\%s", cat, name))
 end
 
-function as_player_tab:OnDreadUp()
-    _dread_i = _dread_i % #DREAD_STEPS + 1
-    self:Refresh(); self:_play_current()
-end
-
-function as_player_tab:OnDeep()
-    _deep = not _deep
-    self:Refresh(); self:_play_current()
-end
+function as_player_tab:OnPriorSound() self:_step_sound(-1) end
+function as_player_tab:OnNextSound() self:_step_sound(1) end
 
 function as_player_tab:OnFlag()
     if not _cur then return end

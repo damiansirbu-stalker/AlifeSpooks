@@ -136,6 +136,8 @@ local _play_at   = 0
 local _last_play = "-"
 local _base_last = "-"
 local _base_at   = 0
+-- dev tab master silence: cuts the director's own emission + the base-ambient replay
+local _muted     = false
 local _rows      = {}
 local _enc = { level = nil, cx = nil, cz = nil, val = "outdoor" }
 local _vis = { insane_since = nil, next_ok = 0, handle = nil }
@@ -489,6 +491,7 @@ end
 --- fires but the pacing keeps advancing so a rising dread resumes at once. Reads the board.
 local function _emit_tick(tg)
     _visual_tick(tg)
+    if _muted then return end
     if tg < _next_play then return end
     local dread = board.dread
     local span = SPACE_MIN_MS + (SPACE_MAX_MS - SPACE_MIN_MS) * (1 - dread)
@@ -548,6 +551,8 @@ local function _base_fire(ch, tg)
     if not actor then return end
     local period = ch.periods[math_random(4)]
     ch.next = tg + period
+    -- muted (dev tab): the schedule above already advanced, so simply play nothing this fire
+    if _muted then return end
     local file = ch.sounds[math_random(#ch.sounds)]
     _base_last, _base_at = tostring(file), tg
     local inside, underground = GetEvent("current_safe_cover"), GetEvent("underground")
@@ -660,6 +665,11 @@ end
 function get_board()
     return board
 end
+
+--- Dev tab master silence. When on, the director emits no one-shots and the base-ambient observer replays
+--- nothing (both schedules keep advancing, so unmute resumes cleanly). The tab's own emit/play is unaffected.
+function set_muted(v) _muted = v and true or false end
+function is_muted()   return _muted end
 
 function on_game_start()
     RegisterScriptCallback("actor_on_first_update",      _on_first_update)
