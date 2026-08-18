@@ -145,42 +145,13 @@ def route(path):
         return "mutant"
     return next((c for sub, c in ROUTE if sub in p), None)
 
-# Source packs, assessed by hand before wiring. Capture is STRUCTURAL per-file (ROUTE, below): each
-# pack's folder trees map to categories by path, so the whole horror tree is pulled, not just the
-# files a channel wires. n117: +DS Amplified Vanilla / 457 RETUNE / 304 Dark Signal Weather; the drops
-# (DS Overhaul Atmospherics, RE-TUNE Ambience, 274 bullet SFX) are simply not listed. Doom II NSDARK
-# deferred (n116). vanilla stays last for portability coverage only.
-MODS = [
-    ("Amplified",      "C:/Users/damian/Downloads/anomaly_audio_mods/Dark Signal Amplified Soundscape/gamedata"),
-    ("AmplifiedVanilla", "C:/Users/damian/Downloads/anomaly_audio_mods/DS Amplified Vanilla/gamedata"),
-    ("Soundscape",     "D:/Games/GAMMA/GAMMA/mods/3- Soundscape Overhaul - Solarint/gamedata"),
-    ("RETUNE457",      "D:/Games/GAMMA/GAMMA/mods/457- RETUNE Ambiant Sounds - Aphrodite_child/gamedata"),
-    ("DarkSignal304",  "D:/Games/GAMMA/GAMMA/mods/304- Dark Signal Weather and Ambiance Audio - Shrike/gamedata"),
-    # myRETUNE Antares (user-vouched): the same soundscape/underground/spooks_above|below dread tree.
-    ("myRETUNE",       "C:/Users/damian/Downloads/anomaly_audio_mods/myRETUNE_AntaresWolverine_2.1/myRETUNE ambience sounds ver2.1/gamedata"),
-    # net-new distant-creature calls under soundscape/mutants.
-    ("RealDistantMutants", "C:/Users/damian/Downloads/anomaly_audio_mods/Real Distant Mutants Sounds/gamedata"),
-    # 276 creature-sound pack: routed to the mutant pool, near-lurking dread only (combat filtered out).
-    ("DSMutants",      "C:/Users/damian/Downloads/anomaly_audio_mods/276- Dark Signal Mutants Audio - Shrike/gamedata"),
-    # net-new underground dread + the terrain-split zone-mutant trees (trx/spooks_above/<zone>mutants).
-    ("AudioExpansion", "C:/Users/damian/Downloads/anomaly_audio_mods/Audio Expansion/gamedata"),
-    # Standalone/spinoff STALKER builds mined for dread sources (doc: anomaly_audio_mods/STANDALONE_BUILDS.md).
-    # gd points at the extracted root (holds sounds/); SoC-lineage, so most content dedups to the game core.
-    ("DeadAir",   "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/DeadAir"),
-    ("OGSE",      "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/OGSE"),
-    ("Prosector", "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/Prosector"),
-    ("Solyanka",  "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/solyanka"),
-    ("NLC",       "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/NLC"),
-    ("SoP",       "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/sop"),
-    # Broader dark baseline from the audio-mod pool (dedup grounding = "what we already have").
-    ("DarkSignal274",     "C:/Users/damian/Downloads/anomaly_audio_mods/274- Dark Signal Audio Pack - Shrike/gamedata"),
-    ("DarkSignal285",     "C:/Users/damian/Downloads/anomaly_audio_mods/285- Dark Signal Blowout and Anomalies Audio - Shrike/gamedata"),
-    ("AmbientExtended",   "C:/Users/damian/Downloads/anomaly_audio_mods/Ambient Extended Reworked/gamedata"),
-    ("ImmersiveAmbience", "C:/Users/damian/Downloads/anomaly_audio_mods/Immersive Ambience Expansion/gamedata"),
-    # Shrike's unreleased Dark Signal interior audio, given directly (granted 2026-08-15, see doc/licensing.md).
-    ("ShrikeInterior", "C:/Users/damian/Downloads/anomaly_audio_mods/Dark Signal Unused Interior - Shrike/gamedata"),
-    ("vanilla",        "D:/Games/GAMMA/Anomaly/tools/_unpacked"),
-]
+# Source packs come from the REGISTRY in sources.py (n124): one declarative entry per pack with its download
+# url + licence, so a build is reproducible and every shipped sound traces to a recorded source. Capture is
+# still STRUCTURAL per-file (ROUTE, below): each pack's folder trees map to categories by path, the whole
+# horror tree pulled, not just the channel-wired files. Registry ORDER is preserved (dedup is order-sensitive,
+# so the order is load-bearing). `merge.py provision` fetches any missing source from its url before a build.
+import sources
+MODS = sources.mods()
 
 HERE = Path(__file__).resolve().parent
 
@@ -304,12 +275,20 @@ FP_LEN = 30
 BASE_SIM = 0.88     # Chromaprint recall threshold: >= this makes a pair a same-sound CANDIDATE
 DEDUP_XCORR = 0.90  # PCM cross-correlation DECIDER: >= this confirms a candidate is the same
                     # recording (a re-encode). Below it the pair is kept as distinct variety.
-# Loudness normalization (Dark Signal Amplified reference: median peak ~-1 dB). Each kept file's
-# base_volume in its ogg blob is set so its true peak lands at TARGET_PEAK_DB - lossless, no re-encode.
+# Loudness leveling (n126). Each kept file's base_volume in its ogg blob is set so the file's AVERAGE
+# loudness (astats Overall RMS) lands on the CORPUS MEDIAN - one global target for every sound, so loud
+# sources come down and quiet ones come up to the same felt level. Lossless (the blob number only, the
+# samples are untouched). The gain is peak-capped at TARGET_PEAK_DB so nothing clips; a file too spiky to
+# reach the median without clipping is left peak-normalized and counted. Equal peaks do NOT sound equally
+# loud (the old peak-match left dense sources blaring and spiky ones deaf); equal RMS does.
 # A file whose peak is below CULL_PEAK_DB cannot reach target without absurd gain (amplified noise, not
-# a real quiet sound), so it is DROPPED, not shipped. No near-silent files survive.
+# a real quiet sound), so it is DROPPED. No near-silent files survive.
 TARGET_PEAK_DB = -1.0
 CULL_PEAK_DB   = -30.0
+# base_volume never drops below this when a loud file is leveled DOWN, so a down-leveled sound can never
+# fall under the engine cull floor (psSoundCull 0.01, SoundRender_Core.cpp:18) and go silent. In practice
+# the hottest file lands near 0.2, so this only guards a pathological outlier - a mute-safety floor.
+BV_MIN = 0.1
 # astats reads the FLOAT-decoded samples, and a handful of vorbis decode outliers can report an
 # impossible peak (measured +42..+82 dB on files that peak at 0 dBFS per volumedetect, Peak count=2).
 # _norm_bv would turn that into a ~0 base_volume and ship the file SILENT. A peak above this ceiling is
@@ -383,32 +362,37 @@ def _silence_gate(merged):
 
 
 def _loudness_cull(effects):
-    """Measure each source's true peak. DROP any file that cannot reach TARGET_PEAK_DB without absurd
-    gain (peak <= CULL_PEAK_DB, or unmeasurable/silent - that is amplified noise, not a quiet sound),
-    and store the peak on each survivor so deploy can write a normalizing base_volume. Mutates effects."""
+    """Measure each source's true peak AND average loudness (astats Overall - the whole-file, all-channel
+    figures, NOT channel 1, which for a stereo file is only one side). DROP any file that cannot reach
+    TARGET_PEAK_DB without absurd gain (peak <= CULL_PEAK_DB, or unmeasurable/silent - that is amplified
+    noise, not a quiet sound), and store peak+rms on each survivor so deploy can level base_volume to the
+    corpus median. Mutates effects."""
     import subprocess, re
-    def peak(a):
+    def measure(a):
         r = subprocess.run([sp.tool("ffmpeg"), "-i", a, "-af", "astats=metadata=1:reset=0",
                             "-f", "null", "-"], capture_output=True, text=True)
-        m = re.search(r"Peak level dB:\s*(\S+)", r.stderr)
-        if not m or m.group(1) == "-inf":
+        peaks = re.findall(r"Peak level dB:\s*(\S+)", r.stderr)   # per-channel first, Overall last
+        rmss  = re.findall(r"RMS level dB:\s*(\S+)", r.stderr)
+        if not peaks or not rmss or peaks[-1] == "-inf" or rmss[-1] == "-inf":
             return None
         try:
-            p = float(m.group(1))
+            p, rms = float(peaks[-1]), float(rmss[-1])           # [-1] = the Overall block
         except ValueError:
             return None
-        return 0.0 if p > PEAK_FLOAT_CEILING else p
+        if p > PEAK_FLOAT_CEILING:                               # decode-artifact peak -> whole read suspect;
+            p, rms = 0.0, -100.0                                 # force the peak-cap branch -> plain peak-normalize
+        return (p, rms)
     paths = list({e["abs"] for cat in effects for e in effects[cat]})
-    pk = dict(zip(paths, sp.pmap(peak, paths, sp.DEF_JOBS)))
+    meas = dict(zip(paths, sp.pmap(measure, paths, sp.DEF_JOBS)))
     dropped = 0
     for cat in effects:
         kept = []
         for e in effects[cat]:
-            p = pk.get(e["abs"])
-            if p is None or p <= CULL_PEAK_DB:
+            m = meas.get(e["abs"])
+            if m is None or m[0] <= CULL_PEAK_DB:
                 dropped += 1
             else:
-                e["peak"] = p
+                e["peak"], e["rms"] = m
                 kept.append(e)
         effects[cat] = kept
     print(f"loudness cull: dropped {dropped} files (peak <= {CULL_PEAK_DB} dB or silent)")
@@ -471,6 +455,33 @@ def _long_file_pass(merged):
           f"sliced {len(sliced_orig)} dark_signal -> {sliced_to} pieces")
 
 
+def _scan_source(name, gd, pool, audit):
+    """Walk ONE pack's sound tree, route each ogg to a category by its FOLDER PATH (route), gate on 44100,
+    and pool it (updating the folder audit). Returns (off_rate, out_of_scope) counts. This is the single
+    capture rule, shared by cmd_plan (the full scan over MODS) and cmd_add (one added source), so the full
+    and additive builds route and gate identically - no second definition that could drift."""
+    offrate = dropped = 0
+    sroot = Path(gd) / "sounds"
+    if not sroot.is_dir():
+        print(f"  ! WARNING: source '{name}' has no sounds/ at {gd} - SKIPPED, its content is NOT in the build")
+        return offrate, dropped
+    for f in sorted(sroot.rglob("*.ogg")):
+        cat = route(f.as_posix())
+        if not cat:
+            dropped += 1
+            continue
+        info = sp.probe(str(f)) or {}
+        if info.get("sample_rate") != 44100:                   # X-Ray fitness: 44100 only
+            offrate += 1
+            continue
+        rel = f.as_posix().split("/sounds/", 1)[-1]
+        pool[cat].append({"abs": str(f), "stem": rel[:-4], "pool": name,
+                          "bitrate": info.get("bit_rate", 0), "channels": info.get("channels", 0),
+                          "dur": info.get("duration") or 0.0})
+        audit[cat][name + ":" + str(Path(rel).parent)] += 1
+    return offrate, dropped
+
+
 def cmd_plan(_):
     # STRUCTURAL per-file capture (n117): walk every pack's sound tree, route each file to a category by
     # its FOLDER PATH (route), gate on 44100, pool by category. No channel parsing - the packs ship far
@@ -480,23 +491,9 @@ def cmd_plan(_):
     audit = collections.defaultdict(collections.Counter)       # category -> {source_folder: count}
     offrate = dropped_scope = 0
     for name, gd in MODS:
-        sroot = Path(gd) / "sounds"
-        if not sroot.is_dir():
-            continue
-        for f in sorted(sroot.rglob("*.ogg")):
-            cat = route(f.as_posix())
-            if not cat:
-                dropped_scope += 1
-                continue
-            info = sp.probe(str(f)) or {}
-            if info.get("sample_rate") != 44100:               # X-Ray fitness: 44100 only
-                offrate += 1
-                continue
-            rel = f.as_posix().split("/sounds/", 1)[-1]
-            pool[cat].append({"abs": str(f), "stem": rel[:-4], "pool": name,
-                              "bitrate": info.get("bit_rate", 0), "channels": info.get("channels", 0),
-                              "dur": info.get("duration") or 0.0})
-            audit[cat][name + ":" + str(Path(rel).parent)] += 1
+        o, d = _scan_source(name, gd, pool, audit)
+        offrate += o
+        dropped_scope += d
 
     # dedup per category (source-side waveform), then silence + cross-category dedup
     merged = {}
@@ -705,12 +702,11 @@ def _build_layers(mc, cls, ch_to_group):
 
 
 def _emit_audio(entry, dst):
-    # Ship every sound VERBATIM (byte-for-byte copy): no re-encode, no gain. The source's own
-    # X-Ray ogg comment blob (version/min/max/base_volume) rides along untouched, so the engine
-    # applies the SOURCE's attenuation and base volume at play - the pipeline preserves, it does
-    # not compute. (The old ffmpeg volume path was removed because it re-baked a lossy gain AND
-    # dropped that blob, dropping attenuation to the 1/300 engine default.) Loudness is only
-    # MEASURED and flagged (cmd_loudness); it is never applied to the samples or to base_volume.
+    # Copy every sound VERBATIM (byte-for-byte): no re-encode, no sample gain. The source blob is
+    # copied along with it here, but _normalize_blobs (called next in cmd_deploy) then REWRITES the
+    # blob in place - min/max kept, base_volume set to the corpus-median loudness - as a lossless
+    # header-page rewrite, the audio pages staying byte-identical. So the samples are never touched;
+    # loudness lives entirely in the base_volume number, not in the PCM.
     dst.parent.mkdir(parents=True, exist_ok=True)
     import shutil as sh
     sh.copy2(entry["abs"], dst)
@@ -942,16 +938,28 @@ def _veto_dltx(effects):
     return "\n".join(out), sum(len(v) for v in removals.values()), len(removals)
 
 
-def _norm_bv(peak_db):
-    """base_volume (linear) that lifts a file peaking at peak_db up to TARGET_PEAK_DB."""
-    return round(10.0 ** ((TARGET_PEAK_DB - peak_db) / 20.0), 3)
+def _level_bv(rms_db, peak_db, target_rms_db):
+    """base_volume (linear) that moves a file's AVERAGE loudness (rms_db) onto target_rms_db - the corpus
+    median - so every sound sits at the same felt level. The gain is capped so the true peak never rises
+    above TARGET_PEAK_DB (no clipping): a file too spiky to reach the median without clipping is left
+    peak-normalized instead. Floored at BV_MIN so a down-leveled sound can never fall under the engine
+    cull. Returns (base_volume, capped)."""
+    gain_db = target_rms_db - rms_db
+    capped = peak_db + gain_db > TARGET_PEAK_DB
+    if capped:
+        gain_db = TARGET_PEAK_DB - peak_db
+    return max(round(10.0 ** (gain_db / 20.0), 3), BV_MIN), capped
 
 
 def _normalize_blobs(effects, snd):
-    """Write every kept file's ogg blob: its source min/max (per-category median for a blob-less file,
-    so it attenuates like its mates instead of the 1/300 default) plus a base_volume that peak-normalizes
-    it to TARGET_PEAK_DB. Lossless bitstream rewrite, no re-encode. Peak comes from _loudness_cull."""
-    wrote = skipped = 0
+    """Write every kept file's ogg blob: its source min/max (per-category median for a blob-less file, so it
+    attenuates like its mates instead of the 1/300 default) plus a base_volume that LEVELS the file's average
+    loudness (RMS) to the CORPUS MEDIAN - one global target for every file, so loud sounds come down and quiet
+    ones come up to the same felt level. The gain is peak-capped so nothing clips; a file too spiky to reach
+    the median is left peak-normalized and counted as capped. Lossless bitstream rewrite, no re-encode.
+    peak+rms come from _loudness_cull (astats Overall)."""
+    target = _median(sorted(e["rms"] for cat in effects for e in effects[cat]))
+    wrote = skipped = capped = 0
     for cat in sorted(effects):
         names = [_deployed_stem(e) for e in effects[cat]]
         blobs = [_read_blob((snd / cat / f"{n}.ogg").read_bytes()) for n in names]
@@ -962,11 +970,14 @@ def _normalize_blobs(effects, snd):
             cmax = cmin + 1.0
         for e, n, b in zip(effects[cat], names, blobs):
             mn, mx = (b[0], b[1]) if b else (cmin, cmax)
-            if _write_blob(snd / cat / f"{n}.ogg", mn, mx, _norm_bv(e["peak"])):
+            bv, is_capped = _level_bv(e["rms"], e["peak"], target)
+            capped += is_capped
+            if _write_blob(snd / cat / f"{n}.ogg", mn, mx, bv):
                 wrote += 1
             else:
                 skipped += 1
-    print(f"normalize: wrote base_volume+blob for {wrote} files (peak -> {TARGET_PEAK_DB} dB), "
+    print(f"normalize: leveled base_volume+blob for {wrote} files (avg RMS -> {round(target, 1)} dB, "
+          f"peak-capped at {TARGET_PEAK_DB} dB); {capped} too spiky to reach median (left peak-normalized); "
           f"skipped {skipped} (non-standard ogg layout)")
 
 
@@ -1263,10 +1274,135 @@ def cmd_provenance(a):
         print("  MISMATCH != 0 -> the deploy ordering does NOT reproduce the tree; provenance is NOT exact.")
 
 
+def _drop_frozen_reencodes(new_merged):
+    """Drop any net-new sound that is a re-encode / near-clone of an already-PUBLISHED sound - a different
+    audio hash (so the exact-hash check missed it) but fp + PCM xcorr confirm the same recording. This is
+    dedup_pick's stages 2-3 run against the frozen corpus instead of within the pool. Bounded: only each
+    category's DEPLOYED files whose duration is within 1s of a candidate are fingerprinted, so a rare add
+    stays cheap. Frozen always wins - a match drops the NEW file, the published one is never touched."""
+    total = 0
+    for cat, d in new_merged.items():
+        cands = d["chosen"]
+        fdir = SND / cat
+        if not cands or not fdir.is_dir():
+            continue
+        frozen = sorted(str(p) for p in fdir.glob("*.ogg"))
+        if not frozen:
+            continue
+        _dur = lambda a: round(float((sp.probe(a) or {}).get("duration") or 0))
+        cabs = [c["abs"] for c in cands]
+        cdur = dict(zip(cabs, sp.pmap(_dur, cabs, sp.DEF_JOBS)))
+        fdur = dict(zip(frozen, sp.pmap(_dur, frozen, sp.DEF_JOBS)))
+        want = {x for cd in cdur.values() for x in (cd - 1, cd, cd + 1)}
+        frel = [f for f in frozen if fdur[f] in want]          # only plausibly same-length published files
+        if not frel:
+            continue
+        cfp = dict(zip(cabs, sp.pmap(lambda a: sp.fingerprint(a, FP_LEN), cabs, sp.DEF_JOBS)))
+        ffp = dict(zip(frel, sp.pmap(lambda a: sp.fingerprint(a, FP_LEN), frel, sp.DEF_JOBS)))
+        keep = []
+        for c in cands:
+            a = c["abs"]
+            hit = False
+            for f in frel:
+                if cfp[a] and ffp[f] and abs(cdur[a] - fdur[f]) <= 1 \
+                        and sp.fp_similarity(cfp[a], ffp[f]) >= BASE_SIM \
+                        and sp.pcm_correlation(sp.decode_pcm(a), sp.decode_pcm(f)) >= DEDUP_XCORR:
+                    hit = True
+                    break
+            if hit:
+                total += 1
+            else:
+                keep.append(c)
+        new_merged[cat]["chosen"] = keep
+    if total:
+        print(f"frozen re-encode dedup: dropped {total} net-new that re-encode an already-published sound")
+    return total
+
+
+def cmd_add(a):
+    """ADDITIVE ingest: fold ONE new source over the frozen published corpus. Nothing already shipped is
+    renamed or re-hashed - the name+hash identity means a net-new sound is just a new name and everything
+    else stays put. Steps: scan+gate the one source (the shared capture rule), waveform-dedup it against
+    itself, DROP anything already in the corpus of record (audio hash vs merged_channels.json), append the
+    net-new to merged_channels.json, then regenerate classify + deploy over the appended corpus. The
+    slow full-pool plan and the ledger proof are SKIPPED - run `merge.py all` before a release to refresh
+    them. `merge.py add <SourceName> <path-to-source-gamedata>`.
+
+    Dedup covers BOTH exact reships (audio hash vs the deployed names) AND re-encodes of a published sound
+    (fp + PCM xcorr vs the frozen corpus, `_drop_frozen_reencodes`), plus full md5+fp+xcorr within the new
+    source. Limit: deploy re-emits the whole corpus from source, so the source packs must be on disk (same
+    as a full build); a full `all` refreshes the ledger + provenance proofs."""
+    name, gd = a.name, a.gd
+    mc = json.loads((HERE / "merged_channels.json").read_text())
+    # Frozen identity = the audio hashes of the CORPUS OF RECORD (existing merged_channels.json entries),
+    # NOT the deployed files. A sound that survives dedup but is culled at deploy (peak <= CULL_PEAK_DB) is
+    # still recorded here, so keying on the record makes a re-add IDEMPOTENT: it can never regrow the corpus
+    # by re-proposing a culled sound (keying on deployed files missed the culled ones and looped forever).
+    # Computed once in parallel. An empty record (fresh install) gives an empty frozen set, so `add` over
+    # nothing is a from-scratch build.
+    existing = [c["abs"] for cat0 in mc for c in mc[cat0]["chosen"]]
+    frozen = set(sp.pmap(lambda p: _safe_audio_hash(Path(p)), existing, sp.DEF_JOBS)) - {None}
+    pool = collections.defaultdict(list)
+    audit = collections.defaultdict(collections.Counter)
+    offrate, out_scope = _scan_source(name, gd, pool, audit)
+    new_merged, n_dup = {}, 0
+    for cat, files in pool.items():
+        keep = []
+        for c in dedup_pick(files):
+            ah = _safe_audio_hash(Path(c["abs"])) or file_hash(c["abs"])
+            if ah in frozen:                                   # already in the corpus of record - never re-add
+                n_dup += 1
+                continue
+            keep.append({"abs": c["abs"], "stem": c["stem"], "pool": c["pool"], "hash": c["hash"],
+                         "bitrate": c["bitrate"], "channels": c["channels"], "dur": c.get("dur", 0.0)})
+        if keep:
+            new_merged[cat] = {"chosen": keep}
+    _silence_gate(new_merged)                                  # the same net-new gates the full plan applies
+    _cross_channel_dedup(new_merged)
+    _long_file_pass(new_merged)
+    _drop_frozen_reencodes(new_merged)                         # drop re-encodes/near-clones of published sounds
+    n_new = 0
+    for cat, d in new_merged.items():
+        mc.setdefault(cat, {"chosen": []})["chosen"].extend(d["chosen"])
+        n_new += len(d["chosen"])
+    (HERE / "merged_channels.json").write_text(json.dumps(mc, indent=1), encoding="utf-8")
+    print(f"\nadd {name}: +{n_new} net-new ({n_dup} already published; off-44100 {offrate}; "
+          f"out-of-scope {out_scope})")
+    if not n_new:
+        print("nothing net-new; corpus unchanged, skipping rebuild.")
+        return
+    import types
+    ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None))
+    print("\n========== classify =========="); cmd_classify(ns)
+    print("\n========== deploy ==========");    cmd_deploy(ns)
+    print(f"\nadded {name}: +{n_new} sounds deployed. Run `merge.py all` before release to refresh the "
+          f"ledger + provenance proofs.")
+
+
+def cmd_provision(a):
+    """Check every registry source is present locally. Sources are always pulled by hand - the pipeline
+    never downloads (url is a reference/credit link only). Reports OK/MISSING using the SAME capture the build
+    does (`<path>/sounds/*.ogg`), so a source that would be silently skipped shows up here. Run before a build."""
+    sources.check_licences()
+    missing = []
+    for s in sources.SOURCES:
+        snd = Path(s["path"]) / "sounds"
+        if snd.is_dir() and any(snd.rglob("*.ogg")):
+            print(f"  OK      {s['name']:20s} {s['path']}")
+        else:
+            missing.append(s["name"])
+            print(f"  MISSING {s['name']:20s} {s['path']}   (ref: {s['url'] or 'none'})")
+    if missing:
+        print(f"\n{len(missing)} MISSING - pull them locally before building: {', '.join(missing)}")
+    else:
+        print("\nall sources present - `merge.py all` reproduces the corpus.")
+
+
 def cmd_all(a):
     """Run the whole pipeline in order: plan -> classify -> loudness -> deploy -> ledger -> provenance.
     One command so the sequence (and the classify-after-plan rule) can never be got wrong by hand."""
     import types, time
+    sources.check_licences()                          # never build with an uncleared source (licence=pending)
     ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None))
     timings = []
     t_all = time.perf_counter()
@@ -1294,7 +1430,9 @@ if __name__ == "__main__":
     p = sub.add_parser("classify"); p.add_argument("--out"); p.set_defaults(func=cmd_classify)
     p = sub.add_parser("loudness"); p.add_argument("--out"); p.set_defaults(func=cmd_loudness)
     p = sub.add_parser("deploy"); p.add_argument("--root"); p.set_defaults(func=cmd_deploy)
+    p = sub.add_parser("add"); p.add_argument("name"); p.add_argument("gd"); p.add_argument("--root"); p.set_defaults(func=cmd_add)
     sub.add_parser("ledger").set_defaults(func=cmd_ledger)
     sub.add_parser("provenance").set_defaults(func=cmd_provenance)
+    sub.add_parser("provision").set_defaults(func=cmd_provision)
     p = sub.add_parser("all"); p.add_argument("--root"); p.set_defaults(func=cmd_all)
     a = ap.parse_args(); a.func(a)

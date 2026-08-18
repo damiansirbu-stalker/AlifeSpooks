@@ -37,7 +37,7 @@ rule table" below; the category list is the single source of truth.
 ## Content pipeline (reproducible)
 
 `tools/merge.py` is a six-stage pipeline. Each stage is a subcommand that reads the previous stage's
-committed artifact and writes the next. Adopting a pack is a re-run, not a rewrite.
+committed artifact and writes the next. Adopting a pack is additive (`add`) or a full re-run, never a rewrite.
 
 ```
 plan        source trees, deduped by waveform        -> merged_channels.json
@@ -58,9 +58,10 @@ provenance  every shipped sound -> its origin         -> provenance.tsv
 - classify (`cmd_classify`): one ffmpeg pass per sound for duration, spectral centroid and flatness,
   and crest. There is no loop-versus-effect decision. Everything is a one-shot.
 - loudness (`cmd_loudness`): measure integrated loudness per sound and flag per-group outliers.
-- deploy (`cmd_deploy`): measure each source's peak and CULL the near-silent (`_loudness_cull`), copy
-  the survivors byte for byte to `zs/<category>/<n>.ogg`, write each file's blob with source attenuation
-  plus a loudness-normalizing base_volume (`_normalize_blobs`), write the sound manifest the director
+- deploy (`cmd_deploy`): measure each source's peak and average loudness and CULL the near-silent
+  (`_loudness_cull`), copy the survivors byte for byte to `zs/<category>/<n>.ogg`, write each file's blob
+  with source attenuation plus a base_volume that levels the sound to the corpus-median loudness
+  (`_normalize_blobs`), write the sound manifest the director
   reads (`as_manifest.script`), and generate the base-veto DLTX overlay that removes our sounds from the
   base ambient channels (`_veto_dltx` -> `mod_sound_channels_alifespooks.ltx`).
 - ledger (`cmd_ledger`) and provenance (`cmd_provenance`): the proofs, below.
@@ -74,7 +75,16 @@ match is only the mechanical pull that runs after that decision; anything unmatc
 scope). There is no keyword classifier that decides scope on its own. The `UNUSED-DARK = 0` ledger
 invariant then confirms the hand-written rules captured every dark file the pack holds.
 
-### Identity and build modes (identity DONE; additive/registry are n124-planned)
+The source list is the registry `tools/sources.py` (n124): one declarative entry per pack - `name`, local
+`path`, reference `url`, `licence` - and `MODS` derives from it (`sources.mods()`), preserving the exact
+order (dedup is order-sensitive). Sources are ALWAYS pulled locally by hand; the pipeline never downloads,
+so the `url` is a credit/provenance reference only (readme, licensing), nothing fetches it. A licence gate
+(`check_licences`) stops the build on any source not cleared (`licence = pending`). `merge.py provision`
+reports each source present or MISSING using the build's OWN capture (`<path>/sounds/*.ogg`), so a wrong
+path shows up here instead of being silently skipped - and `_scan_source` now WARNS loudly rather than
+quietly `continue`ing past a source with no `sounds/` (the defect that hid AmplifiedVanilla from every build).
+
+### Identity and build modes (identity DONE; additive `add` implemented; registry n124-planned)
 
 `cmd_deploy` names each file by content, not position - `_deployed_stem` = `<origname>_<audiohash>`.
 The old positional `zs/<category>/<N>.ogg` (`N` = enumerate order) was a collision workaround (many
@@ -87,17 +97,28 @@ build could only run from scratch. The content name fixes that. IMPLEMENTED toda
   name; adding content never renames an existing file).
 - Origin (mod, folder, original path) stays in `provenance.tsv` keyed by the name, never baked into the
   filename - the path is long and shifts if a source reorganizes, while the audio does not.
-- Exact-dedup key = `_audio_hash` (the same value carried in the name), so no two survivors can collide
-  on a name; uniqueness holds by construction.
+- Exact-dedup key: the full build's stage-1 keys on `file_hash` (whole-file md5), and audio-identical
+  copies that differ only in their blob collapse at the fp/xcorr stage; `add` matches a new sound against
+  the published set by the `_audio_hash` tail carried in each deployed name. Tightening the full build's
+  stage-1 to `_audio_hash` (so name-uniqueness holds before the fuzzy stage too) is a pending robustness
+  step (n124).
 - Re-encode / near-clone detection = Chromaprint fp + PCM xcorr, COMPUTED ON DEMAND from the `.ogg`
   files during a build, never persisted. A fingerprint is derived data, not identity; only the exact
   hash rides in the name, because the name itself needs a unique stable id with no side registry - that
   is naming, not a cache. There is no fingerprint cache.
 - Two build modes:
-  - full (`build`): whole source pool -> route -> dedup -> name -> write. The canonical corpus.
-  - additive (`add <source>`): the published corpus is FROZEN. Route the new source, dedup it against
-    the frozen corpus plus itself (hash for exact copies, fp/xcorr for re-encodes), keep only net-new,
-    APPEND it (new names, existing untouched); provenance and ledger append rather than regenerate.
+  - full (`all`): whole source pool -> route -> dedup -> name -> write, then ledger + provenance. The
+    canonical corpus.
+  - additive (`add <source> <gamedata>`, IMPLEMENTED): the published corpus is FROZEN, keyed on the CORPUS
+    OF RECORD (the audio hashes of the existing `merged_channels.json` entries, not the post-cull deployed
+    files - keying on the deployed files re-proposed culled sounds every run and never converged). Route the
+    new source with the shared capture rule (`_scan_source`), waveform-dedup it against itself, drop anything
+    already in the record (audio hash) AND any re-encode of a published sound (fp + PCM xcorr,
+    `_drop_frozen_reencodes`), APPEND only net-new (new names, existing untouched), then regenerate classify +
+    deploy. It SKIPS the slow full plan and the ledger, so an add runs in minutes, not the full ~25. A re-add
+    of an already-ingested pack is idempotent (`+0 net-new`). Limit: deploy re-emits the whole corpus from
+    source (the packs must be on disk); a full `all` reconciles `merged_channels.json` (gitignored, so a
+    build rebuilds it from scratch) and refreshes the ledger + provenance proofs.
 - Honest limits: re-encode detection is heuristic (fp >= 0.88 candidate, xcorr >= 0.90 decide), not
   exact; additive freezes existing choices, so it can diverge from a fresh full build at the margins -
   `build` is canonical, and a full rebuild reconciles.
@@ -120,7 +141,7 @@ This runs among the source packs only, within a pack and between the packs we pu
 does not deduplicate against the target modpack. It never drops a sound because the install already
 plays it. Doubling with the base is handled by the static DLTX veto overlay at config load.
 
-## Byte-for-byte audio, loudness-normalized blob
+## Byte-for-byte audio, loudness-leveled blob
 
 Every kept sound's AUDIO ships byte for byte - no re-encode, the vorbis pages are untouched. What the
 deploy writes is only the X-Ray ogg comment blob (min distance, max distance, base_volume), a lossless
@@ -128,12 +149,15 @@ header-page rewrite (`_write_blob`); the audio pages stay byte-identical.
 
 - **Attenuation** (min/max distance) is the source's. A file that carried a source blob keeps its
   min/max; a blob-less file gets the median min/max of its category-folder peers.
-- **Loudness is normalized via base_volume** (`_normalize_blobs`, `TARGET_PEAK_DB`). base_volume is a
-  linear multiplier the engine applies on every play (see `sound-source-and-emitter.md`), so setting it
-  per file to `10^((-1 dB - measured_peak)/20)` peak-normalizes every sound to ~-1 dB without touching
-  the samples. This reinstates the loudness leveling n107 removed - the RIGHT way this time (n014's
-  ffmpeg re-encode was destroying the blob; the blob edit does not). Reference target is Dark Signal
-  Amplified (Shrike), whose ambient median peak is ~-1 dB.
+- **Loudness is leveled via base_volume** (`_normalize_blobs`, `_level_bv`). base_volume is a linear
+  multiplier the engine applies on every play (see `sound-source-and-emitter.md`). Every file's
+  base_volume is set so its AVERAGE loudness (astats Overall RMS) lands on the CORPUS MEDIAN - one global
+  target for every sound, so loud sources come down and quiet ones come up to the same felt level, without
+  touching the samples. The gain is peak-capped at -1 dB so nothing clips: a file too spiky to reach the
+  median without clipping is left peak-normalized and counted as capped. base_volume is floored at `BV_MIN`
+  so a down-leveled sound is never pushed under the engine cull. Equal peaks do not sound equally loud (the
+  earlier peak-match, n107/n108, left dense sources blaring and spiky ones deaf); equal RMS does. n014's
+  ffmpeg re-encode was destroying the blob; the blob-number edit does not.
 - **Loudness cull** (`_loudness_cull`, `CULL_PEAK_DB`): a file whose measured peak is below -30 dB
   cannot reach target without absurd gain (that is amplified noise, not a quiet sound), so it is DROPPED,
   not shipped. The older `_silence_gate` (drops only true -inf) still runs first. No near-silent file
@@ -236,7 +260,7 @@ base) adds. The base is detected by a live service NPC (trader/medic/mechanic) w
 deciding allied vs hostile - warfare-correct, never the over-assigned `is_base` prop. Every term is grounded,
 so there is no "+X just because." Dread feeds APPLY only, never SELECT: **distance** (closer at peak,
 `HORROR_PULL`), **height** (an overhead cue descends toward you at peak, same `HORROR_PULL`), and **frequency**
-(shorter gap). It never touches **volume** - volume is the sound's own normalized level x one master MCM slider.
+(shorter gap). It never touches **volume** - volume is the sound's own leveled level x one master MCM slider.
 Positioning uses Anomaly's own geometry: `emit` places the sound at a HORIZONTAL `dist` (a random point in the
 source min..max band, halved, pulled closer by dread) in a random direction, and VERTICALLY at `pos.y + height` -
 the sound's ORIGINAL source-channel elevation, recovered per sound by merge.py `_source_height_map` (aggregated
@@ -251,8 +275,10 @@ The engine computes the audible gain per play (`SoundRender_Emitter_FSM.cpp:383`
     gain = base_volume x volume_att x effect_volume x occlusion x fade
 
 - **base_volume** - the per-file value in the ogg comment blob (X-Ray native, `SoundRender_Source_loader.cpp:129-136`).
-  The source authors bake it (78% of files ship a real one, n108); the deploy preserves it, or writes a
-  loudness-levelled one for blob-less files. A direct multiplier, applied to mono AND stereo alike.
+  A direct linear multiplier, applied to mono AND stereo alike. The deploy OVERWRITES it for every file
+  (`_normalize_blobs`), leveling each sound's average loudness (RMS) to the corpus median, peak-capped at
+  -1 dB - so the whole corpus sits at one felt level, loud sources brought down. The source's authored
+  base_volume is measured but not carried into the deployed blob; only the source min/max survive.
 - **volume_att** - LINEAR distance attenuation `(max_dist - dist)/(max_dist - min_dist)` (`:361-362`): full at
   `min_distance`, silent at `max_distance`, NOT inverse-square. min/max sit in the same blob (the engine reads
   them) and in the manifest (the director reads them to position).
@@ -327,6 +353,12 @@ there is no slot to lose.
 
 - Identity is the audio-page hash (`_audio_hash`, blob-agnostic), so a copy that differs only in its
   comment blob still matches. Byte-identical audio only; a re-encode at a different path is out of scope.
+- Per-SOUND by design, never per-channel. A base spook the mod did NOT capture - dropped by dedup or the
+  loudness cull, so it was never shipped - stays in its channel and still plays. The veto owns only what
+  the director ships; the base keeps the rest, so a channel goes fully silent only when every sound in it
+  is ours. This is deliberate (the base's own uncaptured atmosphere is not ours to remove), not a leak.
+  Verified: `out_screams` removes 24 of its 25 base screams (exactly the captured ones), leaving `sound_13`
+  (uncaptured) - which is the one the base still fires in the trace, at ear level, on top of the director.
 - The generator scans every `sound_channels.ltx` across `VETO_CONFIG_ROOTS` (the GAMMA mods, the source
   packs, Anomaly), so a removal exists for whatever channel any install files our sound under. A channel
   absent from a given config is safely ignored by DLTX (warn-and-discard, no CTD, `Xr_ini.cpp:1383-1400`).
@@ -390,8 +422,10 @@ a separate slot from the director's `dread_director`; the two never share.
   cross-correlation, complete linkage at 0.90. Distinct variety is never merged. Deduplication runs
   among the source packs, never against the target modpack.
 - I4 Fitness is codec plus sample rate: 44100 Hz vorbis. Off-spec files are dropped and accounted.
-- I5 Ship byte for byte. Per-file volume and distance are the file's own X-Ray blob. A blob-less file
-  gets a category-band blob written losslessly, base_volume 1.0. The one exception is a file that must
+- I5 Ship byte for byte. The audio pages are the file's own, untouched; only the X-Ray blob is rewritten
+  losslessly. Distance (min/max) is the source's own (a blob-less file gets the category band); base_volume
+  is leveled for every file to the corpus-median loudness (`_normalize_blobs`), not the source's authored
+  value. The one exception is a file that must
   be transformed to fit the one-shot model: a `dark_signal` bed too long for the emission tick is sliced
   into desilenced pieces, which re-encode and so lose the source blob (booked "cut", category-median blob).
 - I6 Capture from folder trees, not just wired files. The ledger proof is what drives UNUSED-DARK to
@@ -423,6 +457,16 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   itself is the static DLTX overlay the deploy generates).
 - `as_hud.script` is the debug HUD (off by default), a three-column readout built from
   `as_director.get_hud_rows`.
+- `ui_as_player_tab.script` + `pda_dynamic_tabs.script` are the dev PDA tab (gated by the MCM `dev_tab`
+  toggle): a runtime-injected tab (the demonized `build_extra_tabs` + `pda.set_active_subdialog` hook, no
+  `pda_16.xml` override) that browses `zs/<category>/` off disk and auditions each sound through the
+  director's own `emit` at at-ear / a set distance / the exact director curve, plus an inspector (spot
+  readout, a note box, the n114 Beacon, and a Snapshot that calls `as_test.snapshot`). INSERT opens the PDA
+  straight to it (`open_tab`), deferred through a shown-gated game TimeEvent so the list builds only once
+  the PDA is actually on screen - filling it during the 3D-PDA draw hits a detached list box and CTDs in
+  `CUIScrollView::Clear`. The tab window is NOT `SetAutoDelete` (the vanilla radio/taskboard pattern):
+  `get_ui` caches it in a singleton, so letting the engine free it would feed the PDA a dangling window and
+  CTD in `CUIStatic::Update`. The old `as_test` INSERT note box is retired - this inspector supersedes it.
 - `as_debug.script` is the trace facade. At DEBUG it records every sound played and every term of the
   dread score to `alifespooks.log`, so the soundscape is checked by observation. Below DEBUG the off
   path marshals nothing and crosses no luabind bridge.
