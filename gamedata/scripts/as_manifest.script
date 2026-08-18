@@ -416,7 +416,7 @@ categories = {
 		{ "zs\\labs\\followers_underground_phrase3_502c3fcb5e", 2.0, 75.0, 0 }, { "zs\\labs\\scared_stalker_underground_1_30028efd3c", 2.0, 75.0, 0 },
 		{ "zs\\labs\\scared_stalker_underground_2_084093df5b", 2.0, 75.0, 0 }, { "zs\\labs\\scared_stalker_underground_3_883687160b", 2.0, 75.0, 0 },
 		{ "zs\\labs\\scared_stalker_underground_4_12b163800b", 2.0, 75.0, 0 }, { "zs\\labs\\scared_stalker_underground_5_05466fe0a1", 2.0, 75.0, 0 },
-		{ "zs\\labs\\underground_bkg_1_e856b16dc0", 1000.0, 1000.0, 0 }, { "zs\\labs\\hit_3_379305c2fd", 30.0, 150.0, 0 }, { "zs\\labs\\rnd_metal1_241b5ce683", 10.0, 150.0, 0 },
+		{ "zs\\labs\\underground_bkg_1_e856b16dc0", 1000.0, 1001.0, 0 }, { "zs\\labs\\hit_3_379305c2fd", 30.0, 150.0, 0 }, { "zs\\labs\\rnd_metal1_241b5ce683", 10.0, 150.0, 0 },
 		{ "zs\\labs\\steam_2_a28dde5201", 0.8, 50.0, 0 }, { "zs\\labs\\ugrnd_ambient_banging_3_7aa5a89bcd", 35.0, 90.0, 0 }, { "zs\\labs\\ugrnd_drip_1_2c62f8f606", 30.0, 90.0, 0 },
 		{ "zs\\labs\\ugrnd_drip_10_2370e7e393", 30.0, 90.0, 0 }, { "zs\\labs\\ugrnd_drip_11_70a81c78f5", 30.0, 90.0, 0 }, { "zs\\labs\\ugrnd_drip_2_4abc69c969", 30.0, 90.0, 0 },
 		{ "zs\\labs\\ugrnd_drip_3_6c15e7334c", 30.0, 90.0, 0 }, { "zs\\labs\\ugrnd_drip_4_bdb3bda8e9", 30.0, 90.0, 0 }, { "zs\\labs\\ugrnd_drip_5_4ddd67289c", 30.0, 90.0, 0 },
