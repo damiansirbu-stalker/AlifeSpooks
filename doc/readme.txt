@@ -60,7 +60,7 @@ It does this statically, at config load, with a generated overlay.
 The overlay strips each of the mod's sounds out of every base channel that lists it, matched by the sound's own audio, so it catches the copy whichever pack reships it.
 It leaves every other base sound untouched. It is a config change, not a runtime loop, so it is deterministic and cannot be lost to another script.
 It can never over-reach. It removes only the exact sounds the mod plays, never a folder, never a channel, never a wind bed or a creature call it does not carry.
-No collision and no doubled density, over GAMMA, vanilla, or any soundscape base. The base's own atmosphere plays exactly as it always did.
+No collision and no doubled density over the soundscape bases it is built against: GAMMA, vanilla, and the Dark Signal packs. The base's own atmosphere plays exactly as it always did.
 
 
 3. The source and the measured pipeline
@@ -80,7 +80,7 @@ The mod never drops a sound because your install already plays it. It carries th
 Every kept sound is redistributed byte for byte, carrying its own X-Ray volume and distance in its ogg comment.
 A source that lacks that metadata is given it losslessly, the median of its category band, so only the comment header changes and the audio bytes stay identical.
 A fitness gate keeps 44.1 kHz vorbis, the X-Ray standard, and accounts anything dropped. A ledger proves no net-new dark sound is missed.
-A provenance record maps every carried sound back to its origin mod, folder, name, and settings, and self-verifies by audio hash.
+A provenance record maps every carried sound back to its origin mod, folder, and name, and self-verifies by audio hash.
 Nothing loses its origin, even though the files are organized into the mod's own categories.
 
 It reads cheap signals every few seconds, never per frame, and caches them, so the cost is a slow timer whatever plays on screen.
@@ -112,7 +112,7 @@ When a feature cannot fit that budget it is reworked, replaced, or removed with 
 
 Compatibility:
 Built for GAMMA and the Dark Signal soundscape base, and it runs on vanilla Anomaly and any soundscape mod.
-Because it removes only its own sounds from the base channels and adds nothing, it never doubles or collides with the base ambience, whatever pack you run.
+Because it removes only its own sounds from the base channels and adds nothing, it does not double or collide with the base ambience over GAMMA, vanilla, and the soundscape packs it is built against.
 Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and with the soundscape and ambient packs it draws from: Dark Signal Amplified Soundscape, the Dark Signal Audio, Mutants, and Blowout and Anomalies packs, RETUNE Ambient Sounds, myRETUNE Antares 2.1, Audio Expansion, Ambient Extended Reworked, Immersive Ambience Expansion, and Real Distant Mutants Sounds. Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
 You can install or remove it mid-save. Weather sound stays the base ambience's job, AlifeSpooks adds no storm or rain.
 

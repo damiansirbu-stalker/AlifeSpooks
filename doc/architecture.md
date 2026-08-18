@@ -84,7 +84,7 @@ reports each source present or MISSING using the build's OWN capture (`<path>/so
 path shows up here instead of being silently skipped - and `_scan_source` now WARNS loudly rather than
 quietly `continue`ing past a source with no `sounds/` (the defect that hid AmplifiedVanilla from every build).
 
-### Identity and build modes (identity DONE; additive `add` implemented; registry n124-planned)
+### Identity and build modes (identity + additive `add` + source registry all implemented)
 
 `cmd_deploy` names each file by content, not position - `_deployed_stem` = `<origname>_<audiohash>`.
 The old positional `zs/<category>/<N>.ogg` (`N` = enumerate order) was a collision workaround (many
@@ -119,9 +119,10 @@ build could only run from scratch. The content name fixes that. IMPLEMENTED toda
     of an already-ingested pack is idempotent (`+0 net-new`). Limit: deploy re-emits the whole corpus from
     source (the packs must be on disk); a full `all` reconciles `merged_channels.json` (gitignored, so a
     build rebuilds it from scratch) and refreshes the ledger + provenance proofs.
-- Honest limits: re-encode detection is heuristic (fp >= 0.88 candidate, xcorr >= 0.90 decide), not
-  exact; additive freezes existing choices, so it can diverge from a fresh full build at the margins -
-  `build` is canonical, and a full rebuild reconciles.
+- Limits: re-encode detection is heuristic (fp >= 0.88 candidate, xcorr >= 0.90 decide), not exact;
+  additive freezes existing NAMES and AUDIO but re-levels the whole corpus, so an add can shift existing
+  files' base_volume as the median RMS target moves; and it can diverge from a fresh full build at the
+  margins - `build` is canonical, and a full rebuild reconciles.
 
 ## Deduplication: waveform identity, source side only
 
@@ -243,7 +244,7 @@ sound-bag cycles every sound once. Rarity emerges from rotation, not from any li
 
 Dread is a scalar 0..1, additive, **no baseline constant** - the sum of whatever grounded conditions hold now:
 
-    dread = lore + environment + time + threat + company + anomaly
+    dread = lore + environment + time + threat + company + anomaly + service
 
 - **lore** - the level's own baseline (grim in the psi north and the labs, mundane in the fields).
   Coordinate overrides supersede this later (n114).
@@ -259,18 +260,19 @@ A `service_near` of "allied" (a safe hub) REPLACES the sum with 0 - fully silent
 base) adds. The base is detected by a live service NPC (trader/medic/mechanic) within 60m, per-NPC relation
 deciding allied vs hostile - warfare-correct, never the over-assigned `is_base` prop. Every term is grounded,
 so there is no "+X just because." Dread feeds APPLY only, never SELECT: **distance/heard-loudness**, **height**
-(an overhead cue descends toward you at peak, `HORROR_PULL`), and **frequency** (shorter gap). It never touches
+(an overhead cue descends toward you at peak, `HEIGHT_PULL`), and **frequency** (shorter gap). It never touches
 the sound's own **level** - `base_volume` stays the corpus-median leveled value x one master MCM slider; dread
 changes how LOUD a sound is HEARD only by changing how FAR it is placed (`_dread_dist`). Each sound is placed at
 a fraction (`att`) of ITS OWN min..max band - the loudness the engine's linear attenuation yields there - aimed
 from ATT_FAR (0.20, far + faint) at DREAD_ON to ATT_NEAR (0.90, close + loud) at peak, with a random spread, then
-HARD-CLAMPED to [ATT_FLOOR 0.20, ATT_CEIL 0.95]. The floor is a guarantee: a sound is never placed at
-`max_distance` (att 0 = silent) nor below the floor, so it can never mute or go inaudible; the ceiling keeps a
-near sound from blaring. Because att is a fraction of each sound's own band, "far" adapts per sound (median band
+HARD-CLAMPED to [ATT_FLOOR 0.20, ATT_CEIL 0.95]. The floor keeps a sound off `max_distance` (att 0 = silent)
+and above the floor, so at neutral volume settings it does not mute or go inaudible (`BV_MIN` x `ATT_FLOOR` =
+0.02 sits just above the engine cull 0.01, `SoundRender_Core.cpp:18`; the player's own ambient/effects sliders
+can still take any sound under cull); the ceiling keeps a near sound from blaring. Because att is a fraction of each sound's own band, "far" adapts per sound (median band
 2m -> 100m, ratio ~50x, so ~1% are pinned where distance barely moves loudness). Vertically it sits at
 `pos.y + height` - the sound's ORIGINAL source-channel elevation, recovered per sound by merge.py
 `_source_height_map` (aggregated across packs, highest non-zero wins), carried in the manifest as `snd[4]`, so an
-overhead sound (bird, vent, thunder) stays overhead when calm and, by the same `HORROR_PULL`, descends toward
+overhead sound (bird, vent, thunder) stays overhead when calm and, by the same `HEIGHT_PULL`, descends toward
 ear level as the place turns.
 
 ### Emission model - how the final loudness is set (engine-grounded)
@@ -285,8 +287,10 @@ The engine computes the audible gain per play (`SoundRender_Emitter_FSM.cpp:383`
   -1 dB - so the whole corpus sits at one felt level, loud sources brought down. The source's authored
   base_volume is measured but not carried into the deployed blob; only the source min/max survive.
 - **volume_att** - LINEAR distance attenuation `(max_dist - dist)/(max_dist - min_dist)` (`:361-362`): full at
-  `min_distance`, silent at `max_distance`, NOT inverse-square. min/max sit in the same blob (the engine reads
-  them) and in the manifest (the director reads them to position).
+  `min_distance`, silent at `max_distance`, NOT inverse-square. The engine's `dist` is the 3D listener->source
+  distance, which includes the height leg (`:352`), so `_dread_dist` aims the 3D distance and `emit` solves the
+  horizontal leg for it, so an overhead cue is not read fainter than aimed. min/max sit in the same blob (the
+  engine reads them) and in the manifest (the director reads them to position).
 - **stereo** - OpenAL does not positionally spatialise a stereo buffer (`TargetA:212`), so a stereo sound loses
   DIRECTION (panning); the engine gain still applies, so it likely still fades with distance (runtime-confirm).
   Downmix is a directionality fix, not a loudness fix.
@@ -365,8 +369,11 @@ there is no slot to lose.
   Verified: `out_screams` removes 24 of its 25 base screams (exactly the captured ones), leaving `sound_13`
   (uncaptured) - which is the one the base still fires in the trace, at ear level, on top of the director.
 - The generator scans every `sound_channels.ltx` across `VETO_CONFIG_ROOTS` (the GAMMA mods, the source
-  packs, Anomaly), so a removal exists for whatever channel any install files our sound under. A channel
-  absent from a given config is safely ignored by DLTX (warn-and-discard, no CTD, `Xr_ini.cpp:1383-1400`).
+  packs, Anomaly), so a removal exists for whatever channel a SCANNED pack files our sound under. The overlay
+  therefore reflects the BUILD MACHINE's installed packs, not the source registry: it is not
+  registry-reproducible, and it covers a base copy only where a scanned pack lists it under the same path, so
+  re-run it after any modlist change. A channel absent from a given config is safely ignored by DLTX
+  (warn-and-discard, no CTD, `Xr_ini.cpp:1383-1400`).
 - Bed-empty guard: a channel that is a bed anywhere (System A asserts on empty `sounds`,
   `Environment_misc.cpp:108`) also gets `>sounds = ambient\no_sound`, so a full removal never leaves a
   bed empty. See "Muting a channel: the `ambient\no_sound` trick" in the ambient-sound-system note.
@@ -381,17 +388,19 @@ The removal is on the sound's original path, matched to the base list item exact
 by exact string, `Xr_ini.cpp:1259-1263`), so the overlay emits each channel's path exactly as the
 source config wrote it. No folder blocking, no mod names, no runtime lookup, no `provenance.tsv`.
 
-### The observer hook (tracing only)
+### The observer hook (owns the vanilla scheduler slot)
 
-A separate time-event on the vanilla `update_ambient` slot (`update_ambient_owned`, installed by
-`_apply_owned`) owns that slot ONLY to replay and LOG the base ambient - a clone of
-`sound_ambient.update_ambient` (same channel rotation, timing, and volume rule, with added nil-guards),
-except it replays through `xsound.play` (an engine-owned one-shot), so a base sound is not cut on channel
-re-fire the way vanilla's retained-handle GC cut it. It does no muting (the composed config it reads already has our sounds
-removed) and no injection; it exists so the base soundscape stays traceable at DEBUG (`[BASE]` / `[LOOP]`
-lines and the HUD BASE row). If another script wins the slot back (e.g. TestZone's ambient logger), only
-the trace is lost - the muting still holds because it is the static overlay, not this hook. This hook is
-a separate slot from the director's `dread_director`; the two never share.
+A time-event on the vanilla `update_ambient` slot (`update_ambient_owned`, installed by `_apply_owned`)
+REPLACES vanilla `sound_ambient.update_ambient`, so it runs for EVERY player, not only at DEBUG. It is a
+clone of the vanilla channel rotation, timing, and volume rule with added nil-guards, with two deltas: it
+replays through `xsound.play` (an engine-owned one-shot), so a base sound is not cut on channel re-fire the
+way vanilla's retained-handle GC cut it, and it LOGS each base fire at DEBUG (`[BASE]` lines and the HUD BASE
+row). It does no muting (the composed config it reads already has our sounds removed) and no injection. It is
+not there only to log: it owns the base ambience for everyone, and the log plus the no-cut are what it adds
+over leaving vanilla in place. If another ambient-scheduler mod wins the slot back (e.g. TestZone's ambient
+logger), only the trace and the no-cut are lost - the muting still holds because it is the static overlay,
+not this hook. This slot (`sound_channels`/`update_ambient`) is separate from the director's own tick slot
+(`as_director`/`tick`); the two never share.
 
 ## Preservation and proof
 
@@ -401,10 +410,10 @@ a separate slot from the director's `dread_director`; the two never share.
 - Volume and distance sit in the X-Ray blob. A source file that shipped with a blob keeps it exact.
   A blob-less file gets the category-folder median, base_volume 1.0, which is an approximation and is
   booked as one, not counted as preserved.
-- `provenance.tsv` (`cmd_provenance`) maps every shipped sound to its origin mod, directory,
-  filename, source channel, that channel's distance and period settings, the deployed base_volume,
-  and the original level:time:weather sections it played in. Nothing loses its origin under the
-  index rename.
+- `provenance.tsv` (`cmd_provenance`) maps every shipped sound (its deployed `zs/<category>/<name>`) to its
+  origin mod, source directory, and filename, plus the deployed base_volume, and self-verifies each by audio
+  hash against the source. Categories are not channels, so there are no channel/period/section columns.
+  Nothing loses its origin under the content-hash rename.
 - `ledger.tsv` (`cmd_ledger`) hashes every source dark sound and books it: shipped, held, or
   excluded with a reason (emission-domain, intra-corpus re-encode, dead-silent, off-rate,
   off-scope). The invariant is `UNUSED-DARK = 0`. No net-new dark sound is left uncaptured.
@@ -457,7 +466,7 @@ a separate slot from the director's `dread_director`; the two never share.
 Scripts add control, an in-game trace, and the MCM, mirroring the alife-family pattern (`as_mcm`,
 `as_debug`, `xmcm`, `xlog`). All are guarded. Without xlibs they degrade to no-ops.
 
-- `as_director.script` owns the director (its own `dread_director` slot), the score, the pick and pace,
+- `as_director.script` owns the director (its own `as_director`/`tick` slot), the score, the pick and pace,
   the positioned play, and the base-ambient observer (the separate `update_ambient` slot; the muting
   itself is the static DLTX overlay the deploy generates).
 - `as_hud.script` is the debug HUD (off by default), a three-column readout built from
