@@ -40,14 +40,14 @@ How much dread. Dread is one plain sum, with no multiplier and no floor: the lev
 The level baseline is the dread a place carries on its own, grim in the psi north and the labs, mundane in the fields.
 The scariest thing near is one reading and never a body count, and a man is weighed like a monster by its strength: the strongest one near weighs most, a weaker one less, and being truly alone weighs a little on its own.
 Allies near are the only thing that calms you, so a place with your people falls quiet while a grim empty place still carries its dread.
-Dread drives how close a sound spawns and how often it fires, never how loud.
+Dread drives how close a sound is placed and how often it fires. A calm place puts them far and faint, a scary one brings them close and loud. It never changes the sound's own level, only how near it plays, and never so far that it falls silent.
 
 The palette. The sounds are grouped into categories, each playing only where it fits and only when its condition is met.
 Spooks, screams, and dark drones play wherever the map allows. A mutant category needs a real mutant present, gunfire needs a person present, and the radio signal plays only where a signal source makes sense.
 Wind, foliage, and eerie wildlife are outdoor texture, while doors, machinery, drips, and facility sound belong indoors and underground.
 Every category rotates so a scare stays rare against the texture, and no call plays twice in a row.
 
-Each one-shot is placed in 3D around and above you, faithful to the sound's original distance and elevation from the pack it came from, then pulled a little closer at peak dread. A near sound is full, a far one fades, and a sound the author meant to come from overhead still comes from overhead. Nothing is a flat 2D beep at a fixed spot.
+Each one-shot is placed in 3D around and above you, in the sound's own distance band from the pack it came from: far and faint when the place is calm, close and loud when dread peaks, with a hard floor so it never goes silent and a ceiling so a close one never blares. A sound the author meant to come from overhead still comes from overhead. Nothing is a flat 2D beep at a fixed spot.
 A long horror drone or the radio signal plays as a spaced one-shot, never a continuous loop.
 
 

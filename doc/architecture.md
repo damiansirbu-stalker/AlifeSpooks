@@ -258,15 +258,20 @@ Dread is a scalar 0..1, additive, **no baseline constant** - the sum of whatever
 A `service_near` of "allied" (a safe hub) REPLACES the sum with 0 - fully silent; "hostile" (an enemy-held
 base) adds. The base is detected by a live service NPC (trader/medic/mechanic) within 60m, per-NPC relation
 deciding allied vs hostile - warfare-correct, never the over-assigned `is_base` prop. Every term is grounded,
-so there is no "+X just because." Dread feeds APPLY only, never SELECT: **distance** (closer at peak,
-`HORROR_PULL`), **height** (an overhead cue descends toward you at peak, same `HORROR_PULL`), and **frequency**
-(shorter gap). It never touches **volume** - volume is the sound's own leveled level x one master MCM slider.
-Positioning uses Anomaly's own geometry: `emit` places the sound at a HORIZONTAL `dist` (a random point in the
-source min..max band, halved, pulled closer by dread) in a random direction, and VERTICALLY at `pos.y + height` -
-the sound's ORIGINAL source-channel elevation, recovered per sound by merge.py `_source_height_map` (aggregated
-across packs, highest non-zero wins) and carried in the manifest as `snd[4]`, so an overhead sound (bird, vent,
-thunder) stays overhead when calm - and, by the same dread pull as distance, descends toward ear level as the
-place turns. The engine's baked attenuation then does the fade.
+so there is no "+X just because." Dread feeds APPLY only, never SELECT: **distance/heard-loudness**, **height**
+(an overhead cue descends toward you at peak, `HORROR_PULL`), and **frequency** (shorter gap). It never touches
+the sound's own **level** - `base_volume` stays the corpus-median leveled value x one master MCM slider; dread
+changes how LOUD a sound is HEARD only by changing how FAR it is placed (`_dread_dist`). Each sound is placed at
+a fraction (`att`) of ITS OWN min..max band - the loudness the engine's linear attenuation yields there - aimed
+from ATT_FAR (0.20, far + faint) at DREAD_ON to ATT_NEAR (0.90, close + loud) at peak, with a random spread, then
+HARD-CLAMPED to [ATT_FLOOR 0.20, ATT_CEIL 0.95]. The floor is a guarantee: a sound is never placed at
+`max_distance` (att 0 = silent) nor below the floor, so it can never mute or go inaudible; the ceiling keeps a
+near sound from blaring. Because att is a fraction of each sound's own band, "far" adapts per sound (median band
+2m -> 100m, ratio ~50x, so ~1% are pinned where distance barely moves loudness). Vertically it sits at
+`pos.y + height` - the sound's ORIGINAL source-channel elevation, recovered per sound by merge.py
+`_source_height_map` (aggregated across packs, highest non-zero wins), carried in the manifest as `snd[4]`, so an
+overhead sound (bird, vent, thunder) stays overhead when calm and, by the same `HORROR_PULL`, descends toward
+ear level as the place turns.
 
 ### Emission model - how the final loudness is set (engine-grounded)
 

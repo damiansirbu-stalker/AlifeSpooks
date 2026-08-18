@@ -82,11 +82,23 @@ local NEAR_R  = 60
 local NEAR_R2 = NEAR_R * NEAR_R
 
 -- Emission + pacing. One sound at most every SPACE_MIN..MAX (dread shortens it); below DREAD_ON nothing
--- emits. HORROR_PULL: up to this fraction closer at peak dread. Volume is dread-FREE.
+-- emits. HORROR_PULL: overhead cue descends this fraction toward ear at peak dread. The sound's own LEVEL
+-- (blob base_volume) is dread-free; dread changes how LOUD it is HEARD by changing how FAR it is placed.
 local DREAD_ON     = 0.10
 local SPACE_MIN_MS = 5000
 local SPACE_MAX_MS = 15000
 local HORROR_PULL  = 0.25
+-- Dread -> heard loudness through DISTANCE. `att` = the fraction of full loudness the engine's LINEAR
+-- attenuation gives at the placed distance (att = (max-dist)/(max-min), SoundRender_Emitter_FSM.cpp:361).
+-- Aim att from ATT_FAR at DREAD_ON to ATT_NEAR at peak, plus a random spread for variety, then HARD-CLAMP to
+-- [ATT_FLOOR, ATT_CEIL]. The floor is the guarantee: a sound is NEVER placed at max_distance (att 0 = silent)
+-- nor below ATT_FLOOR, so it can never mute or go inaudible; the ceiling keeps a close sound from blaring
+-- (the blob is peak-capped, so no clip either).
+local ATT_FAR    = 0.20
+local ATT_NEAR   = 0.90
+local ATT_SPREAD = 0.08
+local ATT_FLOOR  = 0.20
+local ATT_CEIL   = 0.95
 local TICK_S       = 0.1
 local BASE_TICK_S  = 1
 local INSANE_DREAD = 0.80
@@ -374,27 +386,41 @@ local function _dread()
     board.dread = _clamp01(terms.lore + terms.env + terms.time + terms.threat + terms.company + terms.anomaly + terms.service)
 end
 
+--- Distance in the sound's OWN min..max band that yields the dread-aimed loudness fraction (att). att runs
+--- from far+faint at DREAD_ON (ATT_FAR) to close+loud at peak (ATT_NEAR) with a random spread, then is
+--- HARD-CLAMPED to [ATT_FLOOR, ATT_CEIL]: the floor means it is never placed at max_distance (att 0 = silent)
+--- nor below the floor, so it can never mute or go inaudible; the ceiling keeps a near sound from blaring.
+--- The MCM distance knob scales it (>1 farther); deep (underground) places a touch closer.
+local function _dread_dist(min_dist, max_dist, dread, deep)
+    if min_dist > max_dist then min_dist = max_dist end
+    local dn = (dread - DREAD_ON) / (1 - DREAD_ON)
+    if dn < 0 then dn = 0 elseif dn > 1 then dn = 1 end
+    local att = ATT_FAR + (ATT_NEAR - ATT_FAR) * dn + (math_random() * 2 - 1) * ATT_SPREAD
+    if deep then att = att + 0.10 end
+    att = att / distance
+    if att < ATT_FLOOR then att = ATT_FLOOR elseif att > ATT_CEIL then att = ATT_CEIL end
+    return max_dist - att * (max_dist - min_dist)
+end
+
 --- Fire one positioned one-shot at `path`. `dist` is the HORIZONTAL distance; opts.dist = an explicit metre
---- distance used as-is (the audition player); else the director curve from opts.min/max/deep (random point in
---- the band, halved), pulled closer by HORROR_PULL x opts.dread and the MCM distance knob. opts.height offsets
+--- distance used as-is (the audition player); else dread drives HEARD loudness through placement - it aims a
+--- loudness fraction (att) in the sound's OWN min..max band, from far+faint at DREAD_ON (ATT_FAR) to close+loud
+--- at peak (ATT_NEAR), clamped to [ATT_FLOOR, ATT_CEIL] so it can never mute or blare, scaled by the MCM
+--- distance knob. opts.height offsets
 --- the placement VERTICALLY (`pos.y + height`) - the sound's ORIGINAL source-channel elevation, carried per
 --- sound in the manifest (snd[4]) and recovered by merge.py `_source_height_map`, so an overhead sound (bird,
 --- vent, thunder) stays overhead instead of at ear level. Height is pulled DOWN by dread by the same factor as
---- distance, so an overhead cue descends toward ear level as the place turns. Volume is dread-free. Returns the distance.
+--- distance, so an overhead cue descends toward ear level as the place turns. The sound's own LEVEL (base_volume) stays dread-free; only its distance-driven loudness changes. Returns the distance.
 function emit(path, opts)
     local actor = db.actor
     if not (actor and path and xsound) then return end
     local height = opts.height or 0
     local dist = opts.dist
     if not dist then
-        local min_dist, max_dist = opts.min or 1, opts.max or 300
-        if min_dist > max_dist then min_dist = max_dist end
-        local near_bound = opts.deep and min_dist or ((max_dist + min_dist) / 2)
-        dist = math_random(near_bound, max_dist) / 2
-        local pull = 1 - HORROR_PULL * (opts.dread or 0)
-        dist = dist * pull * distance
-        height = height * pull                  -- dread also pulls the sound DOWN toward you: an overhead
-    end                                         -- cue descends to ear level as the place turns, mirroring distance
+        local dread = opts.dread or 0
+        dist = _dread_dist(opts.min or 1, opts.max or 300, dread, opts.deep)
+        height = height * (1 - HORROR_PULL * dread)
+    end
     local pos = actor:position()
     local angle = math_rad(math_random(0, 359))
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + height, pos.z + math_sin(angle) * dist)

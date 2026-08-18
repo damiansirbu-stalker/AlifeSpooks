@@ -4,7 +4,6 @@
 
 local table_sort = table.sort
 local string_format, bit_or = string.format, bit_or
-local RegisterScriptCallback = RegisterScriptCallback
 
 local SND_ROOT    = "zs"
 -- position modes cycled by the distance steppers: false = 2D at-ear (raw quality check), "auto" = the
