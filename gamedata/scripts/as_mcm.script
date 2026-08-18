@@ -24,18 +24,18 @@ local _key_to_tab = {
     dev_tab = "development", btn_reset_all = "development",
 }
 
-local function path_builder(key)
+local function _build_mcm_path(key)
     return "as/" .. (_key_to_tab[key] or "spooks") .. "/" .. key
 end
 
-cfg, get_config, load_config = xmcm.create_config("as", defaults, path_builder)
+cfg, get_config, load_config = xmcm.create_config("as", defaults, _build_mcm_path)
 as_mcm.get_config = get_config
 
 --- Write every default to storage, save, reload, notify consumers, close the menu
 local function _apply_defaults(gui, msg)
     local config = axr_main.config
     for k, v in pairs(defaults) do
-        config:w_value("mcm", path_builder(k), v)
+        config:w_value("mcm", _build_mcm_path(k), v)
     end
     config:save()
     load_config()

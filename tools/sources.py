@@ -5,7 +5,7 @@ downloads anything. `url` is a REFERENCE link only (the moddb / origin page), ke
 (readme, licensing). The build reads `path`; a source missing there is reported by `merge.py provision` and
 must be fetched by you. This keeps every shipped sound traceable to a recorded origin without any network step.
 
-ORDER IS LOAD-BEARING: dedup (dedup_pick) is mildly order-sensitive, so the entries stay in the exact order
+ORDER IS LOAD-BEARING: dedup (dedupe) is mildly order-sensitive, so the entries stay in the exact order
 the old hardcoded MODS list used - reordering can change which copy of a duplicate wins and shift the corpus.
 
 Per entry:

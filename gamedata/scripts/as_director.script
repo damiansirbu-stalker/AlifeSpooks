@@ -174,7 +174,7 @@ local function _wrap_csv(items, width)
 end
 
 --- A raw rank -> "none"|"low"|"med"|"high" power token against a scale's med/high cut points.
-local function _tier(rank, med, high)
+local function _rank_to_tier(rank, med, high)
     if not rank or rank <= 0 then return "low" end
     if rank >= high then return "high" end
     if rank >= med then return "med" end
@@ -244,7 +244,7 @@ local function _fold_stalker(id, actor_id, apos, out)
     local dist_sqr = apos:distance_to_sqr(npc:position())
     if dist_sqr > NEAR_R2 then return end
     local rel  = xcreature.relation(npc, db.actor)
-    local tier = _tier(npc:character_rank(), STALKER_MED, STALKER_HIGH)
+    local tier = _rank_to_tier(npc:character_rank(), STALKER_MED, STALKER_HIGH)
     if rel == "enemy" then
         if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
     else
@@ -272,7 +272,7 @@ local function _fold_monster(id, obj, apos, out)
     if apos:distance_to_sqr(obj:position()) > NEAR_R2 then return end
     local se = xobject.se(id)
     if not se then return end
-    local tier = _tier(se:rank(), MONSTER_MED, MONSTER_HIGH)
+    local tier = _rank_to_tier(se:rank(), MONSTER_MED, MONSTER_HIGH)
     if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
 end
 
@@ -292,7 +292,7 @@ local function _read_anomalies(actor)
 end
 
 --- Time band for the current hour.
-local function _time_band(hour)
+local function _get_time_band(hour)
     if not hour then return "day" end
     if hour >= 7 and hour < 19 then return "day" end
     if hour >= 19 and hour < 21 then return "dusk" end
@@ -358,7 +358,7 @@ end
 -- ---- APPLY (dread + positioned play) --------------------------------------
 
 --- The threat dread term: the scariest near thing (man or monster, one power), or loneliness if none near.
-local function _threat_add(s, m)
+local function _get_threat_term(s, m)
     local worst = math_max(POWER[s.enemy_near], POWER[m.enemy_near])
     if worst > 0 then return THREAT_ADD[worst] end
     if s.ally_near == "none" then return LONELINESS end
@@ -373,13 +373,13 @@ end
 
 --- Grounded additive dread from the board, clamped 0..1. An allied service near (a safe hub) forces 0;
 --- a hostile service adds. Writes board.dread + board.terms (the HUD breakdown, one persistent table).
-local function _dread()
+local function _compute_dread()
     local s, m = board.stalkers, board.monsters
     local terms = board.terms
     terms.lore    = LORE_LEVEL[level.name()] or LORE_DEFAULT
     terms.env     = ENV_ADD[board.environment] or 0
     terms.time    = TIME_ADD[board.time] or 0
-    terms.threat  = _threat_add(s, m)
+    terms.threat  = _get_threat_term(s, m)
     terms.company = ALLY_CALM[s.ally_near] or 0
     terms.anomaly = board.anomalies.near and ANOMALY_ADD or 0
     terms.service = (s.service_near == "hostile") and SERVICE_HOSTILE or 0
@@ -409,7 +409,7 @@ end
 --- at peak (ATT_NEAR), clamped to [ATT_FLOOR, ATT_CEIL] so it can never mute or blare, scaled by the MCM
 --- distance knob. opts.height offsets
 --- the placement VERTICALLY (`pos.y + height`) - the sound's ORIGINAL source-channel elevation, carried per
---- sound in the manifest (snd[4]) and recovered by merge.py `_source_height_map`, so an overhead sound (bird,
+--- sound in the manifest (snd[4]) and recovered by merge.py `_build_source_height_map`, so an overhead sound (bird,
 --- vent, thunder) stays overhead instead of at ear level. Height is pulled DOWN by dread by the same factor as
 --- distance, so an overhead cue descends toward ear level as the place turns. The sound's own LEVEL (base_volume) stays dread-free; only its distance-driven loudness changes. Returns the distance.
 function emit(path, opts)
@@ -559,7 +559,7 @@ end
 -- the muting is independent of it (the static overlay), so only the trace/no-cut is lost if another wins.
 local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
 
-local function _base_channel(ch, ini_snd)
+local function _read_base_channel(ch, ini_snd)
     local raw = parse_list(ini_snd, ch, "sounds")
     if not raw or #raw == 0 then return nil end
     return { name = ch, sounds = raw,
@@ -581,7 +581,7 @@ local function _base_reset(level_name, ambient)
     local cached, ini_snd = {}, ini_file(CHANNELS_FILE)
     for i = 1, #channels do
         local ch = channels[i]
-        local entry = (not cached[ch]) and ini_snd:section_exist(ch) and _base_channel(ch, ini_snd)
+        local entry = (not cached[ch]) and ini_snd:section_exist(ch) and _read_base_channel(ch, ini_snd)
         cached[ch] = true
         if entry then
             _base.tot = _base.tot + 1
@@ -651,7 +651,7 @@ local _prod = {
     { "monsters",    function(actor) board.monsters = _scan_monsters(actor) end },
     { "environment", function(actor) board.environment = _read_environment(actor) end },
     { "anomalies",   function(actor) board.anomalies.near = _read_anomalies(actor) end },
-    { "time",        function()      if level.present() then board.time = _time_band(level.get_time_hours()) end end },
+    { "time",        function()      if level.present() then board.time = _get_time_band(level.get_time_hours()) end end },
 }
 local _cursor = 1
 
@@ -665,7 +665,7 @@ local function _tick()
     entry[2](db.actor)
     tmr:stop()
     _cursor = _cursor % #_prod + 1
-    _dread()
+    _compute_dread()
     if dbg then _rebuild_eligible(); as_debug.dbg("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
     _emit_tick(tg)
     return false

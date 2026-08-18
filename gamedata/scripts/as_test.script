@@ -212,15 +212,15 @@ local function _logger()
     return _log
 end
 
-local function _count(t)
+local function _count(tbl)
     local total = 0
-    for _ in pairs(t or {}) do total = total + 1 end
+    for _ in pairs(tbl or {}) do total = total + 1 end
     return total
 end
 
-local function _fmt(t)
+local function _format_pairs(tbl)
     local parts = {}
-    for k, v in pairs(t) do parts[#parts + 1] = k .. ":" .. v end
+    for k, v in pairs(tbl) do parts[#parts + 1] = k .. ":" .. v end
     table_sort(parts)
     return table_concat(parts, ", ")
 end
@@ -245,10 +245,10 @@ local function _snap_online(log, actor_id)
         local obj = (id ~= actor_id) and st and st.object
         if obj then humans = humans + _add_online(obj, species) end
     end
-    log.info("ONLINE-NEAR humans=%d mutants={%s}", humans, _fmt(species))
+    log.info("ONLINE-NEAR humans=%d mutants={%s}", humans, _format_pairs(species))
 end
 
-local function _bright_day(hour, weather, rain)
+local function _is_bright_day(hour, weather, rain)
     local wl = weather:lower()
     local overcast = wl:find("storm") or wl:find("rain") or wl:find("fog") or wl:find("cloud") or wl:find("dark") or wl:find("partly")
     return (hour >= 7 and hour < 19) and (rain < 0.1) and not overcast and true or false
@@ -263,7 +263,7 @@ local function _snap_place(log, apos)
     local hour = level.get_time_hours()
     local weather = tostring(level.get_weather())
     local rain = level.rain_factor()
-    local sun = (not enclosed) and _bright_day(hour, weather, rain) and true or false
+    local sun = (not enclosed) and _is_bright_day(hour, weather, rain) and true or false
     log.info("ATMO hour=%d weather=%s rain=%.2f sun_visible=%s safe_cover=%s underground_event=%s",
         hour, weather, rain, tostring(sun),
         tostring(GetEvent("current_safe_cover") and true or false),

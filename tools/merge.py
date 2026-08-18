@@ -125,25 +125,25 @@ def route(path):
     """Structural per-file category routing (n117): a source path -> a category name, or None to drop.
     Whole-tree allowlist by folder, not keyword matching on the filename. Order: exclusions, zone-mutant
     ambience, the creature pool, then the flat ambience allowlist (first match wins)."""
-    p = path.replace("\\", "/").lower()
-    if any(x in p for x in EXCLUDE):
+    low = path.replace("\\", "/").lower()
+    if any(x in low for x in EXCLUDE):
         return None
     # zone-mutant ambience: ONLY the terrain-split trx/spooks_above/<zone>{day,night}mutants (validated
     # horror). The soundscape/background/<Terrain> beds were user-checked and rejected (birds/generic, no
     # horror), so they are NOT routed here - the zones are pure zone-mutant content.
     for z in ZONES:
-        if z + "daymutants" in p or z + "nightmutants" in p:
+        if z + "daymutants" in low or z + "nightmutants" in low:
             return "mutant_ambient_" + z
     # creature pool. wolf/mwolf are eerie wildlife, not creatures. monsters/<sp> is a creature-sound tree
     # with COMBAT mixed in, so MUTANT_KEEP filters out attack/hit/die there. soundscape/mutants and the flat
     # spooks_above/mutants are ALREADY ambient/distant dread (named sound_NN), so keep them all - no filter.
-    if "/wolf/" in p or "/mwolf/" in p:
+    if "/wolf/" in low or "/mwolf/" in low:
         return "wildlife"
-    if "/monsters/" in p:
-        return "mutant" if MUTANT_KEEP.search(p) else None
-    if "/soundscape/mutants/" in p or "spooks_above/mutants" in p:
+    if "/monsters/" in low:
+        return "mutant" if MUTANT_KEEP.search(low) else None
+    if "/soundscape/mutants/" in low or "spooks_above/mutants" in low:
         return "mutant"
-    return next((c for sub, c in ROUTE if sub in p), None)
+    return next((c for sub, c in ROUTE if sub in low), None)
 
 # Source packs come from the REGISTRY in sources.py (n124): one declarative entry per pack with its download
 # url + licence, so a build is reproducible and every shipped sound traces to a recorded source. Capture is
@@ -157,7 +157,7 @@ HERE = Path(__file__).resolve().parent
 
 
 def parse_channels(gamedata):
-    """channel(lower) -> {settings:[raw non-sounds lines], stems:[sound stems]}.
+    """channel(lower) -> {settings:[raw non-sounds lines], sound_paths:[sound paths]}.
     Reads sound_channels.ltx plus its ambient_channels includes."""
     env = Path(gamedata) / "configs/environment"
     files = [env / "sound_channels.ltx",
@@ -173,26 +173,26 @@ def parse_channels(gamedata):
             m = re.match(r"\s*\[([^\]]+)\]", code)
             if m:
                 cur = m.group(1).strip().lower()
-                ch.setdefault(cur, {"settings": [], "stems": []})
+                ch.setdefault(cur, {"settings": [], "sound_paths": []})
                 continue
             if cur is None:
                 continue
             if "sounds" in code and "=" in code:
-                for t in code.split("=", 1)[1].split(","):
-                    t = t.strip().replace("\\", "/")
-                    if t and "no_sound" not in t:
-                        ch[cur]["stems"].append(t)
+                for token in code.split("=", 1)[1].split(","):
+                    token = token.strip().replace("\\", "/")
+                    if token and "no_sound" not in token:
+                        ch[cur]["sound_paths"].append(token)
             elif code.strip():
                 ch[cur]["settings"].append(raw.rstrip())
     return ch
 
 
-def resolve(stem, sounds_root):
-    p = Path(sounds_root) / (stem + ".ogg")
+def resolve(source_path, sounds_root):
+    p = Path(sounds_root) / (source_path + ".ogg")
     return p if p.exists() else None
 
 
-def file_hash(path):
+def hash_file(path):
     h = hashlib.md5()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -200,7 +200,7 @@ def file_hash(path):
     return h.hexdigest()
 
 
-def dedup_pick(files):
+def dedupe(files):
     """Keep the best-quality copy of each DISTINCT sound in a channel; collapse only
     true duplicates. Three-stage identity (architecture.md I3):
       1. md5   - byte-identical reships across packs collapse to one.
@@ -216,7 +216,7 @@ def dedup_pick(files):
     # 1. exact byte dedup
     by_md5 = {}
     for f in files:
-        f["hash"] = file_hash(f["abs"])
+        f["hash"] = hash_file(f["abs"])
         by_md5.setdefault(f["hash"], []).append(f)
     reps = [max(g, key=lambda f: f["bitrate"]) for g in by_md5.values()]
     if len(reps) <= 1:
@@ -266,9 +266,9 @@ def dedup_pick(files):
 # --- routing / layer-map inputs: what the base install PLAYS -----------------
 # We do NOT dedup against any target modpack: a sound is never dropped because the
 # install already plays it. Doubling is handled at RUNTIME by the base-veto (as_director
-# mutes the base's copy of a sound we ship, keyed off as_blockdata). _active_channels is
+# mutes the base's copy of a sound we ship, keyed off as_blockdata). _get_active_channels is
 # kept only to resolve which channels a config plays, for the base dark-channel layer map
-# and channel routing. Source-side waveform dedup (dedup_pick) is unaffected.
+# and channel routing. Source-side waveform dedup (dedupe) is unaffected.
 VAN_CFG = "D:/Games/GAMMA/Anomaly/tools/_unpacked"
 GAMMA_WINNER = "D:/Games/GAMMA/GAMMA/mods/304- Dark Signal Weather and Ambiance Audio - Shrike/gamedata"
 FP_LEN = 30
@@ -308,7 +308,7 @@ SILENCE_MIN_S    = 0.5
 SLICE_DIR        = HERE / "_sliced"
 
 
-def _active_channels(gd):
+def _get_active_channels(gd):
     """channels PLAYED in a preset (static sound_channels + dynamic) on this install."""
     a = set()
     for _f, secs in parse_presets(gd).items():
@@ -317,7 +317,7 @@ def _active_channels(gd):
     return a
 
 
-def _cross_channel_dedup(merged):
+def _dedupe_across_channels(merged):
     """Drop byte-identical copies of a recording a source pack listed in more than one
     channel. md5-exact ONLY - a hash match is provably the same file, so no distinct
     sound can be lost (no fingerprint judgment, unlike _base_dedup). Keep one home per
@@ -327,7 +327,7 @@ def _cross_channel_dedup(merged):
     for chan in merged:
         keep, dup = [], []
         for c in merged[chan]["chosen"]:
-            h = file_hash(c["abs"])
+            h = hash_file(c["abs"])
             if seen.get(h, chan) == chan:
                 seen[h] = chan
                 keep.append(c)
@@ -340,7 +340,7 @@ def _cross_channel_dedup(merged):
     print(f"cross-channel dedup: dropped {n_drop} byte-identical copies (md5-exact, one home each)")
 
 
-def _silence_gate(merged):
+def _drop_silent(merged):
     """Drop dead/empty files ONLY - true peak level = -inf (no audio at all). Hard rule:
     never ship a silent sound (caught the shipped-dead ugrnd_lab/1-3). Uses the real peak
     (astats over the full-rate stream), NOT the 4kHz correlation PCM - so intentionally
@@ -355,7 +355,7 @@ def _silence_gate(merged):
     paths = list({c["abs"] for chan in merged for c in merged[chan]["chosen"]})
     dead = {a for a, d in zip(paths, sp.pmap(is_dead, paths, sp.DEF_JOBS)) if d}
     (HERE / "silence_dropped.json").write_text(
-        json.dumps(sorted({file_hash(a) for a in dead})), encoding="utf-8")
+        json.dumps(sorted({hash_file(a) for a in dead})), encoding="utf-8")
     n = 0
     for chan in merged:
         before = len(merged[chan]["chosen"])
@@ -364,7 +364,7 @@ def _silence_gate(merged):
     print(f"silence gate: dropped {n} dead/empty files (true peak -inf, quiet sounds kept)")
 
 
-def _loudness_cull(effects):
+def _cull_quiet(effects):
     """Measure each source's true peak AND average loudness (astats Overall - the whole-file, all-channel
     figures, NOT channel 1, which for a stereo file is only one side). DROP any file that cannot reach
     TARGET_PEAK_DB without absurd gain (peak <= CULL_PEAK_DB, or unmeasurable/silent - that is amplified
@@ -405,7 +405,7 @@ def _loudness_cull(effects):
     print(f"loudness cull: dropped {dropped} files (peak <= {CULL_PEAK_DB} dB or silent)")
 
 
-def _active_seconds(abs_path, duration):
+def _get_active_seconds(abs_path, duration):
     """Non-silent seconds = duration minus the total silence ffmpeg silencedetect reports."""
     import subprocess
     r = subprocess.run([sp.tool("ffmpeg"), "-i", abs_path, "-af",
@@ -428,7 +428,7 @@ def _slice_file(abs_path, out_dir, base):
     return sorted(out_dir.glob(f"{base}_*.ogg"))
 
 
-def _long_file_pass(merged):
+def _cull_long_files(merged):
     """Cull files whose ACTIVE length > MAX_ACTIVE_S; dark_signal is SLICED into desilenced pieces instead.
     Only RAW-duration-over-cap files are silencedetect-probed (active <= raw), so the pass runs on the few
     long files, not the whole corpus. Books culled + sliced-original hashes so the ledger keeps UNUSED-DARK 0."""
@@ -442,16 +442,16 @@ def _long_file_pass(merged):
             if float(c.get("dur") or 0.0) <= MAX_ACTIVE_S:      # raw already short -> active shorter, keep
                 new_chosen.append(c)
                 continue
-            active = _active_seconds(c["abs"], float(c.get("dur") or 0.0))
+            active = _get_active_seconds(c["abs"], float(c.get("dur") or 0.0))
             if active <= MAX_ACTIVE_S:
                 new_chosen.append(c)
             elif cat == "dark_signal":
                 sliced_orig.append(c["hash"])
-                for p in _slice_file(Path(c["abs"]), SLICE_DIR / cat, Path(c["stem"]).name):
+                for p in _slice_file(Path(c["abs"]), SLICE_DIR / cat, Path(c["source_path"]).name):
                     sliced_to += 1
                     piece = dict(c)
-                    piece.update(abs=str(p), stem=Path(c["stem"]).as_posix() + "#" + p.stem,
-                                 hash=file_hash(p), cut=True)
+                    piece.update(abs=str(p), source_path=Path(c["source_path"]).as_posix() + "#" + p.stem,
+                                 hash=hash_file(p), cut=True)
                     new_chosen.append(piece)
             else:
                 culled.append(c["hash"])
@@ -482,7 +482,7 @@ def _scan_source(name, gd, pool, audit):
             offrate += 1
             continue
         rel = f.as_posix().split("/sounds/", 1)[-1]
-        pool[cat].append({"abs": str(f), "stem": rel[:-4], "pool": name,
+        pool[cat].append({"abs": str(f), "source_path": rel[:-4], "pool": name,
                           "bitrate": info.get("bit_rate", 0), "channels": info.get("channels", 0),
                           "dur": info.get("duration") or 0.0})
         audit[cat][name + ":" + str(Path(rel).parent)] += 1
@@ -509,11 +509,11 @@ def cmd_plan(_):
     for cat in CATEGORIES:
         files = pool.get(cat, [])
         tot_in += len(files)
-        chosen = dedup_pick(files) if files else []
+        chosen = dedupe(files) if files else []
         kept_hashes |= {c["hash"] for c in chosen}
         tot_kept += len(chosen)
         merged[cat] = {
-            "chosen": [{"abs": c["abs"], "stem": c["stem"], "pool": c["pool"], "hash": c["hash"],
+            "chosen": [{"abs": c["abs"], "source_path": c["source_path"], "pool": c["pool"], "hash": c["hash"],
                         "bitrate": c["bitrate"], "channels": c["channels"], "dur": c.get("dur", 0.0)}
                        for c in chosen],
         }
@@ -522,9 +522,9 @@ def cmd_plan(_):
     pool_hashes = {f["hash"] for fs in pool.values() for f in fs if "hash" in f}
     (HERE / "intra_dups.json").write_text(json.dumps(sorted(pool_hashes - kept_hashes)), encoding="utf-8")
     # No target-modpack dedup. Doubling with the base is handled at config load by the static DLTX veto.
-    _silence_gate(merged)
-    _cross_channel_dedup(merged)
-    _long_file_pass(merged)                    # cull active > 20s; slice dark_signal into desilenced pieces
+    _drop_silent(merged)
+    _dedupe_across_channels(merged)
+    _cull_long_files(merged)                    # cull active > 20s; slice dark_signal into desilenced pieces
     (HERE / "merged_channels.json").write_text(json.dumps(merged, indent=1), encoding="utf-8")
 
     # folder audit: per category, the source folders it pulled, so a wrong/generic folder shows.
@@ -592,7 +592,7 @@ def _clean(d):
 # ----------------------------------------------------------------------------
 
 
-def _iter_chosen(mc):
+def _iterate_chosen(mc):
     """Every chosen sound across all channels, in the canonical order
     (sorted channel name, then the channel's chosen order). This order defines
     classification.json and, downstream, the deployed N numbering."""
@@ -630,14 +630,14 @@ def _classify_one(chan, c):
     flat = round(sum(flats) / len(flats), 3) if flats else 0.0
     bright = "dark" if cen < 2000 else ("mid" if cen < 4000 else "bright")
     tone = "tonal" if flat < 0.15 else ("mixed" if flat < 0.40 else "noisy")
-    return {"ch": chan, "stem": c["stem"], "dur": dur, "cen": cen, "flat": flat,
+    return {"ch": chan, "source_path": c["source_path"], "dur": dur, "cen": cen, "flat": flat,
             "crest": round(crest, 1), "bright": bright, "tone": tone}
 
 
 def cmd_classify(a):
     mc = json.loads((HERE / "merged_channels.json").read_text())
-    items = list(_iter_chosen(mc))
-    out = sp.pmap(lambda t: _classify_one(*t), items, sp.DEF_JOBS)
+    items = list(_iterate_chosen(mc))
+    out = sp.pmap(lambda item: _classify_one(*item), items, sp.DEF_JOBS)
     dst = Path(a.out) if a.out else (HERE / "classification.json")
     dst.write_text(json.dumps(out, indent=1), encoding="utf-8")
     print(f"classified {len(out)} sounds (all one-shot effects) -> {dst.name}")
@@ -645,7 +645,7 @@ def cmd_classify(a):
 
 # --- loudness (per-group median leveling, outliers only) ---------------------
 
-def _lufs_one(abs_):
+def _measure_lufs(abs_):
     r = sp.run([sp.tool("ffmpeg"), "-i", abs_, "-af", "ebur128", "-f", "null", "-"])
     val = None
     for ln in r.stderr.splitlines():
@@ -664,12 +664,12 @@ def _median(xs):
 
 def cmd_loudness(a):
     mc = json.loads((HERE / "merged_channels.json").read_text())
-    items = list(_iter_chosen(mc))
-    lufs = sp.pmap(lambda t: (t[0], t[1]["stem"], _lufs_one(t[1]["abs"])), items, sp.DEF_JOBS)
+    items = list(_iterate_chosen(mc))
+    lufs = sp.pmap(lambda item: (item[0], item[1]["source_path"], _measure_lufs(item[1]["abs"])), items, sp.DEF_JOBS)
     by_ch = collections.defaultdict(list)
-    for ch, stem, L in lufs:
+    for ch, source_path, L in lufs:
         if L is not None:
-            by_ch[ch].append((stem, L))
+            by_ch[ch].append((source_path, L))
     outliers = []
     for ch, rows in by_ch.items():
         vals = sorted(L for _, L in rows)
@@ -677,9 +677,9 @@ def cmd_loudness(a):
         q1 = _median(vals[:len(vals) // 2])
         q3 = _median(vals[(len(vals) + 1) // 2:])
         band = max(6.0, 1.5 * (q3 - q1))
-        for stem, L in rows:
+        for source_path, L in rows:
             if abs(L - med) > band:
-                outliers.append({"ch": ch, "stem": stem, "gain_db": round(med - L, 1)})
+                outliers.append({"ch": ch, "source_path": source_path, "gain_db": round(med - L, 1)})
     dst = Path(a.out) if a.out else (HERE / "loudness_outliers.json")
     dst.write_text(json.dumps(outliers, indent=1), encoding="utf-8")
     print(f"loudness: {len(outliers)} outliers ({100*len(outliers)//max(1,len(lufs))}%) to gain -> {dst.name}")
@@ -689,21 +689,21 @@ def cmd_loudness(a):
 
 def _build_layers(mc, cls, ch_to_group):
     """Group every chosen sound into its director CATEGORY (the shipped directory), deterministically.
-    classification.json is produced by classifying _iter_chosen(mc) in order, so cls[i] IS the
-    classification of the i-th chosen entry - align POSITIONALLY, not by (ch,stem). Two chosen
-    entries can share a stem (distinct sounds a pack shipped under one filename that PCM proved
-    different); a (ch,stem) lookup collapsed them. Positional alignment ships each exactly once."""
-    chosen_seq = list(_iter_chosen(mc))
+    classification.json is produced by classifying _iterate_chosen(mc) in order, so cls[i] IS the
+    classification of the i-th chosen entry - align POSITIONALLY, not by (ch,source_path). Two chosen
+    entries can share a source path (distinct sounds a pack shipped under one filename that PCM proved
+    different); a (ch,source_path) lookup collapsed them. Positional alignment ships each exactly once."""
+    chosen_seq = list(_iterate_chosen(mc))
     assert len(cls) == len(chosen_seq), (
         f"classification.json ({len(cls)}) out of sync with merged_channels.json "
         f"({len(chosen_seq)}); rerun classify after plan")
     effects = {cat: [] for cat in set(ch_to_group.values())}
     for idx, (r, (ch, c)) in enumerate(zip(cls, chosen_seq)):
-        assert r["ch"] == ch and r["stem"] == c["stem"], (
+        assert r["ch"] == ch and r["source_path"] == c["source_path"], (
             f"classification out of sync with merged_channels at row {idx}; rerun classify")
         if ch in ch_to_group:
             effects[ch_to_group[ch]].append(
-                {"ch": ch, "stem": c["stem"], "abs": c["abs"], "pool": c["pool"],
+                {"ch": ch, "source_path": c["source_path"], "abs": c["abs"], "pool": c["pool"],
                  "dur": r["dur"], "idx": idx})
     return effects
 
@@ -727,7 +727,7 @@ def _emit_audio(entry, dst):
 # base_volume 1.0. ffmpeg CANNOT write it (it emits text tags), so we rewrite the comment
 # header page directly - lossless: only page 1 changes, the audio pages are byte-identical.
 
-def _crc_ogg(data):
+def _compute_ogg_crc(data):
     crc = 0
     for b in data:
         crc ^= b << 24
@@ -736,7 +736,7 @@ def _crc_ogg(data):
     return crc
 
 
-def _ogg_pages(d):
+def _read_ogg_pages(d):
     off, out = 0, []
     while off < len(d) and d[off:off + 4] == b"OggS":
         nseg = d[off + 26]
@@ -747,7 +747,7 @@ def _ogg_pages(d):
     return out, off
 
 
-def _ogg_packets(segs, body):
+def _read_ogg_packets(segs, body):
     pkts, cur, start = [], 0, 0
     for s in segs:
         cur += s
@@ -780,17 +780,17 @@ def _read_blob(d):
 
 def _build_ogg_page(htype, granule, serial, seq, packets):
     segtab, body = [], b""
-    for pk in packets:
-        n = len(pk)
-        while n >= 255:
-            segtab.append(255); n -= 255
-        segtab.append(n); body += pk
+    for packet in packets:
+        seg_len = len(packet)
+        while seg_len >= 255:
+            segtab.append(255); seg_len -= 255
+        segtab.append(seg_len); body += packet
     if len(segtab) > 255:
         return None
     page = (b"OggS" + bytes([0, htype]) + struct.pack("<q", granule) +
             struct.pack("<I", serial) + struct.pack("<I", seq) +
             struct.pack("<I", 0) + bytes([len(segtab)]) + bytes(segtab) + body)
-    return page[:22] + struct.pack("<I", _crc_ogg(page)) + page[26:]
+    return page[:22] + struct.pack("<I", _compute_ogg_crc(page)) + page[26:]
 
 
 def _write_blob(path, mn, mx, bv):
@@ -798,10 +798,10 @@ def _write_blob(path, mn, mx, bv):
     [ID | comment+setup | audio...] layout is handled; anything else is left unchanged
     (returns False). Audio pages are byte-identical after the write."""
     d = path.read_bytes()
-    pg, end = _ogg_pages(d)
+    pg, end = _read_ogg_pages(d)
     if end != len(d) or len(pg) < 3:
         return False
-    pkts = _ogg_packets(pg[1][1], pg[1][2])
+    pkts = _read_ogg_packets(pg[1][1], pg[1][2])
     if len(pkts) != 2 or not pkts[0].startswith(b"\x03vorbis") or not pkts[1].startswith(b"\x05vorbis"):
         return False
     comment_pkt, setup_pkt = pkts
@@ -823,17 +823,17 @@ def _write_blob(path, mn, mx, bv):
     return True
 
 
-def _audio_hash(path):
+def _hash_audio(path):
     """md5 of the audio pages (everything after the ID + comment/setup header pages), so a
     comment-blob rewrite still verifies as the same audio as its verbatim source."""
-    pg, _ = _ogg_pages(path.read_bytes())
+    pg, _ = _read_ogg_pages(path.read_bytes())
     return hashlib.md5(b"".join(p[2] for p in pg[2:])).hexdigest()
 
 
-def _safe_audio_hash(path):
-    """_audio_hash, or None on a malformed/unreadable ogg (never abort the scan for one bad file)."""
+def _try_hash_audio(path):
+    """_hash_audio, or None on a malformed/unreadable ogg (never abort the scan for one bad file)."""
     try:
-        return _audio_hash(path)
+        return _hash_audio(path)
     except Exception:
         return None
 
@@ -844,14 +844,14 @@ def _slug(name):
     return s or "sound"
 
 
-def _deployed_stem(entry):
+def _deployed_name(entry):
     """The n124 deployed name (no extension): <source-name slug>_<audio hash>. Deterministic - depends
     only on the entry's own filename and audio, so every stage recomputes the same name with no shared
     counter, and the blob-agnostic audio hash means writing the ogg blob never changes it. The hash
     disambiguates two distinct sounds a pack shipped under one filename; identical audio collapses to one
     file. Replaces the positional N that re-indexed the whole tree whenever content was added or removed."""
-    base = _slug(Path(entry["stem"]).name)
-    h = (_safe_audio_hash(Path(entry["abs"])) or file_hash(entry["abs"]))[:10]
+    base = _slug(Path(entry["source_path"]).name)
+    h = (_try_hash_audio(Path(entry["abs"])) or hash_file(entry["abs"]))[:10]
     return f"{base}_{h}"
 
 
@@ -865,7 +865,7 @@ VETO_CONFIG_ROOTS = [
 ]
 
 
-def _sc_channel_sounds(sc_path):
+def _read_channel_sounds(sc_path):
     """channel(lower) -> list of raw `sounds` entries (trimmed, ORIGINAL case/backslashes) in a
     sound_channels.ltx. The raw string is kept verbatim so a DLTX `<sounds = X` removal matches the base
     list item exactly (the engine removes by exact string, Xr_ini.cpp:1259-1263)."""
@@ -877,14 +877,14 @@ def _sc_channel_sounds(sc_path):
             cur = m.group(1).strip().lower()
             ch.setdefault(cur, [])
         elif cur is not None and re.match(r"\s*sounds\s*=", code):
-            for t in code.split("=", 1)[1].split(","):
-                t = t.strip()
-                if t and "no_sound" not in t.lower():
-                    ch[cur].append(t)
+            for token in code.split("=", 1)[1].split(","):
+                token = token.strip()
+                if token and "no_sound" not in token.lower():
+                    ch[cur].append(token)
     return ch
 
 
-def _veto_dltx(effects):
+def _build_veto_overlay(effects):
     """Build the static DLTX overlay that removes our own sounds from the base ambient channels, so the
     base never doubles the director's copy. For every channel across every scanned pack that lists a
     sound whose AUDIO is one of ours (audio-page hash, blob-agnostic), emit `![channel]` +
@@ -899,7 +899,7 @@ def _veto_dltx(effects):
     want = set()
     for entries in effects.values():
         for e in entries:
-            h = _safe_audio_hash(Path(e["abs"]))
+            h = _try_hash_audio(Path(e["abs"]))
             if h:
                 want.add(h)
     hcache = {}
@@ -907,7 +907,7 @@ def _veto_dltx(effects):
     def ah(f):
         k = str(f)
         if k not in hcache:
-            hcache[k] = _safe_audio_hash(f)
+            hcache[k] = _try_hash_audio(f)
         return hcache[k]
 
     removals = {}       # channel(lower) -> set of raw sound strings to remove
@@ -928,7 +928,7 @@ def _veto_dltx(effects):
                 pack = rel[0] if rel and rel[0] not in ("configs", "gamedata") else rootp.name
                 parts = sc.parts
                 snd_root = Path(*parts[:parts.index("configs")]) / "sounds"   # gamedata root = parent of configs
-                for chan, entries in _sc_channel_sounds(sc).items():
+                for chan, entries in _read_channel_sounds(sc).items():
                     for raw in entries:
                         f = snd_root / (raw.replace("\\", "/") + ".ogg")
                         if f.is_file() and ah(f) in want:
@@ -955,7 +955,7 @@ def _veto_dltx(effects):
     return "\n".join(out), sum(len(v) for v in removals.values()), len(removals)
 
 
-def _level_bv(rms_db, peak_db, target_rms_db):
+def _level_base_volume(rms_db, peak_db, target_rms_db):
     """base_volume (linear) that moves a file's AVERAGE loudness (rms_db) onto target_rms_db - the corpus
     median - so every sound sits at the same felt level. The gain is capped so the true peak never rises
     above TARGET_PEAK_DB (no clipping): a file too spiky to reach the median without clipping is left
@@ -974,11 +974,11 @@ def _normalize_blobs(effects, snd):
     loudness (RMS) to the CORPUS MEDIAN - one global target for every file, so loud sounds come down and quiet
     ones come up to the same felt level. The gain is peak-capped so nothing clips; a file too spiky to reach
     the median is left peak-normalized and counted as capped. Lossless bitstream rewrite, no re-encode.
-    peak+rms come from _loudness_cull (astats Overall)."""
+    peak+rms come from _cull_quiet (astats Overall)."""
     target = _median(sorted(e["rms"] for cat in effects for e in effects[cat]))
     wrote = skipped = capped = 0
     for cat in sorted(effects):
-        names = [_deployed_stem(e) for e in effects[cat]]
+        names = [_deployed_name(e) for e in effects[cat]]
         blobs = [_read_blob((snd / cat / f"{n}.ogg").read_bytes()) for n in names]
         carried = [b for b in blobs if b]
         cmin = _median(sorted(c[0] for c in carried)) if carried else 1.0
@@ -995,7 +995,7 @@ def _normalize_blobs(effects, snd):
                 mn = 0.0
             if mx < mn + 1.0:
                 mx = mn + 1.0
-            bv, is_capped = _level_bv(e["rms"], e["peak"], target)
+            bv, is_capped = _level_base_volume(e["rms"], e["peak"], target)
             capped += is_capped
             if _write_blob(snd / cat / f"{n}.ogg", mn, mx, bv):
                 wrote += 1
@@ -1010,7 +1010,7 @@ def _normalize_blobs(effects, snd):
 # by (mood, exact-settings-tuple): one deployed channel as_eff_<mood>_<n> per distinct tuple,
 # so a source channel's period/distance/indoor/height survive exactly (provenance-faithful).
 # The mood is only a tag for the MCM knobs; as_director reads it off the <mood> in the name.
-def _chan_settings(lines):
+def _parse_channel_settings(lines):
     d = {}
     for ln in lines or []:
         m = re.match(r"\s*(\w+)\s*=\s*([\d.]+|true|false)", ln)
@@ -1032,15 +1032,15 @@ def _chan_settings(lines):
 # no channel->category mapping. The shipped directory is zs\<category>.
 
 
-def effect_group_map():
+def build_effect_group_map():
     """category -> category identity, for every category that captured content. The deploy groups a
     sound into the directory named by its category (structural capture already assigned it)."""
     mc = json.loads((HERE / "merged_channels.json").read_text())
     return {cat: cat for cat in sorted(mc) if mc[cat]["chosen"]}
 
 
-def _source_height_map():
-    """source-stem -> the height its source channel placed it at, AGGREGATED across every pack: if the same
+def _build_source_height_map():
+    """source path -> the height its source channel placed it at, AGGREGATED across every pack: if the same
     sound appears in several packs (or several channels) and some carry a height while others are 0, the
     highest non-zero wins. The structural folder-capture dropped height (a channel attribute, capture routes
     by folder), but the source configs still carry it - so a shipped sound keeps the ORIGINAL elevation its
@@ -1058,8 +1058,8 @@ def _source_height_map():
             if not h:                                  # no height line, or height 0 - nothing to recover
                 continue
             h = int(h) if float(h).is_integer() else round(h, 2)
-            for stem in cd["stems"]:                   # stems are already ext-less, forward-slash (parse_channels)
-                hmap[stem] = h if stem not in hmap else max(hmap[stem], h)
+            for source_path in cd["sound_paths"]:            # sound paths are already ext-less, forward-slash (parse_channels)
+                hmap[source_path] = h if source_path not in hmap else max(hmap[source_path], h)
     return hmap
 
 
@@ -1069,9 +1069,9 @@ def cmd_deploy(a):
     snd = root / "sounds/zs"
     mc = json.loads((HERE / "merged_channels.json").read_text())
     cls = json.loads((HERE / "classification.json").read_text())
-    ch_to_cat = effect_group_map()                 # source channel -> category
+    ch_to_cat = build_effect_group_map()                 # source channel -> category
     effects = _build_layers(mc, cls, ch_to_cat)    # category -> [entries]
-    _loudness_cull(effects)                        # measure peak, drop near-silent, store peak per file
+    _cull_quiet(effects)                        # measure peak, drop near-silent, store peak per file
 
     _clean(snd); _clean(env / "ambients")
     for stale in ("mod_sound_channels_alifespooks.ltx", "as_channel_layers.ltx"):
@@ -1081,14 +1081,14 @@ def cmd_deploy(a):
     # sound_channels.ltx for our content - the director reads as_manifest, not channels.
     for cat in sorted(effects):
         for e in effects[cat]:
-            _emit_audio(e, snd / cat / f"{_deployed_stem(e)}.ogg")
+            _emit_audio(e, snd / cat / f"{_deployed_name(e)}.ogg")
 
     _normalize_blobs(effects, snd)    # peak-normalize base_volume + write the attenuation blob per file
 
     # as_manifest: category -> its sounds, each { path, min_distance, max_distance, height }. The director
     # reads THIS instead of sound_channels.ltx. min/max come from the DEPLOYED ogg blob (n108), so the
     # director's positioning and the engine's attenuation use one curve. height is the sound's ORIGINAL
-    # source-channel height, aggregated across every pack by _source_height_map (highest non-zero wins, so a
+    # source-channel height, aggregated across every pack by _build_source_height_map (highest non-zero wins, so a
     # pack that flattened height to 0 never beats one that kept it); 0 only when no pack wired it. Anomaly Lua cannot list a
     # directory at runtime, so the sound list ships as data. Paths only - no play rules (env/requires/gates
     # live in as_director, not the manifest).
@@ -1109,14 +1109,14 @@ def cmd_deploy(a):
             out.append(indent + cur + ",")
         return out
 
-    hmap = _source_height_map()                        # recover each sound's ORIGINAL source-channel height
+    hmap = _build_source_height_map()                        # recover each sound's ORIGINAL source-channel height
     for cat in sorted(effects):
         cells = []
         for e in effects[cat]:
-            n = _deployed_stem(e)
+            n = _deployed_name(e)
             b = _read_blob((snd / cat / f"{n}.ogg").read_bytes())
             mn, mx = (round(b[0], 1), round(b[1], 1)) if b else (1, 300)
-            h = hmap.get(e["stem"], 0)                 # aggregated source height (any pack), else 0
+            h = hmap.get(e["source_path"], 0)                 # aggregated source height (any pack), else 0
             cells.append('{ "zs\\\\%s\\\\%s", %s, %s, %s }' % (cat, n, mn, mx, h))
         man.append('\t["%s"] = {' % cat)
         man += _pack(cells, "\t\t")
@@ -1128,7 +1128,7 @@ def cmd_deploy(a):
     # Static DLTX veto overlay: remove our own sounds from the base ambient channels so the base never
     # doubles the director. Per-file removals across every scanned pack, matched by audio identity; bed
     # channels kept non-empty. Deterministic at config load - no runtime clone owns the muting.
-    dltx, n_rm, n_ch = _veto_dltx(effects)
+    dltx, n_rm, n_ch = _build_veto_overlay(effects)
     env = root / "configs" / "environment"
     env.mkdir(parents=True, exist_ok=True)
     (env / "mod_sound_channels_alifespooks.ltx").write_text(dltx, encoding="utf-8")
@@ -1152,13 +1152,13 @@ INCLUDE_ROOTS = ["ambient", "ambience_exp", "nature", "anomaly"]
 
 def cmd_ledger(a):
     mc = json.loads((HERE / "merged_channels.json").read_text())
-    chosen = {}                                        # source hash -> (ch, stem)
-    for ch, c in _iter_chosen(mc):
-        chosen[file_hash(c["abs"])] = (ch, c["stem"])
+    chosen = {}                                        # source hash -> (ch, source_path)
+    for ch, c in _iterate_chosen(mc):
+        chosen[hash_file(c["abs"])] = (ch, c["source_path"])
     deployed = set()                                   # AUDIO hashes actually shipped - n108
     zs = GDATA / "sounds/zs"                            # rewrites comment headers, so a shipped
     for f in zs.rglob("*.ogg"):                         # file's BYTES differ from source while its
-        deployed.add(_audio_hash(f))                    # audio does not; match blob-agnostic.
+        deployed.add(_hash_audio(f))                    # audio does not; match blob-agnostic.
     ip = HERE / "intra_dups.json"                       # our own re-encodes the PCM dedup dropped
     intra_dropped = set(json.loads(ip.read_text())) if ip.exists() else set()
     def _load_set(fn):
@@ -1177,12 +1177,12 @@ def cmd_ledger(a):
         for f in sorted(sroot.rglob("*.ogg")):
             rel = f.as_posix().split("/sounds/")[-1]
             low = rel.lower()
-            h = file_hash(f)
+            h = hash_file(f)
             dark = any(k in low for k in DARK_KW)
             emission = any(k in low for k in EMISSION_KW)
             excluded = any(x in low for x in EXCLUDE)   # intentionally out-of-scope trees (ambience_exp, ...)
             under_root = low.split("/", 1)[0] in INCLUDE_ROOTS
-            if _audio_hash(f) in deployed:
+            if _hash_audio(f) in deployed:
                 st = "USED-shipped"
             elif h in chosen:                           # a chosen sound whose audio isn't in the tree
                 st = "USED-effect-unshipped"
@@ -1216,15 +1216,15 @@ def cmd_ledger(a):
     # our chosen set so UNUSED-DARK counts only TRUE misses (a net-new dark sound left uncaptured).
     chosen_fp = sp.pmap(lambda a: (sp.fingerprint(a, FP_LEN),
                                    round(float((sp.probe(a) or {}).get("duration") or 0))),
-                        [c["abs"] for _ch, c in _iter_chosen(mc)], sp.DEF_JOBS)
+                        [c["abs"] for _ch, c in _iterate_chosen(mc)], sp.DEF_JOBS)
     chosen_by_dur = collections.defaultdict(list)
     for fp, dur in chosen_fp:
         if fp:
             chosen_by_dur[dur].append(fp)
 
-    def _fp(t):
-        _n, _r, f = t
-        return (sp.fingerprint(str(f), FP_LEN), round(float((sp.probe(str(f)) or {}).get("duration") or 0)))
+    def _fp(item):
+        _name, _rel, path = item
+        return (sp.fingerprint(str(path), FP_LEN), round(float((sp.probe(str(path)) or {}).get("duration") or 0)))
     for (name, rel, _f), (fp, dur) in zip(pending, sp.pmap(_fp, pending, sp.DEF_JOBS)):
         st = "UNUSED-DARK"
         if fp:
@@ -1250,7 +1250,7 @@ def _parse_settings(lines):
     return out
 
 
-def _channel_sections():
+def _map_channel_sections():
     """source channel -> sorted list of 'pack:presetfile:section' it played in."""
     out = collections.defaultdict(set)
     for name, gd in MODS:
@@ -1264,33 +1264,33 @@ def _channel_sections():
 def cmd_provenance(a):
     mc = json.loads((HERE / "merged_channels.json").read_text())
     cls = json.loads((HERE / "classification.json").read_text())
-    ch_to_cat = effect_group_map()
+    ch_to_cat = build_effect_group_map()
     effects = _build_layers(mc, cls, ch_to_cat)
-    _loudness_cull(effects)              # SAME drop deploy applies, so the N-numbering matches the tree
+    _cull_quiet(effects)              # SAME drop deploy applies, so the N-numbering matches the tree
     zs = (Path(a.root) if getattr(a, "root", None) else GDATA) / "sounds/zs"   # honor --root like deploy
 
-    # Structural capture: a sound's origin is its SOURCE PATH (orig_dir/orig_file from the stem) + the
+    # Structural capture: a sound's origin is its SOURCE PATH (orig_dir/orig_file from the source path) + the
     # pack it came from. No channel/settings/sections columns - categories are not channels. min/max/
     # base_volume live in the deployed ogg blob. The audio self-verify is the preservation proof.
     cols = ["deployed", "category", "orig_mod", "orig_dir", "orig_file", "base_volume"]
     rows, verify_ok, verify_bad = [], 0, 0
     for cat in sorted(effects):                       # every sound deploys to zs\<category>\<name>
         for e in effects[cat]:
-            n = _deployed_stem(e)
+            n = _deployed_name(e)
             dep = f"zs\\{cat}\\{n}"
-            stem = e["stem"]
+            source_path = e["source_path"]
             dfile = zs / cat / f"{n}.ogg"
             bv = ""
             if dfile.exists():
                 b = _read_blob(dfile.read_bytes())
                 if b:
                     bv = round(b[2], 3)
-                if _audio_hash(dfile) == _audio_hash(Path(e["abs"])):
+                if _hash_audio(dfile) == _hash_audio(Path(e["abs"])):
                     verify_ok += 1
                 else:
                     verify_bad += 1
-            rows.append([dep, cat, e["pool"], str(Path(stem).parent).replace("\\", "/"),
-                         Path(stem).name, str(bv)])
+            rows.append([dep, cat, e["pool"], str(Path(source_path).parent).replace("\\", "/"),
+                         Path(source_path).name, str(bv)])
     lines = ["\t".join(cols)] + ["\t".join(str(x) for x in r) for r in rows]
     (HERE / "provenance.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"provenance: {len(rows)} shipped sounds -> provenance.tsv")
@@ -1302,7 +1302,7 @@ def cmd_provenance(a):
 def _drop_frozen_reencodes(new_merged):
     """Drop any net-new sound that is a re-encode / near-clone of an already-PUBLISHED sound - a different
     audio hash (so the exact-hash check missed it) but fp + PCM xcorr confirm the same recording. This is
-    dedup_pick's stages 2-3 run against the frozen corpus instead of within the pool. Bounded: only each
+    dedupe's stages 2-3 run against the frozen corpus instead of within the pool. Bounded: only each
     category's DEPLOYED files whose duration is within 1s of a candidate are fingerprinted, so a rare add
     stays cheap. Frozen always wins - a match drops the NEW file, the published one is never touched."""
     total = 0
@@ -1311,7 +1311,7 @@ def _drop_frozen_reencodes(new_merged):
         fdir = SND / cat
         if not cands or not fdir.is_dir():
             continue
-        frozen = sorted(str(p) for p in fdir.glob("*.ogg"))
+        frozen = sorted(str(path) for path in fdir.glob("*.ogg"))
         if not frozen:
             continue
         _dur = lambda a: round(float((sp.probe(a) or {}).get("duration") or 0))
@@ -1368,25 +1368,25 @@ def cmd_add(a):
     # Computed once in parallel. An empty record (fresh install) gives an empty frozen set, so `add` over
     # nothing is a from-scratch build.
     existing = [c["abs"] for cat0 in mc for c in mc[cat0]["chosen"]]
-    frozen = set(sp.pmap(lambda p: _safe_audio_hash(Path(p)), existing, sp.DEF_JOBS)) - {None}
+    frozen = set(sp.pmap(lambda path: _try_hash_audio(Path(path)), existing, sp.DEF_JOBS)) - {None}
     pool = collections.defaultdict(list)
     audit = collections.defaultdict(collections.Counter)
     offrate, out_scope = _scan_source(name, gd, pool, audit)
     new_merged, n_dup = {}, 0
     for cat, files in pool.items():
         keep = []
-        for c in dedup_pick(files):
-            ah = _safe_audio_hash(Path(c["abs"])) or file_hash(c["abs"])
+        for c in dedupe(files):
+            ah = _try_hash_audio(Path(c["abs"])) or hash_file(c["abs"])
             if ah in frozen:                                   # already in the corpus of record - never re-add
                 n_dup += 1
                 continue
-            keep.append({"abs": c["abs"], "stem": c["stem"], "pool": c["pool"], "hash": c["hash"],
+            keep.append({"abs": c["abs"], "source_path": c["source_path"], "pool": c["pool"], "hash": c["hash"],
                          "bitrate": c["bitrate"], "channels": c["channels"], "dur": c.get("dur", 0.0)})
         if keep:
             new_merged[cat] = {"chosen": keep}
-    _silence_gate(new_merged)                                  # the same net-new gates the full plan applies
-    _cross_channel_dedup(new_merged)
-    _long_file_pass(new_merged)
+    _drop_silent(new_merged)                                  # the same net-new gates the full plan applies
+    _dedupe_across_channels(new_merged)
+    _cull_long_files(new_merged)
     _drop_frozen_reencodes(new_merged)                         # drop re-encodes/near-clones of published sounds
     n_new = 0
     for cat, d in new_merged.items():

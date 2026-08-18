@@ -53,17 +53,17 @@ provenance  every shipped sound -> its origin         -> provenance.tsv
   content than they wire into a channel, so the folder trees are the source of truth, not any config
   list. Gate on sample rate, drop dead-silent files, deduplicate by waveform, then the long-file pass:
   a sound whose ACTIVE (silence-removed) length exceeds the max emission tick is culled, except
-  `dark_signal`, which is sliced into short desilenced pieces (`_long_file_pass`). Output
+  `dark_signal`, which is sliced into short desilenced pieces (`_cull_long_files`). Output
   `merged_channels.json` (the curated corpus) and `folder_audit.tsv` (which folders each category pulled).
 - classify (`cmd_classify`): one ffmpeg pass per sound for duration, spectral centroid and flatness,
   and crest. There is no loop-versus-effect decision. Everything is a one-shot.
 - loudness (`cmd_loudness`): measure integrated loudness per sound and flag per-group outliers.
 - deploy (`cmd_deploy`): measure each source's peak and average loudness and CULL the near-silent
-  (`_loudness_cull`), copy the survivors byte for byte to `zs/<category>/<n>.ogg`, write each file's blob
+  (`_cull_quiet`), copy the survivors byte for byte to `zs/<category>/<n>.ogg`, write each file's blob
   with source attenuation plus a base_volume that levels the sound to the corpus-median loudness
   (`_normalize_blobs`), write the sound manifest the director
   reads (`as_manifest.script`), and generate the base-veto DLTX overlay that removes our sounds from the
-  base ambient channels (`_veto_dltx` -> `mod_sound_channels_alifespooks.ltx`).
+  base ambient channels (`_build_veto_overlay` -> `mod_sound_channels_alifespooks.ltx`).
 - ledger (`cmd_ledger`) and provenance (`cmd_provenance`): the proofs, below.
 
 ### Selection is manual, pulling is mechanical
@@ -86,21 +86,21 @@ quietly `continue`ing past a source with no `sounds/` (the defect that hid Ampli
 
 ### Identity and build modes (identity + additive `add` + source registry all implemented)
 
-`cmd_deploy` names each file by content, not position - `_deployed_stem` = `<origname>_<audiohash>`.
+`cmd_deploy` names each file by content, not position - `_deployed_name` = `<origname>_<audiohash>`.
 The old positional `zs/<category>/<N>.ogg` (`N` = enumerate order) was a collision workaround (many
 packs ship the same filename), but it RE-INDEXED every file whenever content was added or removed, so a
 build could only run from scratch. The content name fixes that. IMPLEMENTED today:
 
-- Name = original name + audio hash: `zs/<category>/<origname>_<hash>.ogg`, `hash` = `_audio_hash`
+- Name = original name + audio hash: `zs/<category>/<origname>_<hash>.ogg`, `hash` = `_hash_audio`
   (md5 of the audio pages only, blob-agnostic) in short form. Readable (keeps the source name), unique
   (the hash disambiguates two files that share a name), stable (identical audio always maps to the same
   name; adding content never renames an existing file).
 - Origin (mod, folder, original path) stays in `provenance.tsv` keyed by the name, never baked into the
   filename - the path is long and shifts if a source reorganizes, while the audio does not.
-- Exact-dedup key: the full build's stage-1 keys on `file_hash` (whole-file md5), and audio-identical
+- Exact-dedup key: the full build's stage-1 keys on `hash_file` (whole-file md5), and audio-identical
   copies that differ only in their blob collapse at the fp/xcorr stage; `add` matches a new sound against
-  the published set by the `_audio_hash` tail carried in each deployed name. Tightening the full build's
-  stage-1 to `_audio_hash` (so name-uniqueness holds before the fuzzy stage too) is a pending robustness
+  the published set by the `_hash_audio` tail carried in each deployed name. Tightening the full build's
+  stage-1 to `_hash_audio` (so name-uniqueness holds before the fuzzy stage too) is a pending robustness
   step (n124).
 - Re-encode / near-clone detection = Chromaprint fp + PCM xcorr, COMPUTED ON DEMAND from the `.ogg`
   files during a build, never persisted. A fingerprint is derived data, not identity; only the exact
@@ -127,7 +127,7 @@ build could only run from scratch. The content name fixes that. IMPLEMENTED toda
 ## Deduplication: waveform identity, source side only
 
 Identity is decided by the waveform, never the filename or the bytes. Three stages, cheapest first,
-so the expensive test runs only on the pairs the cheap ones flag (`dedup_pick`, `pcm_correlation`).
+so the expensive test runs only on the pairs the cheap ones flag (`dedupe`, `pcm_correlation`).
 
 - md5: byte-identical reships across packs collapse to one.
 - Chromaprint fingerprint (`fpcalc`, >= 0.88): stable across bitrate and codec, so it finds the
@@ -150,7 +150,7 @@ header-page rewrite (`_write_blob`); the audio pages stay byte-identical.
 
 - **Attenuation** (min/max distance) is the source's. A file that carried a source blob keeps its
   min/max; a blob-less file gets the median min/max of its category-folder peers.
-- **Loudness is leveled via base_volume** (`_normalize_blobs`, `_level_bv`). base_volume is a linear
+- **Loudness is leveled via base_volume** (`_normalize_blobs`, `_level_base_volume`). base_volume is a linear
   multiplier the engine applies on every play (see `sound-source-and-emitter.md`). Every file's
   base_volume is set so its AVERAGE loudness (astats Overall RMS) lands on the CORPUS MEDIAN - one global
   target for every sound, so loud sources come down and quiet ones come up to the same felt level, without
@@ -159,9 +159,9 @@ header-page rewrite (`_write_blob`); the audio pages stay byte-identical.
   so a down-leveled sound is never pushed under the engine cull. Equal peaks do not sound equally loud (the
   earlier peak-match, n107/n108, left dense sources blaring and spiky ones deaf); equal RMS does. n014's
   ffmpeg re-encode was destroying the blob; the blob-number edit does not.
-- **Loudness cull** (`_loudness_cull`, `CULL_PEAK_DB`): a file whose measured peak is below -30 dB
+- **Loudness cull** (`_cull_quiet`, `CULL_PEAK_DB`): a file whose measured peak is below -30 dB
   cannot reach target without absurd gain (that is amplified noise, not a quiet sound), so it is DROPPED,
-  not shipped. The older `_silence_gate` (drops only true -inf) still runs first. No near-silent file
+  not shipped. The older `_drop_silent` (drops only true -inf) still runs first. No near-silent file
   survives - a distant/faint feel comes from the director's POSITIONING, never from a quiet source file.
 
 The manifest carries each sound's min distance, max distance, and height, inherited from its source
@@ -271,7 +271,7 @@ and above the floor, so at neutral volume settings it does not mute or go inaudi
 can still take any sound under cull); the ceiling keeps a near sound from blaring. Because att is a fraction of each sound's own band, "far" adapts per sound (median band
 2m -> 100m, ratio ~50x, so ~1% are pinned where distance barely moves loudness). Vertically it sits at
 `pos.y + height` - the sound's ORIGINAL source-channel elevation, recovered per sound by merge.py
-`_source_height_map` (aggregated across packs, highest non-zero wins), carried in the manifest as `snd[4]`, so an
+`_build_source_height_map` (aggregated across packs, highest non-zero wins), carried in the manifest as `snd[4]`, so an
 overhead sound (bird, vent, thunder) stays overhead when calm and, by the same `HEIGHT_PULL`, descends toward
 ear level as the place turns.
 
@@ -365,14 +365,14 @@ runs no muting loop at runtime.
 ### Static removal (the muting)
 
 `tools/merge.py deploy` generates a DLTX overlay, `configs/environment/mod_sound_channels_alifespooks.ltx`
-(`_veto_dltx`). For every base ambient channel that lists a sound whose AUDIO is one of ours, it emits
+(`_build_veto_overlay`). For every base ambient channel that lists a sound whose AUDIO is one of ours, it emits
 `![channel]` + `<sounds = <path>` - a per-item DLTX removal (`Xr_ini.cpp:238-240`) that strips exactly
 that sound from the channel's `sounds` list and leaves the channel's other sounds. The composed
 `sound_channels.ltx` the game loads no longer lists our sounds, so vanilla's own `update_ambient` (and
 the engine bed) never plays them. It is deterministic, engine-native, and survives anything at runtime -
 there is no slot to lose.
 
-- Identity is the audio-page hash (`_audio_hash`, blob-agnostic), so a copy that differs only in its
+- Identity is the audio-page hash (`_hash_audio`, blob-agnostic), so a copy that differs only in its
   comment blob still matches. Byte-identical audio only; a re-encode at a different path is out of scope.
 - Per-SOUND by design, never per-channel. A base spook the mod did NOT capture - dropped by dedup or the
   loudness cull, so it was never shipped - stays in its channel and still plays. The veto owns only what

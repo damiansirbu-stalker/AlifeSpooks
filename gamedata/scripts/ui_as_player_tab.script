@@ -20,8 +20,8 @@ local _cur     = nil
 local _built   = false   -- has THIS window's list been filled once? RemoveAll on the empty, not-yet-attached
                          -- list (the first fill, before the PDA renders) CTDs in CUIScrollView::Clear.
 
-local function _cur_cat()   return _cats and _cats[_cat_i] end
-local function _cur_dist()  return DIST_STEPS[_dist_i] end
+local function _current_category()   return _cats and _cats[_cat_i] end
+local function _current_distance()  return DIST_STEPS[_dist_i] end
 
 -- ---- disk enumeration (lazy per category) ---------------------------------
 
@@ -144,7 +144,7 @@ function as_player_tab:FillList()
     if _at_root then
         for i = 1, #(_cats or {}) do self.list:AddTextItem(_cats[i] .. "/") end
     else
-        self:_fill_category(_cur_cat())
+        self:_fill_category(_current_category())
     end
 end
 
@@ -176,7 +176,7 @@ end
 
 --- Left pane: the breadcrumb (path with the files) and the context hint in the status bar.
 function as_player_tab:_refresh_browser()
-    local cat = _cur_cat()
+    local cat = _current_category()
     if _at_root then
         self.lbl_path:SetText(string_format("sounds/    (%d categories)", _cats and #_cats or 0))
         self.status:SetText(string_format("flagged: %d    |    click a category to browse it", _flags))
@@ -195,14 +195,14 @@ end
 
 --- The player screen's position line: the current play mode (value only; the screen names it).
 function as_player_tab:_refresh_params()
-    local dist = _cur_dist()
+    local dist = _current_distance()
     local dtext = (dist == false) and "at-ear (2D)" or (dist == "auto") and "director-exact" or (dist .. "m")
     self.lbl_pos:SetText("position:  " .. dtext)
 end
 
 function as_player_tab:_play_current()
     if not (_cur and xsound) then return end
-    local dist = _cur_dist()
+    local dist = _current_distance()
     if dist == false then
         xsound.play(_cur.path, { volume = 1.0 })
     elseif dist == "auto" then
@@ -233,7 +233,7 @@ function as_player_tab:OnPlay()
         self:FillList(); self:Refresh()
         return
     end
-    local cat = _cur_cat()
+    local cat = _current_category()
     if not cat then return end
     local name = _scan_files(cat)[idx]
     if not name then return end
@@ -270,7 +270,7 @@ end
 --- Transport prev/next: step to the neighbouring sound in the current category and audition it.
 function as_player_tab:_step_sound(delta)
     if _at_root then return end
-    local cat = _cur_cat()
+    local cat = _current_category()
     local files = cat and _scan_files(cat)
     if not (files and #files > 0) then return end
     local i = 1

@@ -29,7 +29,7 @@ local PANEL_H = MAX_ROWS * ROW_H + PAD * 2
 -- refresh so color tracks state, not grid position. Moderate saturation + high luminance to stay legible
 -- over dark, busy scenes; the sound lines use luminance (bright vs dim), so play/stop reads colorblind-safe.
 local _clr
-local function _row_color(style)
+local function _get_row_color(style)
     if not _clr then
         _clr = {
             hdr      = GetARGB(255, 235, 200, 120),
@@ -46,11 +46,11 @@ local function _row_color(style)
     return _clr[style] or _clr.norm
 end
 
-local function _pos_key()
+local function _get_pos_key()
     return (as_mcm and as_mcm.get_config and as_mcm.get_config("hud_position")) or "off"
 end
 
-local function _calc_position(key)
+local function _get_position(key)
     local right = 1024 - PANEL_W - MARGIN
     local bottom = 768 - PANEL_H - MARGIN
     local middle = math_floor((768 - PANEL_H) / 2)
@@ -80,7 +80,7 @@ end
 
 function UISpookHUD:__init() super()
     self:SetAutoDelete(true)
-    local pos = _calc_position(_pos_key())
+    local pos = _get_position(_get_pos_key())
     self:SetWndPos(vector2():set(pos[1], pos[2]))
     self:SetWndSize(vector2():set(PANEL_W, PANEL_H))
     local xml = CScriptXmlInit()
@@ -104,7 +104,7 @@ function UISpookHUD:set_rows(rows)
     if count > MAX_ROWS then count = MAX_ROWS end
     for row = 1, count do
         local row_data = rows[row]
-        local clr = _row_color(row_data[4])
+        local clr = _get_row_color(row_data[4])
         self.c1[row]:SetText(row_data[1] or ""); self.c1[row]:SetTextColor(clr)
         self.c2[row]:SetText(row_data[2] or ""); self.c2[row]:SetTextColor(clr)
         self.c3[row]:SetText(row_data[3] or ""); self.c3[row]:SetTextColor(clr)
@@ -124,12 +124,12 @@ function UISpookHUD:__finalize() end
 local _hud, _shown, _active = nil, false, false
 
 -- DIAGNOSTIC trace: logs to alifespooks.log via as_debug (tag [AS]) when tracing is on. Prefix [HUD].
-local function _tr(fmt, ...)
-    if as_debug and as_debug.on and as_debug.on() then as_debug.dbg("[HUD] " .. fmt, ...) end
+local function _tr(template, ...)
+    if as_debug and as_debug.on and as_debug.on() then as_debug.dbg("[HUD] " .. template, ...) end
 end
 
 local function _wanted()
-    return _pos_key() ~= "off"
+    return _get_pos_key() ~= "off"
 end
 
 local function _hide()
@@ -183,7 +183,7 @@ end
 
 --- Position preset changed or actor (re)spawned: rebuild and (dis)arm to match the current setting.
 local function _apply()
-    _tr("_apply: wanted=%s pos=%s", tostring(_wanted()), tostring(_pos_key()))
+    _tr("_apply: wanted=%s pos=%s", tostring(_wanted()), tostring(_get_pos_key()))
     _drop()
     if _wanted() then _start() else _stop() end
 end

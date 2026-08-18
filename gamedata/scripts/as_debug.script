@@ -32,16 +32,16 @@ function as_debug.on()
 end
 
 --- Log a DEBUG line; noop below DEBUG
-function as_debug.dbg(fmt, ...)
-    if _lvl >= DEBUG_LEVEL then log.debug(fmt, ...) end
+function as_debug.dbg(template, ...)
+    if _lvl >= DEBUG_LEVEL then log.debug(template, ...) end
 end
 
-function as_debug.info(fmt, ...)
-    log.info(fmt, ...)
+function as_debug.info(template, ...)
+    log.info(template, ...)
 end
 
-function as_debug.warn(fmt, ...)
-    log.warn(fmt, ...)
+function as_debug.warn(template, ...)
+    log.warn(template, ...)
 end
 
 function as_debug.flush()

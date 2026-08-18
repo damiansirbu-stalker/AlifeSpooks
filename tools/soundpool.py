@@ -77,7 +77,7 @@ def probe(path):
     except json.JSONDecodeError:
         return None
     st = (j.get("streams") or [{}])[0]
-    fmt = j.get("format") or {}
+    container = j.get("format") or {}
 
     def num(x):
         try:
@@ -85,14 +85,14 @@ def probe(path):
         except (TypeError, ValueError):
             return None
 
-    br = num(st.get("bit_rate")) or num(fmt.get("bit_rate"))
+    br = num(st.get("bit_rate")) or num(container.get("bit_rate"))
     return {
         "codec": st.get("codec_name"),
         "sample_rate": int(num(st.get("sample_rate")) or 0),
         "channels": int(num(st.get("channels")) or 0),
-        "duration": num(st.get("duration")) or num(fmt.get("duration")) or 0.0,
+        "duration": num(st.get("duration")) or num(container.get("duration")) or 0.0,
         "bit_rate": int(br) if br else 0,
-        "size": int(num(fmt.get("size")) or 0),
+        "size": int(num(container.get("size")) or 0),
     }
 
 
@@ -110,11 +110,11 @@ def fingerprint(path, length):
 
 
 def fp_similarity(a, b):
-    n = min(len(a), len(b))
-    if n == 0:
+    count = min(len(a), len(b))
+    if count == 0:
         return 0.0
-    bits = sum((a[i] ^ b[i]).bit_count() for i in range(n))
-    return 1.0 - bits / (32.0 * n)
+    bits = sum((a[i] ^ b[i]).bit_count() for i in range(count))
+    return 1.0 - bits / (32.0 * count)
 
 
 # --- PCM cross-correlation: the same-recording decider (architecture.md I3) -----
@@ -153,7 +153,7 @@ def _pcm_envelope(a):
             for i in range(0, len(a) - F, F)]
 
 
-def _pcm_norm(v):
+def _normalize_pcm(v):
     if not v:
         return v
     m = sum(v) / len(v)
@@ -164,7 +164,7 @@ def _pcm_norm(v):
 
 def _pcm_best_offset(e1, e2):
     """Coarse alignment: envelope offset (in samples) maximizing envelope correlation."""
-    a, b = _pcm_norm(e1), _pcm_norm(e2)
+    a, b = _normalize_pcm(e1), _normalize_pcm(e2)
     if not a or not b:
         return 0
     bo, bs = 0, -2.0
@@ -180,13 +180,13 @@ def _pcm_pearson_at(a, b, off):
         x, y = a[off:], b
     else:
         x, y = a, b[-off:]
-    n = min(len(x), len(y))
-    if n < 50:
+    count = min(len(x), len(y))
+    if count < 50:
         return 0.0
-    x, y = x[:n], y[:n]
-    mx, my = sum(x) / n, sum(y) / n
+    x, y = x[:count], y[:count]
+    mx, my = sum(x) / count, sum(y) / count
     sx = sy = sxy = 0.0
-    for i in range(n):
+    for i in range(count):
         dx, dy = x[i] - mx, y[i] - my
         sx += dx * dx
         sy += dy * dy
