@@ -295,6 +295,9 @@ BV_MIN = 0.1
 # not a real inter-sample overshoot (those stay under ~+6 dB) - clamp it to the 0 dBFS physical ceiling.
 PEAK_FLOAT_CEILING = 12.0
                     # Frozen as validated (MANGLE=0); see architecture.md I3.
+# astats peak/rms per source path, memoized so a full `all` measures each file ONCE: cmd_deploy and
+# cmd_provenance both cull-and-measure over the same tree in one process, and astats is deterministic.
+_MEAS_CACHE = {}
 # Long-file handling (n117): a sound whose ACTIVE (silence-removed) length exceeds the max emission tick
 # outlives its slot and overlaps the next fire, so it is CULLED - EXCEPT dark_signal, which is SLICED into
 # <=MAX_ACTIVE_S desilenced pieces (keeps the loved 4-min radio as clean pieces). Sliced/desilenced files
@@ -369,19 +372,23 @@ def _loudness_cull(effects):
     corpus median. Mutates effects."""
     import subprocess, re
     def measure(a):
+        if a in _MEAS_CACHE:                                     # reuse across cmd_deploy + cmd_provenance
+            return _MEAS_CACHE[a]
         r = subprocess.run([sp.tool("ffmpeg"), "-i", a, "-af", "astats=metadata=1:reset=0",
                             "-f", "null", "-"], capture_output=True, text=True)
         peaks = re.findall(r"Peak level dB:\s*(\S+)", r.stderr)   # per-channel first, Overall last
         rmss  = re.findall(r"RMS level dB:\s*(\S+)", r.stderr)
-        if not peaks or not rmss or peaks[-1] == "-inf" or rmss[-1] == "-inf":
-            return None
-        try:
-            p, rms = float(peaks[-1]), float(rmss[-1])           # [-1] = the Overall block
-        except ValueError:
-            return None
-        if p > PEAK_FLOAT_CEILING:                               # decode-artifact peak -> whole read suspect;
-            p, rms = 0.0, -100.0                                 # force the peak-cap branch -> plain peak-normalize
-        return (p, rms)
+        res = None
+        if peaks and rmss and peaks[-1] != "-inf" and rmss[-1] != "-inf":
+            try:
+                p, rms = float(peaks[-1]), float(rmss[-1])       # [-1] = the Overall block
+                if p > PEAK_FLOAT_CEILING:                       # decode-artifact peak -> whole read suspect;
+                    p, rms = 0.0, -100.0                         # force the peak-cap branch -> plain peak-normalize
+                res = (p, rms)
+            except ValueError:
+                res = None
+        _MEAS_CACHE[a] = res
+        return res
     paths = list({e["abs"] for cat in effects for e in effects[cat]})
     meas = dict(zip(paths, sp.pmap(measure, paths, sp.DEF_JOBS)))
     dropped = 0
@@ -970,6 +977,14 @@ def _normalize_blobs(effects, snd):
             cmax = cmin + 1.0
         for e, n, b in zip(effects[cat], names, blobs):
             mn, mx = (b[0], b[1]) if b else (cmin, cmax)
+            # Engine-safe band. The loader R_ASSERT3s max>=0.1 (Source_loader.cpp:152) and the FSM linear
+            # attenuation divides by (max-min) (Emitter_FSM.cpp:361), so a zero-width band (min>=max, e.g. a
+            # source bed carrying 1000/1000) plays a NaN gain. Normalize EVERY deployed band - blob-carrying
+            # files too, not only the median default - to min>=0 and max>=min+1, so both engine constraints hold.
+            if mn < 0.0:
+                mn = 0.0
+            if mx < mn + 1.0:
+                mx = mn + 1.0
             bv, is_capped = _level_bv(e["rms"], e["peak"], target)
             capped += is_capped
             if _write_blob(snd / cat / f"{n}.ogg", mn, mx, bv):
@@ -1331,7 +1346,9 @@ def cmd_add(a):
     Dedup covers BOTH exact reships (audio hash vs the deployed names) AND re-encodes of a published sound
     (fp + PCM xcorr vs the frozen corpus, `_drop_frozen_reencodes`), plus full md5+fp+xcorr within the new
     source. Limit: deploy re-emits the whole corpus from source, so the source packs must be on disk (same
-    as a full build); a full `all` refreshes the ledger + provenance proofs."""
+    as a full build); a full `all` refreshes the ledger + provenance proofs. Note: deploy re-levels the whole
+    corpus, so an add can shift EXISTING files' base_volume as the corpus-median RMS target moves - names and
+    audio stay frozen, loudness does not; a full `all` reconciles."""
     name, gd = a.name, a.gd
     mc = json.loads((HERE / "merged_channels.json").read_text())
     # Frozen identity = the audio hashes of the CORPUS OF RECORD (existing merged_channels.json entries),
