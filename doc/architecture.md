@@ -217,9 +217,17 @@ Every hostile near thing is graded "none"|"low"|"med"|"high" by `_tier(rank)`: a
 ### The tick and the emission gate
 
 The tick runs a fixed 100ms and never stops, so a rising dread is always caught; the board refreshes over
-the producer rotation. Emission is separate: a sound fires at most every 5-15s and dread shortens that gap
-(scarier -> denser). Below ~0.10 dread nothing emits (calm places quiet, a friendly base silent), while the
-tick keeps sensing. No per-category cooldowns, no weights.
+the producer rotation. Emission is separate: the gap between plays scales with the CURRENT dread, from a
+calm mean of ~32s (`SPACE_CALM_MS`, silence carries the dread) to a peak mean of ~6.5s (`SPACE_PEAK_MS`),
+power-eased off the calm end (`SPACE_EASE`) so mid-dread lands ~15s (drops fast then fine-grades toward
+peak), with a `SPACE_JITTER` spread. The gap is re-evaluated every tick against the live dread, so a rising dread tightens
+it at once - a threat that appears mid-calm-gap fires promptly rather than waiting out the long calm
+interval. This targets the base's COMBINED felt rate (vanilla horror channels average 45-70s each but run
+~5 concurrently, ~14s combined; the modern packs ~5s combined) with a single stream, kept sparser at calm
+because horror pacing builds dread through silence and keeps strong scares rare. Nothing emits only at
+dread 0 - a safe hub or a fully-calmed place; any dread above 0 plays, sparser the calmer it is - while the
+tick keeps sensing and the gap keeps advancing so a resumed dread emits at once. No per-category cooldowns,
+no weights.
 
 ### SELECT - which categories can play
 
@@ -365,42 +373,59 @@ runs no muting loop at runtime.
 ### Static removal (the muting)
 
 `tools/merge.py deploy` generates a DLTX overlay, `configs/environment/mod_sound_channels_alifespooks.ltx`
-(`_build_veto_overlay`). For every base ambient channel that lists a sound whose AUDIO is one of ours, it emits
-`![channel]` + `<sounds = <path>` - a per-item DLTX removal (`Xr_ini.cpp:238-240`) that strips exactly
-that sound from the channel's `sounds` list and leaves the channel's other sounds. The composed
-`sound_channels.ltx` the game loads no longer lists our sounds, so vanilla's own `update_ambient` (and
-the engine bed) never plays them. It is deterministic, engine-native, and survives anything at runtime -
-there is no slot to lose.
+(`_build_veto_overlay`). It is derived from the pipeline's OWN record - the chosen corpus - not from any
+installed pack. Every shipped sound was captured from a registry source (`tools/sources.py`) at a known path,
+and a source wires that path to a channel only in its own config, the same file a user running that pack
+loads. So for each shipped sound the generator reads its origin pack's channel files and emits, for every
+channel that lists the path, `![channel]` + `<sounds = <path>` - a per-item DLTX removal (`Xr_ini.cpp:235-238`,
+the Remove op at `1257-1266`) that strips exactly that sound from the channel's `sounds` list and leaves the
+channel's other sounds. The composed `sound_channels.ltx` the game loads no longer lists our sounds, so
+vanilla's own `update_ambient` (and the engine bed) never plays them. Deterministic, engine-native, and it
+survives anything at runtime - there is no slot to lose.
 
-- Identity is the audio-page hash (`_hash_audio`, blob-agnostic), so a copy that differs only in its
-  comment blob still matches. Byte-identical audio only; a re-encode at a different path is out of scope.
+- Complete by construction, install-independent. The overlay excludes every sound we ship at every source
+  path we drew it from. A user running one of our source packs has that pack's identical channels, so our
+  removal applies; a pack we never sourced holds none of our audio, so there is nothing of ours to double
+  there. Coverage does not depend on the build machine's modlist and never needs re-running after one - it
+  is regenerated from the registry on every `merge.py all`, like every other artifact (I11).
+- Identity is the SOURCE PATH, not a runtime file hash. The generator matches each chosen sound's recorded
+  path against its origin pack's channel entries. It never scans an install or hashes a played file. The
+  same recording often ships in several source packs, byte-identical or a re-encode, and dedup collapses
+  those copies to one while keeping the (pool, source_path) of every collapsed copy on the survivor (`dups`,
+  set in `dedupe`, folded across categories by `_fold_dups`). Those copies are the SAME recording, confirmed
+  by the PCM cross-correlation decider under complete linkage, never a distinct sound (I3). The veto removes
+  each copy at its own pack's path, so whichever source pack the player runs, that pack's copy of the sound
+  is taken out. Coverage is per sound across every pack we drew it from, not just the winner's.
+- Every ambient channel file is read per source - `sound_channels.ltx`, `ambient_channels/backgrounds.ltx`,
+  and `ambient_channels/blowout_channels.ltx` (`_source_channels_raw`). The bed files matter: packs file our
+  captured `whisper_*` and `underground_*` into CONTINUOUS beds in `backgrounds.ltx`, which would double under
+  the director if only `sound_channels.ltx` were read.
 - Per-SOUND by design, never per-channel. A base spook the mod did NOT capture - dropped by dedup or the
-  loudness cull, so it was never shipped - stays in its channel and still plays. The veto owns only what
-  the director ships; the base keeps the rest, so a channel goes fully silent only when every sound in it
-  is ours. This is deliberate (the base's own uncaptured atmosphere is not ours to remove), not a leak.
-  Verified: `out_screams` removes 24 of its 25 base screams (exactly the captured ones), leaving `sound_13`
-  (uncaptured) - which is the one the base still fires in the trace, at ear level, on top of the director.
-- The generator scans EVERY ambient channel file - `sound_channels.ltx`, `ambient_channels/backgrounds.ltx`,
-  and `ambient_channels/blowout_channels.ltx` - across `VETO_CONFIG_ROOTS` (the GAMMA mods, the source packs,
-  Anomaly), so a removal exists for whatever channel a SCANNED pack files our sound under. The bed files matter:
-  base packs file our captured `whisper_*` and `underground_*` into CONTINUOUS beds in `backgrounds.ltx`, which
-  would double under the director if only `sound_channels.ltx` were scanned. The overlay reflects the BUILD
-  MACHINE's installed packs, not the source registry: it is not registry-reproducible, and it covers a base
-  copy only where a scanned pack lists it under the same path, so re-run it after any modlist change. A channel
-  absent from a given config is safely ignored by DLTX (warn-and-discard, no CTD, `Xr_ini.cpp:1383-1400`).
-- Bed-empty guard: a channel that is a bed anywhere (System A asserts on empty `sounds`,
-  `Environment_misc.cpp:108`) also gets `>sounds = ambient\no_sound`, so a full removal never leaves a
-  bed empty. See "Muting a channel: the `ambient\no_sound` trick" in the ambient-sound-system note.
-- TESTED-AGAINST baseline: Anomaly 1.5.3, GAMMA definition 920 (Soundscape Overhaul #3 + Dark Signal
-  Weather and Ambiance #304 active), plus every pack under `anomaly_audio_mods`. The generated overlay
-  self-documents its coverage in the file header - the scanned roots and every mod that actually played
-  one of our sounds and was vetoed (e.g. Soundscape Overhaul 338, Dark Signal 304 -> 328). Re-run to
-  refresh the list after any modlist change. The standalone builds under `stalker_versions_for_sound`
-  are sound SOURCES, not play targets (AlifeSpooks does not run in them), so they need no veto.
+  loudness cull, so it was never shipped - stays in its channel and still plays. The veto owns only what the
+  director ships; the base keeps the rest, so a channel goes fully silent only when every sound in it is
+  ours. Deliberate (the base's own uncaptured atmosphere is not ours to remove), not a leak. Verified:
+  `out_screams` removes 24 of its 25 base screams (exactly the captured ones), leaving `sound_13` (uncaptured).
+- A shipped sound with no removal is not a gap. Structural capture pulls whole folder trees, not just
+  channel-wired files (I6), so a sound the pack never lists in any channel is captured and shipped but has
+  nothing to remove - the base plays it through no channel. The overlay header reports the split (source
+  paths wired-and-removed vs folder-only) so coverage is visible.
+- Bed-empty guard: every removed-from channel also gets `>sounds = ambient\no_sound`, so a full removal never
+  empties a System A bed (it asserts on empty `sounds`, `Environment_misc.cpp:105-108`). no_sound is silent,
+  so a partially-removed channel is only marginally diluted.
+- One-time cost, zero at runtime. DLTX composes the overlay into `sound_channels.ltx` once at config load and
+  caches the merged result (`Xr_ini.cpp:1318,1376`). Nothing re-applies it per frame, the base observer caches
+  the parsed channels per level/hour/weather reset, and the ambient reads the shorter composed list, so the
+  removals add no runtime cost however many there are. An absent channel or path on the player's install is
+  warn-and-discard at load, never a crash.
+- An absent channel is safely ignored by DLTX (warn-and-discard, no CTD, `Xr_ini.cpp:1393`). The standalone
+  builds under `stalker_versions_for_sound` ship no Anomaly channel config, so a sound sourced only from them
+  has no wiring to remove; if the same audio also came from an Anomaly pack, that pack's sibling path carries
+  the removal.
 
-The removal is on the sound's original path, matched to the base list item exactly (the engine removes
-by exact string, `Xr_ini.cpp:1259-1263`), so the overlay emits each channel's path exactly as the
-source config wrote it. No folder blocking, no mod names, no runtime lookup, no `provenance.tsv`.
+The removal is on the sound's own source path, emitted as the source config wrote it (original case and backslashes) so it matches
+the base list item exactly - the engine removes by exact string (`Xr_ini.cpp:1257-1266`), and because the
+overlay is built from the source pack's own config, that string is byte-identical to what a user running the
+pack loads. No folder blocking, no mod names, no runtime lookup, no `provenance.tsv`.
 
 ### The observer hook (owns the vanilla scheduler slot)
 

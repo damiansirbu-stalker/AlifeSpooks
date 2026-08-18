@@ -213,12 +213,17 @@ def dedupe(files):
                  chain cannot collapse transitively.
     Best-quality within a confirmed group is the highest bitrate; junk-bitrate files are
     dropped when the channel keeps better content."""
-    # 1. exact byte dedup
+    # 1. exact byte dedup - each md5 group keeps its members, so the veto can later exclude the sound
+    #    at every source path it collapsed from, not just the winner's.
     by_md5 = {}
     for f in files:
         f["hash"] = hash_file(f["abs"])
         by_md5.setdefault(f["hash"], []).append(f)
-    reps = [max(g, key=lambda f: f["bitrate"]) for g in by_md5.values()]
+    reps = []
+    for group in by_md5.values():
+        rep = max(group, key=lambda f: f["bitrate"])
+        rep["_members"] = list(group)
+        reps.append(rep)
     if len(reps) <= 1:
         chosen = reps
     else:
@@ -258,7 +263,20 @@ def dedupe(files):
                 else:
                     groups.append([r])
             for g in groups:
-                chosen.append(max(g, key=lambda f: f["bitrate"]))
+                winner = max(g, key=lambda f: f["bitrate"])
+                winner["_members"] = [m for r in g for m in r.get("_members", [r])]
+                chosen.append(winner)
+    # record each kept copy's collapsed siblings (pool, source_path) - every other copy that merged into
+    # it - so the veto excludes the sound at all source paths we drew it from, not only the winner's.
+    for c in chosen:
+        seen, dups = set(), []
+        for m in c.get("_members", [c]):
+            key = (m["pool"], m["source_path"])
+            if key != (c["pool"], c["source_path"]) and key not in seen:
+                seen.add(key)
+                dups.append([m["pool"], m["source_path"]])
+        c["dups"] = dups
+        c.pop("_members", None)
     good = [c for c in chosen if c["bitrate"] >= LOWQ_BITRATE]
     return good if good else chosen
 
@@ -317,6 +335,17 @@ def _get_active_channels(gd):
     return a
 
 
+def _fold_dups(home, dropped):
+    """Fold a dropped byte-identical copy's origin - its own (pool, source_path) plus its own dups -
+    into the kept home entry's `dups`, so the veto still excludes the sound at the dropped path."""
+    have = {(pool, path) for pool, path in home.get("dups", [])}
+    have.add((home["pool"], home["source_path"]))
+    for pool, path in [[dropped["pool"], dropped["source_path"]]] + list(dropped.get("dups", [])):
+        if (pool, path) not in have:
+            have.add((pool, path))
+            home.setdefault("dups", []).append([pool, path])
+
+
 def _dedupe_across_channels(merged):
     """Drop byte-identical copies of a recording a source pack listed in more than one
     channel. md5-exact ONLY - a hash match is provably the same file, so no distinct
@@ -328,13 +357,17 @@ def _dedupe_across_channels(merged):
         keep, dup = [], []
         for c in merged[chan]["chosen"]:
             h = hash_file(c["abs"])
-            if seen.get(h, chan) == chan:
-                seen[h] = chan
+            home = seen.get(h)
+            if home is None:
+                seen[h] = c
                 keep.append(c)
             else:
+                _fold_dups(home, c)                # the dropped copy's source path survives on the home
                 dup.append(c)                      # byte-identical to a home in another channel
         if not keep and dup:                       # never-empty: rescue one as this channel's home
-            keep.append(dup.pop(0))
+            rescued = dup.pop(0)
+            seen[hash_file(rescued["abs"])] = rescued
+            keep.append(rescued)
         n_drop += len(dup)
         merged[chan]["chosen"] = keep
     print(f"cross-channel dedup: dropped {n_drop} byte-identical copies (md5-exact, one home each)")
@@ -514,7 +547,8 @@ def cmd_plan(_):
         tot_kept += len(chosen)
         merged[cat] = {
             "chosen": [{"abs": c["abs"], "source_path": c["source_path"], "pool": c["pool"], "hash": c["hash"],
-                        "bitrate": c["bitrate"], "channels": c["channels"], "dur": c.get("dur", 0.0)}
+                        "bitrate": c["bitrate"], "channels": c["channels"], "dur": c.get("dur", 0.0),
+                        "dups": c.get("dups", [])}
                        for c in chosen],
         }
     # Intra-corpus re-encodes the PCM dedup dropped: their hashes, so the ledger books them as
@@ -704,7 +738,7 @@ def _build_layers(mc, cls, ch_to_group):
         if ch in ch_to_group:
             effects[ch_to_group[ch]].append(
                 {"ch": ch, "source_path": c["source_path"], "abs": c["abs"], "pool": c["pool"],
-                 "dur": r["dur"], "idx": idx})
+                 "dups": c.get("dups", []), "dur": r["dur"], "idx": idx})
     return effects
 
 
@@ -855,16 +889,6 @@ def _deployed_name(entry):
     return f"{base}_{h}"
 
 
-# Config sources scanned for base ambient channels, so a removal exists for whatever channel any
-# installed pack files one of our sounds under. An absent channel is safely ignored by DLTX
-# (warn-and-discard, no CTD - Xr_ini.cpp:1383-1400).
-VETO_CONFIG_ROOTS = [
-    "D:/Games/GAMMA/GAMMA/mods",
-    "C:/Users/damian/Downloads/anomaly_audio_mods",
-    "D:/Games/GAMMA/Anomaly/tools/_unpacked",
-]
-
-
 def _read_channel_sounds(sc_path):
     """channel(lower) -> list of raw `sounds` entries (trimmed, ORIGINAL case/backslashes) in a
     sound_channels.ltx. The raw string is kept verbatim so a DLTX `<sounds = X` removal matches the base
@@ -884,67 +908,81 @@ def _read_channel_sounds(sc_path):
     return ch
 
 
-def _build_veto_overlay(effects):
-    """Build the static DLTX overlay that removes our own sounds from the base ambient channels, so the
-    base never doubles the director's copy. For every channel across every scanned pack that lists a
-    sound whose AUDIO is one of ours (audio-page hash, blob-agnostic), emit `![channel]` +
-    `<sounds = <path>` - a per-item removal that leaves the channel's other sounds.
+def _source_channels_raw(gd):
+    """channel(lower) -> list of RAW `sounds` entries across a source's three ambient channel files
+    (sound_channels.ltx, backgrounds.ltx, blowout_channels.ltx). Raw (original case + backslashes) so a
+    DLTX `<sounds = X` removal matches the base list item exactly - and because this is
+    the source pack's OWN config, that string is byte-identical to what a user running the pack loads, so
+    the exact-string removal (Xr_ini.cpp:1257-1266) is guaranteed to hit."""
+    env = Path(gd) / "configs/environment"
+    files = [env / "sound_channels.ltx",
+             env / "ambient_channels/backgrounds.ltx",
+             env / "ambient_channels/blowout_channels.ltx"]
+    out = {}
+    for f in files:
+        if not f.is_file():
+            continue
+        for chan, raws in _read_channel_sounds(f).items():
+            out.setdefault(chan, []).extend(raws)
+    return out
 
-    Every channel we remove from also gets `>sounds = ambient\\no_sound`. A channel loaded as a
-    System A bed CTDs on an empty `sounds` (Environment_misc.cpp:105-108); the target install's channel
-    composition is unknown to a static overlay (a channel partial in a scanned pack can be fully ours in
-    the install actually played), so the placeholder is unconditional - a full removal can never leave a
-    bed empty on any install. no_sound is silent, so a partially-removed channel is only marginally diluted.
-    Returns (overlay_text, removal_count, channel_count)."""
-    want = set()
+
+def _build_veto_overlay(effects):
+    """Static DLTX overlay that removes our own sounds from the base ambient channels so the base never
+    doubles the director. Derived from the pipeline's OWN record - the chosen corpus - not the build
+    machine's installed packs. Every shipped sound was captured from a registry source (sources.py) at a
+    known path; a source wires that path to a channel only in its own config, the same file a user running
+    that pack loads. So for each shipped sound we read its origin pack's channels and emit `![channel]` +
+    `<sounds = <verbatim path>` wherever the pack lists it - complete by construction and independent of any
+    install: a pack we never sourced holds none of our audio, so nothing of ours can double there.
+
+    Dedup collapsed byte-identical and re-encoded copies across packs; each shipped sound carries the
+    (pool, source_path) of every copy that merged into it (`dups`), so the removal covers EVERY source path
+    we drew the sound from, not only the winner's. Every removed-from channel also gets
+    `>sounds = ambient\\no_sound` - a System A bed CTDs on an empty `sounds` (Environment_misc.cpp:105-108)
+    and no_sound is silent, so a full removal never empties a bed and a partial one is only marginally
+    diluted. Returns (overlay_text, report)."""
+    # every (pack, source-path) we ship from: the winner plus its collapsed dedup siblings. Lower-cased for
+    # the match - a pack's config path case can differ from its filesystem case.
+    ship = collections.defaultdict(set)
+    ship_entries = 0
     for entries in effects.values():
         for e in entries:
-            h = _try_hash_audio(Path(e["abs"]))
-            if h:
-                want.add(h)
-    hcache = {}
+            ship[e["pool"]].add(e["source_path"].lower())
+            ship_entries += 1
+            for pool, path in e.get("dups", ()):
+                ship[pool].add(path.lower())
 
-    def ah(f):
-        k = str(f)
-        if k not in hcache:
-            hcache[k] = _try_hash_audio(f)
-        return hcache[k]
+    removals = {}                          # channel(lower) -> set of raw verbatim strings
+    contributing = collections.Counter()
+    wired = set()                          # (pack, lower path) actually found wired in a source channel
+    for name, gd in MODS:
+        want = ship.get(name)
+        if not want:                       # shipped nothing from this pack (or it is channel-less, e.g. a build)
+            continue
+        for chan, raws in _source_channels_raw(gd).items():
+            for raw in raws:
+                norm = raw.replace("\\", "/").lower()
+                if norm in want:
+                    removals.setdefault(chan, set()).add(raw)
+                    contributing[name] += 1
+                    wired.add((name, norm))
 
-    removals = {}       # channel(lower) -> set of raw sound strings to remove
-    contributing = {}   # pack folder (under a scanned root) -> how many of our sounds it played
-    # Scan EVERY ambient channel file, not just sound_channels.ltx: the base packs also file our captured
-    # dark content into CONTINUOUS beds in backgrounds.ltx (whisper_*, underground_*) and into
-    # blowout_channels.ltx. Missing those left the base playing our sounds as a bed under the director -
-    # a double. Matching is audio-hash gated, so scanning more only ever removes a sound we actually ship;
-    # it never touches a base sound that is not ours.
-    CHANNEL_FILES = ("configs/environment/sound_channels.ltx",
-                     "configs/environment/ambient_channels/backgrounds.ltx",
-                     "configs/environment/ambient_channels/blowout_channels.ltx")
-    for root in VETO_CONFIG_ROOTS:
-        rootp = Path(root)
-        for pattern in CHANNEL_FILES:
-            for sc in rootp.rglob(pattern):
-                rel = sc.relative_to(rootp).parts
-                pack = rel[0] if rel and rel[0] not in ("configs", "gamedata") else rootp.name
-                parts = sc.parts
-                snd_root = Path(*parts[:parts.index("configs")]) / "sounds"   # gamedata root = parent of configs
-                for chan, entries in _read_channel_sounds(sc).items():
-                    for raw in entries:
-                        f = snd_root / (raw.replace("\\", "/") + ".ogg")
-                        if f.is_file() and ah(f) in want:
-                            removals.setdefault(chan, set()).add(raw)
-                            contributing[pack] = contributing.get(pack, 0) + 1
+    unique_paths = sum(len(v) for v in ship.values())
     out = ["; GENERATED by tools/merge.py - do not edit. Static DLTX veto: removes AlifeSpooks' own",
            "; sounds from the base ambient channels so the base never doubles the director's copy.",
-           "; Matched by audio identity (blob-agnostic) against every sound_channels.ltx under the roots below.",
-           "; An absent channel is ignored by DLTX; every removed-from channel gets ambient\\no_sound.",
+           "; Derived from the source REGISTRY (sources.py), not any install: every shipped sound is",
+           "; removed at the path(s) we captured it from, in the channel(s) its source pack defines,",
+           "; so coverage is complete by construction and independent of the player's modlist.",
            ";",
-           "; TESTED-AGAINST - scanned roots (VETO_CONFIG_ROOTS):"]
-    for root in VETO_CONFIG_ROOTS:
-        out.append(";   %s" % root)
-    out.append("; Mods/packs that actually played one of our sounds and were vetoed (folder (count)):")
-    for pack in sorted(contributing):
-        out.append(";   %s (%d)" % (pack, contributing[pack]))
+           "; Sources vetoed (pack (channel entries removed)):"]
+    for name in sorted(contributing):
+        out.append(";   %s (%d)" % (name, contributing[name]))
+    out.append(";")
+    out.append("; Coverage: %d shipped source-paths; %d wired in a source channel and removed here;"
+               % (unique_paths, len(wired)))
+    out.append(";   %d captured from a folder tree no source channel wires (base plays them via no channel)."
+               % (unique_paths - len(wired)))
     out.append("")
     for chan in sorted(removals):
         out.append("![%s]" % chan)
@@ -952,7 +990,10 @@ def _build_veto_overlay(effects):
             out.append("<sounds = %s" % raw)
         out.append(">sounds = ambient\\no_sound")
         out.append("")
-    return "\n".join(out), sum(len(v) for v in removals.values()), len(removals)
+    report = {"ship_entries": ship_entries, "unique_paths": unique_paths, "wired_removed": len(wired),
+              "folder_only": unique_paths - len(wired), "channels": len(removals),
+              "removals": sum(len(v) for v in removals.values())}
+    return "\n".join(out), report
 
 
 def _level_base_volume(rms_db, peak_db, target_rms_db):
@@ -1128,14 +1169,16 @@ def cmd_deploy(a):
     # Static DLTX veto overlay: remove our own sounds from the base ambient channels so the base never
     # doubles the director. Per-file removals across every scanned pack, matched by audio identity; bed
     # channels kept non-empty. Deterministic at config load - no runtime clone owns the muting.
-    dltx, n_rm, n_ch = _build_veto_overlay(effects)
+    dltx, veto = _build_veto_overlay(effects)
     env = root / "configs" / "environment"
     env.mkdir(parents=True, exist_ok=True)
     (env / "mod_sound_channels_alifespooks.ltx").write_text(dltx, encoding="utf-8")
 
     print(f"deployed to {root}")
     print(f"  categories: {len(effects)}; sounds: {sum(len(v) for v in effects.values())}")
-    print(f"  veto DLTX: {n_rm} removals across {n_ch} channels")
+    print(f"  veto DLTX: {veto['removals']} removals across {veto['channels']} channels; "
+          f"{veto['wired_removed']}/{veto['unique_paths']} shipped source-paths channel-wired and removed "
+          f"({veto['folder_only']} folder-only, no base channel)")
 
 
 # --- ledger (the content-hash proof: UNUSED-DARK must be 0) -------------------
@@ -1381,7 +1424,8 @@ def cmd_add(a):
                 n_dup += 1
                 continue
             keep.append({"abs": c["abs"], "source_path": c["source_path"], "pool": c["pool"], "hash": c["hash"],
-                         "bitrate": c["bitrate"], "channels": c["channels"], "dur": c.get("dur", 0.0)})
+                         "bitrate": c["bitrate"], "channels": c["channels"], "dur": c.get("dur", 0.0),
+                         "dups": c.get("dups", [])})
         if keep:
             new_merged[cat] = {"chosen": keep}
     _drop_silent(new_merged)                                  # the same net-new gates the full plan applies

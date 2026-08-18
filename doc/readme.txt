@@ -57,10 +57,11 @@ The mod never doubles the base ambience. If you also run a soundscape pack it dr
 AlifeSpooks removes its own sounds from the base's ambient channels, so only its curated version plays, under its director.
 
 It does this statically, at config load, with a generated overlay.
-The overlay strips each of the mod's sounds out of every base channel that lists it, matched by the sound's own audio, so it catches the copy whichever pack reships it.
-It leaves every other base sound untouched. It is a config change, not a runtime loop, so it is deterministic and cannot be lost to another script.
+The overlay strips each of the mod's sounds out of every base channel that lists it, at the path each source pack files it under.
+When the same sound sits in more than one pack it drew from, an exact copy or a re-encode, it removes each pack's copy, so whichever of those packs you run, the base's version is the one taken out and only the director's plays.
+It leaves every other base sound untouched. It is a config change applied once at load, not a runtime loop, so it costs nothing while you play and cannot be lost to another script.
 It can never over-reach. It removes only the exact sounds the mod plays, never a folder, never a channel, never a wind bed or a creature call it does not carry.
-No collision and no doubled density over the soundscape bases it is built against: GAMMA, vanilla, and the Dark Signal packs. The base's own atmosphere plays exactly as it always did.
+No collision and no doubled density over any base: it removes its own sounds at the packs it draws from, so GAMMA, vanilla, and the Dark Signal packs each keep their own atmosphere exactly as before.
 
 
 3. The source and the measured pipeline
@@ -113,7 +114,7 @@ When a feature cannot fit that budget it is reworked, replaced, or removed with 
 
 Compatibility:
 Built for GAMMA and the Dark Signal soundscape base, and it runs on vanilla Anomaly and any soundscape mod.
-Because it removes only its own sounds from the base channels and adds nothing, it does not double or collide with the base ambience over GAMMA, vanilla, and the soundscape packs it is built against.
+Because it removes only its own sounds from the base channels and adds nothing, it never doubles or collides with the base ambience, on GAMMA, vanilla, or any soundscape pack.
 It runs as a self-contained layer over any of them. It plays its own sounds through its own director, so it never fights a soundscape mod; its removal only takes sounds out, so it can never empty or break a base channel; and it replays whatever base ambience wins, so those beds keep sounding. Its own sounds are leveled to one even loudness in the build and placed around you by distance, so the horror sits within the base mix, not over it, and the master volume balances the two when a base runs unusually loud or quiet.
 Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and with the soundscape and ambient packs it draws from: Dark Signal Amplified Soundscape, the Dark Signal Audio, Mutants, and Blowout and Anomalies packs, RETUNE Ambient Sounds, myRETUNE Antares 2.1, Audio Expansion, Ambient Extended Reworked, Immersive Ambience Expansion, and Real Distant Mutants Sounds. Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
 You can install or remove it mid-save. Weather sound stays the base ambience's job, AlifeSpooks adds no storm or rain.

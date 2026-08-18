@@ -82,13 +82,19 @@ local SERVICE_HOSTILE = 0.30
 local NEAR_R  = 60
 local NEAR_R2 = NEAR_R * NEAR_R
 
--- Emission + pacing. One sound at most every SPACE_MIN..MAX (dread shortens it); below DREAD_ON nothing
--- emits. HEIGHT_PULL: overhead cue descends this fraction toward ear at peak dread. The sound's own LEVEL
--- (blob base_volume) is dread-free; dread changes how LOUD it is HEARD by changing how FAR it is placed.
-local DREAD_ON     = 0.10
-local SPACE_MIN_MS = 5000
-local SPACE_MAX_MS = 15000
-local HEIGHT_PULL  = 0.25
+-- Emission + pacing. The gap between plays scales with CURRENT dread, re-evaluated every tick, so a calm
+-- place breathes (~SPACE_CALM_MS - silence carries the dread) and a scary one overwhelms (~SPACE_PEAK_MS),
+-- and a rising dread tightens the gap AT ONCE (a threat mid-calm-gap fires promptly). SPACE_JITTER keeps it
+-- irregular. Nothing emits only at dread 0 (a safe hub / fully-calmed place); any dread above 0 plays. The
+-- gap is power-eased off calm (SPACE_EASE); mean gaps calm ~32s / mundane ~26s / mid ~15s / peak ~6.5s.
+-- DREAD_ON is the curves' calm anchor (distance + frequency), NOT an emission gate. HEIGHT_PULL: overhead
+-- cue descends toward ear at peak dread. The sound's own LEVEL (blob base_volume) is dread-free.
+local DREAD_ON      = 0.10
+local SPACE_CALM_MS = 32000
+local SPACE_PEAK_MS = 6500
+local SPACE_JITTER  = 0.15
+local SPACE_EASE    = 0.5
+local HEIGHT_PULL   = 0.25
 -- Dread -> heard loudness through DISTANCE. `att` = the fraction of full loudness the engine's LINEAR
 -- attenuation gives at the placed distance (att = (max-dist)/(max-min), SoundRender_Emitter_FSM.cpp:361).
 -- Aim att from ATT_FAR at DREAD_ON to ATT_NEAR at peak, plus a random spread for variety, then HARD-CLAMP to
@@ -144,7 +150,8 @@ local _map_level = nil
 local _map_set   = {}
 local _cat_bag   = {}
 local _snd_bag   = {}
-local _next_play = 0
+local _gap_at    = 0
+local _jitter    = 1
 local _play_at   = 0
 local _last_play = "-"
 local _base_last = "-"
@@ -526,16 +533,23 @@ end
 
 -- ---- emission (jittered self-schedule) ------------------------------------
 
---- Emit one one-shot if the jittered spacing has elapsed. Dread shortens the gap; below DREAD_ON nothing
---- fires but the pacing keeps advancing so a rising dread resumes at once. Reads the board.
+--- Emit one one-shot when the dread-scaled gap has elapsed. The gap tracks CURRENT dread every tick, so a
+--- rising dread tightens it at once. Nothing plays only at dread 0 (a safe hub / fully-calmed place); any
+--- dread above 0 emits, sparser the calmer it is. dn is power-eased (SPACE_EASE) so the gap drops fast off
+--- calm then fine-grades toward peak (mid-dread ~15s, not the ~19s of a linear map). The gap advances even
+--- while silent so a resumed dread emits promptly. Reads the board.
 local function _emit_tick(tg)
     _visual_tick(tg)
     if _muted then return end
-    if tg < _next_play then return end
     local dread = board.dread
-    local span = SPACE_MIN_MS + (SPACE_MAX_MS - SPACE_MIN_MS) * (1 - dread)
-    _next_play = tg + math_floor(math_random(SPACE_MIN_MS, span) * math_max(rarity, 0.1))
-    if dread < DREAD_ON then return end
+    local dn = (dread - DREAD_ON) / (1 - DREAD_ON)
+    if dn < 0 then dn = 0 elseif dn > 1 then dn = 1 end
+    dn = dn ^ SPACE_EASE
+    local gap = (SPACE_CALM_MS + (SPACE_PEAK_MS - SPACE_CALM_MS) * dn) * _jitter * math_max(rarity, 0.1)
+    if tg - _gap_at < gap then return end
+    _gap_at = tg
+    _jitter = 1 + (math_random() * 2 - 1) * SPACE_JITTER
+    if dread <= 0 then return end
     _rebuild_eligible()
     local name = _pick_category()
     if not name then return end
@@ -689,7 +703,7 @@ local function _on_first_update()
     if not xsound then as_debug.warn("as_director: xlibs (xsound) absent - director inert"); return end
     _load_channels()
     _load_map(level.name())
-    _next_play, _cursor = 0, 1
+    _gap_at, _jitter, _cursor = 0, 1, 1
     _map_level, _cat_bag, _snd_bag = nil, {}, {}
     _vis.insane_since, _vis.next_ok, _vis.handle = nil, 0, nil
     _apply_owned()
