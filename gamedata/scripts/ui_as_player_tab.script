@@ -18,6 +18,8 @@ local _at_root = true
 local _dist_i  = 1
 local _flags   = 0
 local _cur     = nil
+local _built   = false   -- has THIS window's list been filled once? RemoveAll on the empty, not-yet-attached
+                         -- list (the first fill, before the PDA renders) CTDs in CUIScrollView::Clear.
 
 local function _cur_cat()   return _cats and _cats[_cat_i] end
 local function _cur_dist()  return DIST_STEPS[_dist_i] end
@@ -50,25 +52,40 @@ end
 -- ---- the tab --------------------------------------------------------------
 
 local SINGLETON = nil
-local _need_reload = false
 
+--- Return the tab and schedule its list build through a game TimeEvent that WAITS until the PDA is actually
+--- shown before filling. get_ui runs during SetActiveSubdialog, when the list box is not on screen yet, and
+--- with the 3D PDA the open plays a draw animation lasting several frames; filling the list before it is on
+--- screen hits a detached list and CTDs in CUIScrollView::Clear. Returning false keeps the TimeEvent alive
+--- so it retries each tick until IsShown(), then fills once. This is the working dynamic-tab pattern - PDA
+--- Taskboard's reset_taskboard defers its render through a TimeEvent the same way.
 function get_ui()
     SINGLETON = SINGLETON or as_player_tab()
-    _need_reload = true
+    CreateTimeEvent("as_player_reload", "as_player_reload", 0, function()
+        if not SINGLETON then return true end
+        local menu = ActorMenu.get_pda_menu()
+        if not (menu and menu:IsShown()) then return false end   -- PDA not on screen yet: wait, do not fill
+        SINGLETON:Reload()
+        return true
+    end)
     return SINGLETON
 end
 
 class "as_player_tab" (CUIScriptWnd)
 
 function as_player_tab:__init() super()
-    self:SetAutoDelete(true)
+    -- NO SetAutoDelete: get_ui caches this window in SINGLETON, so it must OUTLIVE a tab switch / PDA close.
+    -- With SetAutoDelete(true) the engine freed it on removal while SINGLETON kept the dangling pointer, and
+    -- the next open handed that freed window back to the PDA -> hard CTD in CUIStatic::Update (UIStatic.cpp:166,
+    -- updating a child of a freed window). The radio/taskboard tabs cache their window the same way, un-deleted.
     self:InitControls()
     self:InitCallbacks()
+    _built = false                    -- fresh window: its list is empty, so skip the first RemoveAll
 end
 
---- Rebuild the list + readout. NEVER call during get_ui/SetActiveSubdialog - RemoveAll on the detached
---- list box crashes (out-of-memory in CUIScrollView::Clear). Runs from actor_on_update one frame after
---- the tab is attached, gated by _need_reload (set on tab entry), which also fixes the switch-back blank.
+--- Rebuild the list + readout. Scheduled from get_ui through a TimeEvent that waits for the PDA to be shown,
+--- so the list box is on screen when FillList touches it; running it before that hit a detached list and
+--- CTD'd in CUIScrollView::Clear. Navigation rebuilds (button clicks) are already safe - the tab is shown then.
 function as_player_tab:Reload()
     if not _cats then _scan_categories() end
     self:FillList()
@@ -123,7 +140,8 @@ end
 
 function as_player_tab:FillList()
     if xslice then xslice.cancel("as_player_fill") end
-    self.list:RemoveAll()
+    if _built then self.list:RemoveAll() end   -- only clear a list that was already filled (attached); the
+    _built = true                              -- empty first fill must NOT RemoveAll (detached -> CTD)
     if _at_root then
         for i = 1, #(_cats or {}) do self.list:AddTextItem(_cats[i] .. "/") end
     else
@@ -324,16 +342,6 @@ function as_player_tab:OnSnapshot()
     self.status:SetText("full snapshot -> alifespooks_probe.log")
 end
 
--- ---- deferred reload (crash fix + switch-back blank) -----------------------
-
---- One frame after get_ui set _need_reload the tab is attached and stable, so rebuilding the list is safe;
---- doing it inside get_ui (during SetActiveSubdialog, list detached) crashed CUIScrollView::Clear.
-local function _on_update()
-    if not (SINGLETON and _need_reload) then return end
-    _need_reload = false
-    SINGLETON:Reload()
-end
-
-function on_game_start()
-    RegisterScriptCallback("actor_on_update", _on_update)
-end
+-- The list build is scheduled in get_ui through a TimeEvent that waits for the PDA to be shown (above). No
+-- global actor_on_update and no Update() hook: those ran the build while the 3D PDA was still drawing, before
+-- the list was on screen, and CTD'd in CUIScrollView::Clear.

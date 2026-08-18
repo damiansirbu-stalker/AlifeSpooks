@@ -1,16 +1,14 @@
 --- as_test: AlifeSpooks dev harness. Console helpers plus the atmosphere probe collector.
---- Console helpers are inert until called (run_string as_test.dev_setup()). The probe key
---- (INSERT -> note box -> snapshot) is active only while debug tracing is on (as_debug.on()),
---- so it never fires for players.
+--- Console helpers are inert until called (run_string as_test.dev_setup()). as_test.snapshot() is
+--- the coordinate/atmosphere probe, invoked from the PDA tab inspector (ui_as_player_tab's Snapshot
+--- button); it never fires for players. INSERT opens that PDA tab (pda_dynamic_tabs.open_tab).
 
 as_test = as_test or {}
 
-local pairs, tostring, ipairs, pcall = pairs, tostring, ipairs, pcall
+local pairs, tostring, ipairs, pcall, tonumber = pairs, tostring, ipairs, pcall, tonumber
 local table_concat, table_sort, string_format = table.concat, table.sort, string.format
 local RegisterScriptCallback, GetEvent, alife_object = RegisterScriptCallback, GetEvent, alife_object
 local news_manager, ui_options, game_fast_travel = news_manager, ui_options, game_fast_travel
-
-local INSERT_KEY = 210
 
 local function _tip(msg)
     local actor = db.actor
@@ -95,7 +93,7 @@ end
 --   run_string as_test.smoke("drone")     -- one category only
 --   run_string as_test.smoke_stop()
 local SMOKE_GAP_MS = 700
-local _smoke = { list = nil, i = 0 }
+local _smoke = { list = nil, i = 0, last = nil, paused = false, dist = nil }
 
 --- Flatten as_manifest to a { cat, path } list in sorted-category order (optionally one category).
 local function _smoke_flat(only_cat)
@@ -112,22 +110,71 @@ local function _smoke_flat(only_cat)
     return out
 end
 
---- Play the current sound, then re-arm for now + its duration + a gap. Returns true (deregister) at end.
+--- Play one item. _smoke.dist set -> spawn it that many metres from the actor as a 3D one-shot, so a
+--- MONO sound attenuates with distance but a STEREO one does not (OpenAL only spatialises mono) - the
+--- stereo audit by ear. No dist -> 2D at-ear, full volume, the quality audition.
+local function _smoke_play(item)
+    if not (item and db.actor and xsound) then return end
+    local opts = { volume = 1.0 }
+    if _smoke.dist then
+        local pos = db.actor:position()
+        opts.position = vector():set(pos.x + _smoke.dist, pos.y, pos.z)
+    end
+    xsound.play(item.path, opts)
+end
+
+--- Play list index i (clamped 1..n), make it current, tip its identity. The one place a sound plays.
+local function _smoke_at(i)
+    local total = _smoke.list and #_smoke.list or 0
+    if total == 0 then _tip("audit: no sounds"); return end
+    if i < 1 then i = 1 elseif i > total then i = total end
+    _smoke.i = i
+    local item = _smoke.list[i]
+    _smoke_play(item)
+    local dur = (xsound.length and xsound.length(item.path)) or 0
+    _smoke.last = { i = i, total = total, cat = item.cat, path = item.path }
+    _tip(string_format("audit %d/%d  %s  (%s %dms)%s", i, total, item.path, item.cat, dur,
+        _smoke.dist and ("  @" .. _smoke.dist .. "m") or ""))
+end
+
+--- Auto-advance step: play next, re-arm for its duration + a gap. Paused -> hold. Deregisters at end.
 local function _smoke_step()
-    local item = _smoke.list and _smoke.list[_smoke.i]
-    if not (item and db.actor and xsound) then _tip("smoke: done"); return true end
-    xsound.play(item.path, { volume = 1.0 })
-    local dur = (xsound.length and xsound.length(item.path)) or 2000
-    _tip(string_format("smoke %d/%d  %s  (%s %dms)", _smoke.i, #_smoke.list, item.path, item.cat, dur))
-    _smoke.i = _smoke.i + 1
+    if _smoke.paused then ResetTimeEvent("as_smoke", "step", 0.3); return false end
+    local nexti = (_smoke.i or 0) + 1
+    if not (_smoke.list and _smoke.list[nexti] and db.actor and xsound) then _tip("smoke: done"); return true end
+    _smoke_at(nexti)
+    local dur = (xsound.length and xsound.length(_smoke.list[nexti].path)) or 2000
     ResetTimeEvent("as_smoke", "step", (dur + SMOKE_GAP_MS) / 1000)
     return false
 end
 
-function as_test.smoke(only_cat)
-    _smoke.list, _smoke.i = _smoke_flat(only_cat), 1
+--- MANUAL audition (the controls). Step with PgDn=next / PgUp=prev; DELETE marks the current one suspect.
+--- dist -> positioned stereo audit (mono fades, stereo stays loud); omit -> at-ear quality pass.
+---   run_string as_test.audit()           -- whole corpus, start at 1
+---   run_string as_test.audit("mutant")   -- one category
+---   run_string as_test.audit(nil, 40)    -- positioned 40m
+function as_test.audit(only_cat, dist)
+    _smoke.list, _smoke.i, _smoke.last, _smoke.paused = _smoke_flat(only_cat), 0, nil, false
+    _smoke.dist = tonumber(dist)
+    RemoveTimeEvent("as_smoke", "step")
+    if #_smoke.list == 0 then _tip("audit: no sounds"); return end
+    _tip(string_format("audit: %d sounds%s  PgDn=next PgUp=prev DEL=mark", #_smoke.list,
+        _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
+    _smoke_at(1)
+end
+
+--- Step the manual audition (keys PgDn/PgUp map here; also callable from console). Each kills any auto timer.
+function as_test.next() RemoveTimeEvent("as_smoke", "step"); _smoke_at((_smoke.i or 0) + 1) end
+function as_test.prev() RemoveTimeEvent("as_smoke", "step"); _smoke_at((_smoke.i or 2) - 1) end
+function as_test.replay() if _smoke.last then _smoke_play(_smoke.list[_smoke.last.i]) end end
+
+--- AUTO audition: play every sound one after another, spaced by its own length. DELETE marks; PgDn/PgUp
+--- take over manually. run_string as_test.smoke() / as_test.smoke("drone") / as_test.smoke(nil, 40)
+function as_test.smoke(only_cat, dist)
+    _smoke.list, _smoke.i, _smoke.paused, _smoke.dist = _smoke_flat(only_cat), 0, false, tonumber(dist)
     if #_smoke.list == 0 then _tip("smoke: no sounds"); return end
-    _tip(string_format("smoke: %d sounds - close the console", #_smoke.list))
+    _tip(string_format("smoke: %d sounds%s - close the console; DELETE=mark", #_smoke.list,
+        _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
     RemoveTimeEvent("as_smoke", "step")
     CreateTimeEvent("as_smoke", "step", 1, _smoke_step)
 end
@@ -135,7 +182,24 @@ end
 function as_test.smoke_stop()
     _smoke.list = nil
     RemoveTimeEvent("as_smoke", "step")
-    _tip("smoke: stopped")
+    _tip("audit: stopped")
+end
+
+--- Pause / resume the auto audition.
+function as_test.smoke_pause()  _smoke.paused = true;  _tip("audit: paused")  end
+function as_test.smoke_resume() _smoke.paused = false; _tip("audit: resumed") end
+
+--- MARK the current sound SUSPECT -> alifespooks_probe.log (the reject list). Tap DELETE, or call with a
+--- note. Cross-reference the marked cat/index against provenance.tsv after.
+function as_test.mark(note)
+    local cur = _smoke.last
+    if not cur then _tip("audit: nothing to mark"); return end
+    if xlog then
+        local log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+        log.info("SUSPECT %d/%d\t%s\t%s\t%s", cur.i, cur.total, cur.cat, cur.path, tostring(note or ""))
+        log.flush()
+    end
+    _tip(string_format("SUSPECT %d  %s", cur.i, cur.path))
 end
 
 -- ---- atmosphere probe collector -------------------------------------------
@@ -338,64 +402,14 @@ function as_test.snapshot(note)
         tostring(note or "?"), tostring(level.name()), apos.x, apos.y, apos.z), nil, nil, 20000)
 end
 
--- ---- note box + probe key (debug-gated) -----------------------------------
+-- ---- probe stepper keys (smoke audit; debug-gated) ------------------------
 
-class "as_test_note_box" (CUIScriptWnd)
-
-function as_test_note_box:__init() super()
-    self:SetWndRect(Frect():set(0, 0, 1024, 768))
-    self:SetAutoDelete(true)
-    local xml = CScriptXmlInit()
-    xml:ParseFile("ui_items_backpack.xml")
-    self.dialog = xml:InitStatic("backpack", self)
-    xml:InitStatic("backpack:background", self.dialog)
-    self.input = xml:InitEditBox("backpack:input", self.dialog)
-    self:Register(self.input, "fld_input")
-    local ok = xml:Init3tButton("backpack:btn_ok", self.dialog)
-    self:Register(ok, "btn_ok")
-    local cancel = xml:Init3tButton("backpack:btn_cancel", self.dialog)
-    self:Register(cancel, "btn_cancel")
-    self:AddCallback("btn_ok", ui_events.BUTTON_CLICKED, self.OnAccept, self)
-    self:AddCallback("btn_cancel", ui_events.BUTTON_CLICKED, self.OnClose, self)
-    self.input:SetText("")
-    self.input:CaptureFocus(true)
-end
-
-function as_test_note_box:OnAccept()
-    if self._done then return end
-    self._done = true
-    local txt = self.input:GetText()
-    self:OnClose()
-    local note = (txt and txt ~= "") and txt or "no-note"
-    as_test.snapshot(note)
-    _tip("probe saved: " .. note)
-end
-
-function as_test_note_box:OnClose()
-    self:HideDialog()
-    Unregister_UI("as_test_note_box")
-end
-
-function as_test_note_box:OnKeyboard(dik, action)
-    local res = CUIScriptWnd.OnKeyboard(self, dik, action)
-    if action ~= ui_events.WINDOW_KEY_PRESSED then return res end
-    if dik == DIK_keys.DIK_ESCAPE then self:OnClose() end
-    if dik == DIK_keys.DIK_RETURN then self:OnAccept() end
-    return res
-end
-
-local _box = nil
-
-local function _open_note_box()
-    if _box and _box:IsShown() then return end
-    _box = as_test_note_box()
-    _box:ShowDialog(true)
-    Register_UI("as_test_note_box", "as_test", _box)
-end
-
+local PGUP_KEY, PGDN_KEY, DELETE_KEY = 201, 209, 211
 local function _on_key(key)
-    if key == INSERT_KEY and db.actor and as_debug and as_debug.on() then
-        _open_note_box()
+    if _smoke.list then                              -- INSERT is now the AlifeSpooks PDA-tab shortcut
+        if key == PGDN_KEY then as_test.next()
+        elseif key == PGUP_KEY then as_test.prev()
+        elseif key == DELETE_KEY then as_test.mark() end
     end
 end
 
