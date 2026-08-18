@@ -133,7 +133,7 @@ so the expensive test runs only on the pairs the cheap ones flag (`dedup_pick`, 
 - Chromaprint fingerprint (`fpcalc`, >= 0.88): stable across bitrate and codec, so it finds the
   re-encoded copies md5 misses. Its same-versus-distinct ranges overlap, so it only proposes
   candidate pairs and never decides.
-- PCM cross-correlation (`DEDUP_XCORR` = 0.90): decode both, align by envelope, correlate over the
+- PCM cross-correlation (`DEDUP_XCORR` = 0.90): decode both, line them up by envelope offset, correlate over the
   overlap. A re-encode scores near 1.0, a distinct sound near 0. Two files merge only under
   complete linkage, so a similarity chain never collapses two distinct recordings and variety is
   never lost.
@@ -295,6 +295,18 @@ The engine computes the audible gain per play (`SoundRender_Emitter_FSM.cpp:383`
   DIRECTION (panning); the engine gain still applies, so it likely still fades with distance (runtime-confirm).
   Downmix is a directionality fix, not a loudness fix.
 
+### Coexistence with a base soundscape - the loudness balance
+
+AlifeSpooks levels only ITS corpus (to the ~-25 dB median RMS), never the base, and the director places each
+one-shot by distance, so its PLAYED loudness spans roughly -25 dB (close, peak dread) to -39 dB (far, calm) -
+inside the range a typical base bed occupies (Amplified ~-28, myRETUNE ~-37). So the horror sits IN the mix,
+not on top of it, with no work from the player: the leveling is written into every `zs/` file at build, not a
+step anyone runs, and the distance model does the base-matching for free. The one control that balances the
+two is the MCM master `vol_global` (multiplied into the play volume in `emit` alongside the game ambient
+slider, `as_director.script:427`), for a base that runs unusually loud or quiet. Nothing about the leveling or
+the mix depends on the player leveling anything - AlifeSpooks is self-sufficient over any base, and only its
+own corpus needs to be even, which it always is.
+
 So the two per-file levers we control are `base_volume` (loudness) and `min/max` (attenuation range), both in the
 blob; `height` (elevation) and the placement are the director's, in the manifest and `emit`.
 
@@ -368,12 +380,14 @@ there is no slot to lose.
   is ours. This is deliberate (the base's own uncaptured atmosphere is not ours to remove), not a leak.
   Verified: `out_screams` removes 24 of its 25 base screams (exactly the captured ones), leaving `sound_13`
   (uncaptured) - which is the one the base still fires in the trace, at ear level, on top of the director.
-- The generator scans every `sound_channels.ltx` across `VETO_CONFIG_ROOTS` (the GAMMA mods, the source
-  packs, Anomaly), so a removal exists for whatever channel a SCANNED pack files our sound under. The overlay
-  therefore reflects the BUILD MACHINE's installed packs, not the source registry: it is not
-  registry-reproducible, and it covers a base copy only where a scanned pack lists it under the same path, so
-  re-run it after any modlist change. A channel absent from a given config is safely ignored by DLTX
-  (warn-and-discard, no CTD, `Xr_ini.cpp:1383-1400`).
+- The generator scans EVERY ambient channel file - `sound_channels.ltx`, `ambient_channels/backgrounds.ltx`,
+  and `ambient_channels/blowout_channels.ltx` - across `VETO_CONFIG_ROOTS` (the GAMMA mods, the source packs,
+  Anomaly), so a removal exists for whatever channel a SCANNED pack files our sound under. The bed files matter:
+  base packs file our captured `whisper_*` and `underground_*` into CONTINUOUS beds in `backgrounds.ltx`, which
+  would double under the director if only `sound_channels.ltx` were scanned. The overlay reflects the BUILD
+  MACHINE's installed packs, not the source registry: it is not registry-reproducible, and it covers a base
+  copy only where a scanned pack lists it under the same path, so re-run it after any modlist change. A channel
+  absent from a given config is safely ignored by DLTX (warn-and-discard, no CTD, `Xr_ini.cpp:1383-1400`).
 - Bed-empty guard: a channel that is a bed anywhere (System A asserts on empty `sounds`,
   `Environment_misc.cpp:108`) also gets `>sounds = ambient\no_sound`, so a full removal never leaves a
   bed empty. See "Muting a channel: the `ambient\no_sound` trick" in the ambient-sound-system note.
@@ -485,7 +499,9 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   dread score to `alifespooks.log`, so the soundscape is checked by observation. Below DEBUG the off
   path marshals nothing and crosses no luabind bridge.
 - `as_mcm.script` is one MCM page tree. Atmosphere holds a single master volume for our sounds (no
-  per-category sliders). Visuals toggles the peak-dread screen distortion. Development holds the trace
+  per-category sliders) - also the balance control between the horror and the player's base ambience, since
+  the mod levels its own corpus but not the base (see "Coexistence with a base soundscape"). Visuals toggles
+  the peak-dread screen distortion. Development holds the trace
   level, a log flush, the debug HUD position, and a reset-to-defaults button. Every control is neutral
   at its default. Labels in English and Russian.
 

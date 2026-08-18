@@ -69,7 +69,7 @@ The audio is built by a reproducible, measured pipeline, one command end to end,
 ffmpeg reads its spectral centroid and flatness, its crest factor, and its integrated loudness in EBU R128 LUFS. ffprobe reads its duration, sample rate, and codec.
 Each pack's folders are mapped to horror categories by hand, and every file in them is pulled, so nothing the pack buries goes missed.
 A sound too long for a one-shot is dropped, and the long radio-signal bed is sliced into short pieces, so nothing overlaps itself.
-Each file's loudness is leveled to a common target by editing its ogg gain field, losslessly, so the corpus is even without a single re-encode.
+Each file's average loudness is measured and leveled to one common target by setting its X-Ray gain field in the ogg comment, capped so no peak clips and floored so nothing goes silent. It is a number in the header, not the audio, so the whole corpus plays at one even level with no re-encode, and dread comes from where a sound is placed, never from one file being quieter than the next.
 
 Identity is decided by the waveform, in three stages, cheapest first, so the expensive test runs only on the pairs the cheap ones flag. An exact md5 hash collapses byte-identical reships.
 A Chromaprint acoustic fingerprint proposes the re-encoded copies the hash misses, but its same-versus-distinct ranges overlap, so it only proposes and never decides.
@@ -88,6 +88,7 @@ It reads cheap signals every few seconds, never per frame, and caches them, so t
 
 MCM:
 The MCM has three tabs. Atmosphere holds one master volume for the mod's sounds, plus rarity and distance.
+The master volume is also the balance control between the horror and your base ambience. The mod levels its own sounds to one even loudness but never touches the base, so if your soundscape mod sits louder or quieter, this one slider sets the dread against it.
 There are no per-category sliders: the director mixes every kind of sound off the single master.
 Visuals toggles the screen distortion at peak dread. Development holds the trace level, a log flush, the debug HUD, and a reset-to-defaults button.
 The in-game HUD reads out the current dread, each term that fed it, what is playing, and what the base ambience is playing, so you can see exactly why a place sounds the way it does.
@@ -113,6 +114,7 @@ When a feature cannot fit that budget it is reworked, replaced, or removed with 
 Compatibility:
 Built for GAMMA and the Dark Signal soundscape base, and it runs on vanilla Anomaly and any soundscape mod.
 Because it removes only its own sounds from the base channels and adds nothing, it does not double or collide with the base ambience over GAMMA, vanilla, and the soundscape packs it is built against.
+It runs as a self-contained layer over any of them. It plays its own sounds through its own director, so it never fights a soundscape mod; its removal only takes sounds out, so it can never empty or break a base channel; and it replays whatever base ambience wins, so those beds keep sounding. Its own sounds are leveled to one even loudness in the build and placed around you by distance, so the horror sits within the base mix, not over it, and the master volume balances the two when a base runs unusually loud or quiet.
 Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and with the soundscape and ambient packs it draws from: Dark Signal Amplified Soundscape, the Dark Signal Audio, Mutants, and Blowout and Anomalies packs, RETUNE Ambient Sounds, myRETUNE Antares 2.1, Audio Expansion, Ambient Extended Reworked, Immersive Ambience Expansion, and Real Distant Mutants Sounds. Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
 You can install or remove it mid-save. Weather sound stays the base ambience's job, AlifeSpooks adds no storm or rain.
 
