@@ -8,6 +8,7 @@
 local math_random, math_rad = math.random, math.rad
 local math_cos, math_sin = math.cos, math.sin
 local math_max, math_floor = math.max, math.floor
+local math_sqrt = math.sqrt
 local ini_file, parse_list = ini_file, parse_list
 local time_global, vector, GetEvent = time_global, vector, GetEvent
 local string_format, RegisterScriptCallback = string.format, RegisterScriptCallback
@@ -82,12 +83,12 @@ local NEAR_R  = 60
 local NEAR_R2 = NEAR_R * NEAR_R
 
 -- Emission + pacing. One sound at most every SPACE_MIN..MAX (dread shortens it); below DREAD_ON nothing
--- emits. HORROR_PULL: overhead cue descends this fraction toward ear at peak dread. The sound's own LEVEL
+-- emits. HEIGHT_PULL: overhead cue descends this fraction toward ear at peak dread. The sound's own LEVEL
 -- (blob base_volume) is dread-free; dread changes how LOUD it is HEARD by changing how FAR it is placed.
 local DREAD_ON     = 0.10
 local SPACE_MIN_MS = 5000
 local SPACE_MAX_MS = 15000
-local HORROR_PULL  = 0.25
+local HEIGHT_PULL  = 0.25
 -- Dread -> heard loudness through DISTANCE. `att` = the fraction of full loudness the engine's LINEAR
 -- attenuation gives at the placed distance (att = (max-dist)/(max-min), SoundRender_Emitter_FSM.cpp:361).
 -- Aim att from ATT_FAR at DREAD_ON to ATT_NEAR at peak, plus a random spread for variety, then HARD-CLAMP to
@@ -418,8 +419,14 @@ function emit(path, opts)
     local dist = opts.dist
     if not dist then
         local dread = opts.dread or 0
-        dist = _dread_dist(opts.min or 1, opts.max or 300, dread, opts.deep)
-        height = height * (1 - HORROR_PULL * dread)
+        height = height * (1 - HEIGHT_PULL * dread)
+        -- _dread_dist gives the TARGET 3D distance for the aimed attenuation, but the engine attenuates on
+        -- the full listener->source 3D distance (Emitter_FSM.cpp:352), which includes the vertical height
+        -- leg. Solve the HORIZONTAL leg so sqrt(dist_h^2 + height^2) lands on that target, so an overhead
+        -- cue is not read fainter than aimed. height 0 (most sounds) leaves dist_h = the target unchanged.
+        local target = _dread_dist(opts.min or 1, opts.max or 300, dread, opts.deep)
+        local h2 = height * height
+        dist = (target * target > h2) and math_sqrt(target * target - h2) or 0
     end
     local pos = actor:position()
     local angle = math_rad(math_random(0, 359))
@@ -542,9 +549,14 @@ local function _emit_tick(tg)
     end
 end
 
--- ---- base ambient observer (own update_ambient; a LOGGING clone, not the veto) --------
--- The muting is STATIC (the DLTX overlay). This hook only replays+LOGS the base ambient so it stays
--- traceable at DEBUG. A faithful clone of sound_ambient.update_ambient; no filtering, no injection.
+-- ---- base ambient observer (owns the vanilla update_ambient slot) --------
+-- This REPLACES vanilla sound_ambient.update_ambient (RemoveTimeEvent + our clone, in _apply_owned), so it
+-- runs for EVERY player, not only at DEBUG. It is a faithful clone of the vanilla channel rotation, timing,
+-- and volume rule, with two deltas: it plays through xsound.play (an engine-owned one-shot, so a base sound
+-- is not GC-cut on channel re-fire the way vanilla's retained handle cut it), and it LOGS each base fire at
+-- DEBUG. It does no muting (the DLTX overlay already stripped our sounds from the composed config it reads)
+-- and no injection. Trade-off: any other ambient-scheduler mod contends for this slot (last writer wins);
+-- the muting is independent of it (the static overlay), so only the trace/no-cut is lost if another wins.
 local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
 
 local function _base_channel(ch, ini_snd)
