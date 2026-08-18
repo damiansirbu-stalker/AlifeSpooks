@@ -74,6 +74,11 @@ local function spooks_page()
             { id = "hdr_feel", type = "desc", text = "ui_mcm_as_hdr_feel", clr = GREY },
             { id = "rarity",   type = "track", val = 2, min = 0.5, max = 3.0, step = 0.05, def = 1.0, hint = "as_rarity" },
             { id = "distance", type = "track", val = 2, min = 0.5, max = 2.0, step = 0.05, def = 1.0, hint = "as_distance" },
+
+            -- Platform footer (self-contained builder in _as_deps, not xlibs), the family-standard verdict row.
+            { id = "div_footer", type = "line" },
+            { id = "platform", type = "desc", text = "ui_mcm_xmcm_footer",
+              ui_hook_functor = { _as_deps.platform_functor() }, clr = {255, 212, 201, 168} },
         },
     }
 end
