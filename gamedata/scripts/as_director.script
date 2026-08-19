@@ -14,10 +14,13 @@ local time_global, vector, GetEvent = time_global, vector, GetEvent
 local string_format, RegisterScriptCallback = string.format, RegisterScriptCallback
 local table_remove, table_concat = table.remove, table.concat
 local pairs, ipairs, tostring = pairs, ipairs, tostring
+local tonumber, next = tonumber, next
 
 local MAP_FILE      = "scripts\\as_static_map.ltx"
+local POSITION_FILE = "scripts\\as_static_position.ltx"
 local CHANNELS_FILE = "environment\\sound_channels.ltx"
 local SEC_DEFAULT   = "default"
+local SEC_POSITIONS = "positions"
 
 -- Category runtime attributes: env (enclosure states it may play in) + need (a live gate). The MAP list
 -- (as_static_map.ltx) decides per-level eligibility; THIS decides enclosure + need, keyed by name.
@@ -148,6 +151,7 @@ local _loaded    = false
 local _map       = nil
 local _map_level = nil
 local _map_set   = {}
+local _positions     = nil
 local _cat_bag   = {}
 local _snd_bag   = {}
 local _gap_at    = 0
@@ -223,6 +227,51 @@ local function _load_map(level_name)
     add(SEC_DEFAULT)
     add(level_name)
     _cat_bag = {}
+end
+
+-- Coordinate overrides ("positions"): a per-place base dread + flat add + selection. Read ONCE into a flat
+-- list (a handful of records); the scan checks the current level's few via xmath.in_range. A position ALWAYS
+-- wins where the actor is inside its radius - it overrides the level lore and even a safe hub.
+local function _parse_position(ini, name)
+    if not ini:section_exist(name) then return nil end
+    local pos = ini:r_string_ex(name, "pos")
+    local position_level = ini:r_string_ex(name, "level")
+    local cx, cz
+    if pos then cx, cz = pos:match("(-?[%d.]+)%s*,%s*-?[%d.]+%s*,%s*(-?[%d.]+)") end
+    if not (position_level and cx and cz) then return nil end
+    local cats = {}
+    for _, cat in ipairs(parse_list(ini, name, "categories")) do cats[cat] = true end
+    return {
+        name = name, level = position_level, px = tonumber(cx), pz = tonumber(cz),
+        radius = ini:r_float_ex(name, "radius") or 30,
+        dread = ini:r_float_ex(name, "dread"),
+        add = ini:r_float_ex(name, "add") or 0,
+        cats = next(cats) and cats or nil,
+        only = ini:r_string_ex(name, "select") == "only",
+    }
+end
+
+local function _load_positions()
+    if _positions then return end
+    _positions = {}
+    local ini = ini_file(POSITION_FILE)
+    if not (ini and ini:section_exist(SEC_POSITIONS)) then return end
+    for _, name in ipairs(parse_list(ini, SEC_POSITIONS, "list")) do
+        local position = _parse_position(ini, name)
+        if position then _positions[#_positions + 1] = position end
+    end
+end
+
+--- The active override where the actor stands, or nil. Checks this level's positions via xmath.in_range
+--- (flat XZ). Loaded once on first call.
+local function _scan_position(actor)
+    _load_positions()
+    local apos, here = actor:position(), level.name()
+    for i = 1, #_positions do
+        local position = _positions[i]
+        if position.level == here and xmath.in_range(apos, position.px, position.pz, position.radius) then return position end
+    end
+    return nil
 end
 
 -- ---- SCANS (producers -> the board) ---------------------------------------
@@ -312,8 +361,16 @@ end
 
 --- True if a category is eligible now: the level's map list names it, its env allows the environment,
 --- and its live need (level-wide presence / anomaly-near) is met. Reads the board.
-local function _eligible(name)
-    if not _map_set[name] then return false end
+local function _eligible(name, position)
+    local allowed = _map_set[name]
+    if position and position.cats then
+        if position.only then
+            allowed = position.cats[name] and CAT[name] and #(_cats[name] or {}) > 0
+        elseif position.cats[name] and CAT[name] and #(_cats[name] or {}) > 0 then
+            allowed = true
+        end
+    end
+    if not allowed then return false end
     local def = CAT[name]
     local env = board.environment
     if env == "outdoor" and not def.out then return false end
@@ -380,6 +437,15 @@ end
 
 --- Grounded additive dread from the board, clamped 0..1. An allied service near (a safe hub) forces 0;
 --- a hostile service adds. Writes board.dread + board.terms (the HUD breakdown, one persistent table).
+--- Sum the terms into the 0..1 dread, applying the active position: its dread replaces lore, add stacks,
+--- and the position overrides a safe hub's silence. A position with no dread leaves the safe-hub 0 in place.
+local function _resolve_dread(terms, position, allied)
+    if position and position.dread then terms.lore = position.dread end
+    if allied and not (position and position.dread) then return 0 end
+    local add = (position and position.add) or 0
+    return _clamp01(terms.lore + terms.env + terms.time + terms.threat + terms.company + terms.anomaly + terms.service + add)
+end
+
 local function _compute_dread()
     local s, m = board.stalkers, board.monsters
     local terms = board.terms
@@ -390,8 +456,7 @@ local function _compute_dread()
     terms.company = ALLY_CALM[s.ally_near] or 0
     terms.anomaly = board.anomalies.near and ANOMALY_ADD or 0
     terms.service = (s.service_near == "hostile") and SERVICE_HOSTILE or 0
-    if s.service_near == "allied" then board.dread = 0; return end
-    board.dread = _clamp01(terms.lore + terms.env + terms.time + terms.threat + terms.company + terms.anomaly + terms.service)
+    board.dread   = _resolve_dread(terms, board.position, s.service_near == "allied")
 end
 
 --- Distance in the sound's OWN min..max band that yields the dread-aimed loudness fraction (att). att runs
@@ -449,9 +514,10 @@ end
 --- Rebuild the eligible category list + fast lookup from the current board. Called at emission and by the
 --- HUD only, never on the tick - the set is consumed only there, so a per-tick rebuild was pure garbage.
 local function _rebuild_eligible()
+    local position = board.position
     local elig = {}
     for name in pairs(CAT) do
-        if _eligible(name) then elig[#elig + 1] = name end
+        if _eligible(name, position) then elig[#elig + 1] = name end
     end
     board.eligible = elig
     board.elig_set = {}
@@ -487,6 +553,13 @@ function _build_hud()
     _rows[#_rows + 1] = { "company",     string_format("%+.2f", terms.company or 0), "" }
     _rows[#_rows + 1] = { "anomaly",     string_format("%+.2f", terms.anomaly or 0), "" }
     _rows[#_rows + 1] = { "service",     string_format("%+.2f", terms.service or 0), "" }
+    _rows[#_rows + 1] = { "", "", "" }
+    _rows[#_rows + 1] = { "OVERRIDE", "", "", "hdr" }
+    local override = board.position
+    _rows[#_rows + 1] = { "position", override and override.name or "none", "", override and "g_med" or "g_none" }
+    _rows[#_rows + 1] = { "dread",  override and override.dread and string_format("%.2f", override.dread) or "-", "" }
+    _rows[#_rows + 1] = { "add",    override and string_format("%+.2f", override.add) or "-", "" }
+    _rows[#_rows + 1] = { "select", override and override.cats and (override.only and "only" or "add") or "-", "" }
     _rows[#_rows + 1] = { "", "", "" }
     _rows[#_rows + 1] = { "SENSORS", "", "", "hdr" }
     _rows[#_rows + 1] = { "environment", board.environment, "" }
@@ -660,11 +733,24 @@ end
 
 -- Each producer writes one sensor into the board. The tick runs ONE per tick, so the per-tick cost is
 -- the single heaviest scan, never the sum; the full board refreshes over #producers ticks (~0.6s).
+-- Position producer: resolve the active override, edge-logging enter/leave at DEBUG (not every scan).
+local _last_pos_name = nil
+local function _prod_position(actor)
+    local position = _scan_position(actor)
+    local name = position and position.name
+    if name ~= _last_pos_name then
+        _last_pos_name = name
+        as_debug.dbg("[OVERRIDE] %s", name and ("in " .. name .. " dread=" .. tostring(position.dread)) or "cleared")
+    end
+    board.position = position
+end
+
 local _prod = {
     { "stalkers",    function(actor) board.stalkers = _scan_stalkers(actor) end },
     { "monsters",    function(actor) board.monsters = _scan_monsters(actor) end },
     { "environment", function(actor) board.environment = _read_environment(actor) end },
     { "anomalies",   function(actor) board.anomalies.near = _read_anomalies(actor) end },
+    { "position",    _prod_position },
     { "time",        function()      if level.present() then board.time = _get_time_band(level.get_time_hours()) end end },
 }
 local _cursor = 1
@@ -719,7 +805,7 @@ function get_hud_rows()
     return _rows
 end
 
---- The live sensor board (read-only): the Player tab's Inspector reads dread + environment for a spot readout.
+--- The live sensor board (read-only): the Player tab's Inspector reads dread + environment for a quick readout.
 function get_board()
     return board
 end

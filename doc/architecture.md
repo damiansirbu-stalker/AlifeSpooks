@@ -255,7 +255,7 @@ Dread is a scalar 0..1, additive, **no baseline constant** - the sum of whatever
     dread = lore + environment + time + threat + company + anomaly + service
 
 - **lore** - the level's own baseline (grim in the psi north and the labs, mundane in the fields).
-  Coordinate overrides supersede this later (n114).
+  A hand-marked position override replaces this baseline where one is set (see Position overrides below).
 - **environment** - outdoor +0; indoor +small; underground +med; labs +big.
 - **time** - day +0; dusk/dawn +small; night +med; deep night +big.
 - **threat** - the single scariest near thing, `max(stalkers.enemy_near, monsters.enemy_near)`, scaled by
@@ -282,6 +282,29 @@ can still take any sound under cull); the ceiling keeps a near sound from blarin
 `_build_source_height_map` (aggregated across packs, highest non-zero wins), carried in the manifest as `snd[4]`, so an
 overhead sound (bird, vent, thunder) stays overhead when calm and, by the same `HEIGHT_PULL`, descends toward
 ear level as the place turns.
+
+### Position overrides - hand-marked static positions
+
+Some places the live sensors cannot read - an empty bloodsucker village, a surface machinery factory - read
+mundane because no NPC, anomaly, or level baseline marks their reputation. `as_static_position.ltx` pins them
+by hand: one section per position with `pos`, `radius`, an optional `dread`, `add`, and `categories`/`select`.
+The director reads the file once into a flat list (`_load_positions`); the `position` producer resolves the
+active one each rotation with `xmath.in_range` (flat XZ, squared, no sqrt) over the current level's few and
+writes it to `board.position`.
+
+Where the actor stands inside a position's radius it ALWAYS wins:
+
+- **dread** replaces the `lore` baseline term (the live terms - threat, company, env, time, anomaly - still
+  stack on top), so the empty village never reads below its set dread but a real bloodsucker still lifts it.
+- **add** is a flat modifier on the whole sum.
+- The override wins over a safe hub: a position with a `dread` suppresses the allied-service silence
+  (`_resolve_dread`), so a hand-marked place is never zeroed by a passing trader.
+- **categories** override SELECT: `select = only` plays ONLY the listed categories there, `select = add` adds
+  them to the level's map (`_eligible`), still gated by env and presence.
+
+Nothing here needs an MCM knob - it is data, edited in the LTX and captured via the dev-tab snapshot. The
+debug HUD carries an `OVERRIDE` section (the active position's name, dread, add, select) and an `[OVERRIDE]`
+trace fires at DEBUG on entering or leaving a position.
 
 ### Emission model - how the final loudness is set (engine-grounded)
 
@@ -329,7 +352,8 @@ on the continuous dread still matters; there is no grade ladder otherwise.
 A three-column readout (MCM `hud_position`), built lazily on read so it costs nothing on the tick, grouped
 by stage: PLAYING (the director's current one-shot + the base ambient the observer replays, each bright
 while sounding, gray once stopped), SELECT (the available category list + the DREAD number, tinted gray /
-amber / red by value, no rainbow), and SENSORS (every board field by its exact name - `stalkers.enemy_near`,
+amber / red by value, no rainbow), APPLY (each dread term's contribution), OVERRIDE (the active hand-marked
+position and what it forces, when one is in range), and SENSORS (every board field by its exact name - `stalkers.enemy_near`,
 `monsters.online`, worded tokens, never a raw int). Players never see it; it feeds off
 `as_director.get_hud_rows`.
 

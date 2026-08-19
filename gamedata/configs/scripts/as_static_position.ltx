@@ -1,0 +1,18 @@
+; as_static_position.ltx - coordinate dread + selection overrides (hand-marked static positions).
+; A position is a place the live sensors cannot read - an empty bloodsucker village, a surface factory -
+; where the dread and what plays are pinned by hand. When the actor is within `radius` metres of `pos`
+; on `level`, the override ALWAYS wins (over the level lore AND over a safe hub):
+;   dread      - sets the dread baseline (replaces the level lore term); omit to leave lore as-is
+;   add        - a flat modifier stacked on the whole dread sum (optional, +/-)
+;   categories - what plays here; select = only (play ONLY these) or add (add to the level's map)
+; The live terms (threat, company, env, time, anomaly) still stack on top of dread + add.
+; Loaded once. `list` names the active position sections.
+
+[positions]
+list = bloodsucker_village
+
+[bloodsucker_village]
+level  = l07_military
+pos    = -218, -22, 205
+radius = 60
+dread  = 0.50
