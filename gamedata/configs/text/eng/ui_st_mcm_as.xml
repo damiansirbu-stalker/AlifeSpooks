@@ -39,12 +39,6 @@
   <string id="ui_mcm_as_rarity_desc">
     <text>Wait between one-shots. Higher plays them less often.</text>
   </string>
-  <string id="ui_mcm_as_distance">
-    <text>Distance</text>
-  </string>
-  <string id="ui_mcm_as_distance_desc">
-    <text>How far the one-shots spawn. Higher is farther and quieter.</text>
-  </string>
   <string id="ui_mcm_as_visuals_page_desc">
     <text>At peak spook, in the worst places, a brief and subtle screen distortion.</text>
   </string>

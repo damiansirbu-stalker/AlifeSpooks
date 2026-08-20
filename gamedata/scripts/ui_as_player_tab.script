@@ -7,7 +7,7 @@ local string_format, bit_or = string.format, bit_or
 
 local SND_ROOT    = "zs"
 -- position modes cycled by the distance steppers: false = 2D at-ear (raw quality check), "auto" = the
--- director's exact emit (min/max from as_manifest), a number = a literal 3D distance in metres.
+-- director's exact emit (the sound's config row from as_sound_config_gen), a number = a literal 3D distance in metres.
 local DIST_STEPS  = { false, "auto", 5, 10, 25, 50, 100 }
 
 local _cats    = nil
@@ -119,7 +119,7 @@ function as_player_tab:InitControls()
     self.insp_note = xml:InitEditBox("insp_note", self)
     self.chk_mute  = xml:InitCheck("chk_mute", self); self:Register(self.chk_mute, "chk_mute")
     local function reg(name) local btn = xml:Init3tButton(name, self); self:Register(btn, name) end
-    reg("btn_pos_down"); reg("btn_pos_up"); reg("btn_prior"); reg("btn_play"); reg("btn_next")
+    reg("btn_pos_down"); reg("btn_pos_up"); reg("btn_prior"); reg("btn_play"); reg("btn_stop"); reg("btn_next")
     reg("btn_flag"); reg("btn_rescan"); reg("btn_beacon"); reg("btn_snapshot")
 end
 
@@ -130,6 +130,7 @@ function as_player_tab:InitCallbacks()
     self:AddCallback("btn_pos_up",   ui_events.BUTTON_CLICKED,     self.OnPosFar,   self)
     self:AddCallback("btn_prior",    ui_events.BUTTON_CLICKED,     self.OnPriorSound, self)
     self:AddCallback("btn_play",     ui_events.BUTTON_CLICKED,     self.OnReplay,   self)
+    self:AddCallback("btn_stop",     ui_events.BUTTON_CLICKED,     self.OnStop,     self)
     self:AddCallback("btn_next",     ui_events.BUTTON_CLICKED,     self.OnNextSound, self)
     self:AddCallback("btn_flag",     ui_events.BUTTON_CLICKED,     self.OnFlag,     self)
     self:AddCallback("btn_rescan",   ui_events.BUTTON_CLICKED,     self.OnRescan,   self)
@@ -204,16 +205,17 @@ function as_player_tab:_play_current()
     if not (_cur and xsound) then return end
     local dist = _current_distance()
     if dist == false then
-        xsound.play(_cur.path, { volume = 1.0 })
+        xsound.play_at(_cur.path, { s2d = true, volume = 1.0 })
     elseif dist == "auto" then
-        -- n124 names are <name>_<hash>, not a numeric index, so find the manifest row by its path.
-        local list = as_manifest and as_manifest.categories and as_manifest.categories[_cur.cat]
+        -- n124 names are <name>_<hash>, not a numeric index, so find the config row by its path.
+        local list = as_sound_config_gen and as_sound_config_gen.categories and as_sound_config_gen.categories[_cur.cat]
         local entry
         if list then
             for k = 1, #list do if list[k][1] == _cur.path then entry = list[k]; break end end
         end
         as_director.emit(_cur.path, { min = entry and entry[2] or 2, max = entry and entry[3] or 100,
-            height = entry and entry[4] or 0 })
+            height = entry and entry[4] or 0, ch_min = entry and entry[5] or 30,
+            ch_max = entry and entry[6] or 100, indoor = entry and entry[7] or false })
     else
         as_director.emit(_cur.path, { dist = dist })
     end
@@ -247,6 +249,12 @@ function as_player_tab:OnReplay()
     self:_play_current()
 end
 
+--- Stop every retained one-shot the tab or the director started.
+function as_player_tab:OnStop()
+    if xsound then xsound.stop_shots() end
+    self.status:SetText("stopped")
+end
+
 --- Master silence checkbox: mute the running director (its one-shots + the base-ambient replay) so a
 --- clicked sound auditions alone. The tab's own play path is unaffected - only automatic emission is cut.
 function as_player_tab:OnMute()
@@ -255,16 +263,17 @@ function as_player_tab:OnMute()
     end
 end
 
---- Position steppers: nearer walks toward at-ear, farther toward 100 m (both wrap), then re-auditions.
+--- Mode steppers: cycle the play mode ONLY (at-ear / director-exact / fixed distances, wrapping).
+--- They never play - PLAY is the one trigger (user rule).
 function as_player_tab:OnPosNear()
     _dist_i = _dist_i - 1
     if _dist_i < 1 then _dist_i = #DIST_STEPS end
-    self:Refresh(); self:_play_current()
+    self:Refresh()
 end
 
 function as_player_tab:OnPosFar()
     _dist_i = _dist_i % #DIST_STEPS + 1
-    self:Refresh(); self:_play_current()
+    self:Refresh()
 end
 
 --- Transport prev/next: step to the neighbouring sound in the current category and audition it.

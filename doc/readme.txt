@@ -47,7 +47,7 @@ Spooks, screams, and dark drones play wherever the map allows. A mutant category
 Wind, foliage, and eerie wildlife are outdoor texture, while doors, machinery, drips, and facility sound belong indoors and underground.
 Every category rotates so a scare stays rare against the texture, and no call plays twice in a row.
 
-Each one-shot is placed in 3D around and above you, in the sound's own distance band from the pack it came from: far and faint when the place is calm, close and loud when dread peaks, with a hard floor so it never goes silent and a ceiling so a close one never blares. A sound the author meant to come from overhead still comes from overhead. Nothing is a flat 2D beep at a fixed spot.
+Each one-shot is placed in 3D around and above you at the distance its own author chose, through the same placement the game's ambient system uses, so it sounds exactly as it did in the mod it came from. A sound the author meant to come from overhead still comes from overhead. Every sound is mono, the only form the engine places in 3D, so nothing is a flat sound stuck at your ear.
 A long horror drone or the radio signal plays as a spaced one-shot, never a continuous loop.
 
 
@@ -70,7 +70,7 @@ The audio is built by a reproducible, measured pipeline, one command end to end,
 ffmpeg reads its spectral centroid and flatness, its crest factor, and its integrated loudness in EBU R128 LUFS. ffprobe reads its duration, sample rate, and codec.
 Each pack's folders are mapped to horror categories by hand, and every file in them is pulled, so nothing the pack buries goes missed.
 A sound too long for a one-shot is dropped, and the long radio-signal bed is sliced into short pieces, so nothing overlaps itself.
-Each file's average loudness is measured and leveled to one common target by setting its X-Ray gain field in the ogg comment, capped so no peak clips and floored so nothing goes silent. It is a number in the header, not the audio, so the whole corpus plays at one even level with no re-encode, and dread comes from where a sound is placed, never from one file being quieter than the next.
+Each file keeps its own author's loudness, the X-Ray gain the source author set in the ogg comment, written back verbatim with no leveling. The authored levels are tight and field-tested in the source mods, so the corpus already plays at one even level, and dread comes from where a sound is placed, never from re-leveling one file against the next. It is a number in the header, not the audio, so nothing is re-encoded.
 
 Identity is decided by the waveform, in three stages, cheapest first, so the expensive test runs only on the pairs the cheap ones flag. An exact md5 hash collapses byte-identical reships.
 A Chromaprint acoustic fingerprint proposes the re-encoded copies the hash misses, but its same-versus-distinct ranges overlap, so it only proposes and never decides.
@@ -78,8 +78,9 @@ A PCM cross-correlation decides. It decodes both files, aligns them by envelope,
 Files merge only under complete linkage, so a similarity chain never collapses two distinct recordings, and variety is never lost. This runs among the source packs only.
 The mod never drops a sound because your install already plays it. It carries the full curated dark corpus and removes the base copy at load instead.
 
-Every kept sound is redistributed byte for byte, carrying its own X-Ray volume and distance in its ogg comment.
+Every mono sound is redistributed byte for byte, its audio untouched, carrying its author's own X-Ray volume and distance band in its ogg comment. A stereo sound is the one exception: the engine cannot place a stereo sound in 3D, it plays flat at your ear, so the build folds it to mono and then writes the comment, its author's values captured before the fold so they are not lost.
 A source that lacks that metadata is given it losslessly, the median of its category band, so only the comment header changes and the audio bytes stay identical.
+Most of this corpus was never actually heard where it came from. Two thirds of the files were shipped by their packs but wired into no channel, so their own schedulers never played them once, and most of the rest carry an unset engine distance field that silences a sound placed more than a few meters away. The build corrects that one field to the game's own far-ambience standard, so thousands of sounds that existed only as files on disk now play in the world, at their author's loudness, for the first time.
 A fitness gate keeps 44.1 kHz vorbis, the X-Ray standard, and accounts anything dropped. A ledger proves no net-new dark sound is missed.
 A provenance record maps every carried sound back to its origin mod, folder, and name, and self-verifies by audio hash.
 Nothing loses its origin, even though the files are organized into the mod's own categories.
@@ -88,8 +89,8 @@ It reads cheap signals every few seconds, never per frame, and caches them, so t
 
 
 MCM:
-The MCM has three tabs. Atmosphere holds one master volume for the mod's sounds, plus rarity and distance.
-The master volume is also the balance control between the horror and your base ambience. The mod levels its own sounds to one even loudness but never touches the base, so if your soundscape mod sits louder or quieter, this one slider sets the dread against it.
+The MCM has three tabs. Atmosphere holds one master volume for the mod's sounds, plus rarity.
+The master volume is also the balance control between the horror and your base ambience. The mod plays each sound at its author's own loudness, already even across the corpus, but never touches the base, so if your soundscape mod sits louder or quieter, this one slider sets the dread against it.
 There are no per-category sliders: the director mixes every kind of sound off the single master.
 Visuals toggles the screen distortion at peak dread. Development holds the trace level, a log flush, the debug HUD, and a reset-to-defaults button.
 The in-game HUD reads out the current dread, each term that fed it, what is playing, and what the base ambience is playing, so you can see exactly why a place sounds the way it does.
@@ -115,7 +116,7 @@ When a feature cannot fit that budget it is reworked, replaced, or removed with 
 Compatibility:
 Built for GAMMA and the Dark Signal soundscape base, and it runs on vanilla Anomaly and any soundscape mod.
 Because it removes only its own sounds from the base channels and adds nothing, it never doubles or collides with the base ambience, on GAMMA, vanilla, or any soundscape pack.
-It runs as a self-contained layer over any of them. It plays its own sounds through its own director, so it never fights a soundscape mod; its removal only takes sounds out, so it can never empty or break a base channel; and it replays whatever base ambience wins, so those beds keep sounding. Its own sounds are leveled to one even loudness in the build and placed around you by distance, so the horror sits within the base mix, not over it, and the master volume balances the two when a base runs unusually loud or quiet.
+It runs as a self-contained layer over any of them. It plays its own sounds through its own director, so it never fights a soundscape mod; its removal only takes sounds out, so it can never empty or break a base channel; and it replays whatever base ambience wins, so those beds keep sounding. Its own sounds play at their authors' own loudness and from their authors' own distances, so the horror sits within the base mix, not over it, and the master volume balances the two when a base runs unusually loud or quiet.
 Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and with the soundscape and ambient packs it draws from: Dark Signal Amplified Soundscape, the Dark Signal Audio, Mutants, and Blowout and Anomalies packs, RETUNE Ambient Sounds, myRETUNE Antares 2.1, Audio Expansion, Ambient Extended Reworked, Immersive Ambience Expansion, and Real Distant Mutants Sounds. Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
 You can install or remove it mid-save. Weather sound stays the base ambience's job, AlifeSpooks adds no storm or rain.
 

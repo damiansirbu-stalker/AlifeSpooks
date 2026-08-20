@@ -1,9 +1,11 @@
 --- as_director: dread director v2. One 100ms tick round-robins a sensor board (environment, stalkers,
 --- monsters, anomalies, time), SELECT gates categories by map + environment + presence, a two-level
---- shuffle-bag picks, and grounded additive dread drives spawn distance and emission frequency, never
---- volume. Man and monster collapse to one low/med/high power (se:rank), so threat reads both with one
---- rule. A separate observer owns the vanilla update_ambient slot only to replay+LOG the base ambient;
---- the base's copies of our sounds are removed statically by the DLTX overlay.
+--- shuffle-bag picks, and grounded additive dread drives ONLY emission frequency and selection - never
+--- placement or volume. Each sound plays EXACTLY as vanilla update_ambient plays it: its own source
+--- channel's spawn band + the vanilla placement/volume code, verbatim (emit). Man and monster collapse
+--- to one low/med/high power (se:rank), so threat reads both with one rule. A separate observer owns the
+--- vanilla update_ambient slot only to replay+LOG the base ambient; the base's copies of our sounds are
+--- removed statically by the DLTX overlay.
 
 local math_random, math_rad = math.random, math.rad
 local math_cos, math_sin = math.cos, math.sin
@@ -90,25 +92,18 @@ local NEAR_R2 = NEAR_R * NEAR_R
 -- and a rising dread tightens the gap AT ONCE (a threat mid-calm-gap fires promptly). SPACE_JITTER keeps it
 -- irregular. Nothing emits only at dread 0 (a safe hub / fully-calmed place); any dread above 0 plays. The
 -- gap is power-eased off calm (SPACE_EASE); mean gaps calm ~32s / mundane ~26s / mid ~15s / peak ~6.5s.
--- DREAD_ON is the curves' calm anchor (distance + frequency), NOT an emission gate. HEIGHT_PULL: overhead
--- cue descends toward ear at peak dread. The sound's own LEVEL (blob base_volume) is dread-free.
+-- DREAD_ON is the pacing curve's calm anchor (frequency only), NOT an emission gate. Placement, height,
+-- and loudness are vanilla's per sound (see emit) - dread never touches them.
 local DREAD_ON      = 0.10
 local SPACE_CALM_MS = 32000
 local SPACE_PEAK_MS = 6500
 local SPACE_JITTER  = 0.15
 local SPACE_EASE    = 0.5
-local HEIGHT_PULL   = 0.25
--- Dread -> heard loudness through DISTANCE. `att` = the fraction of full loudness the engine's LINEAR
--- attenuation gives at the placed distance (att = (max-dist)/(max-min), SoundRender_Emitter_FSM.cpp:361).
--- Aim att from ATT_FAR at DREAD_ON to ATT_NEAR at peak, plus a random spread for variety, then HARD-CLAMP to
--- [ATT_FLOOR, ATT_CEIL]. The floor is the guarantee: a sound is NEVER placed at max_distance (att 0 = silent)
--- nor below ATT_FLOOR, so it can never mute or go inaudible; the ceiling keeps a close sound from blaring
--- (the blob is peak-capped, so no clip either).
-local ATT_FAR    = 0.20
-local ATT_NEAR   = 0.90
-local ATT_SPREAD = 0.08
-local ATT_FLOOR  = 0.20
-local ATT_CEIL   = 0.95
+-- Placement is VANILLA's, verbatim (sound_ambient.script:127-165): each sound carries its source channel's
+-- spawn band (ch_min/ch_max in as_sound_config_gen) and emit() places it exactly as update_ambient would -
+-- min lifted to the band midpoint outdoors, random(min, max)/2, random bearing, pos.y + height, then the
+-- vanilla indoor/outdoor/underground volume table times the game ambient slider. Dread never touches
+-- placement or loudness.
 local TICK_S       = 0.1
 local BASE_TICK_S  = 1
 local INSANE_DREAD = 0.80
@@ -126,7 +121,6 @@ local VIS_CHANCE      = 0.5
 
 -- MCM knobs (1.0 neutral). One master volume for our sounds; no per-category volume.
 local rarity             = 1
-local distance           = 1
 local vol_global         = 1
 local opt_ambient_volume = 1
 local visuals_on         = true
@@ -144,7 +138,7 @@ local board = {
     elig_set = {},
 }
 
--- Runtime state. _cats: category -> sound list from as_manifest. _map/_map_set: the level's category set.
+-- Runtime state. _cats: category -> sound list from as_sound_config_gen. _map/_map_set: the level's category set.
 -- _cat_bag/_snd_bag: the two shuffle-bags. _enc: the environment raycast cache (by cell). _vis: visual state.
 local _cats      = {}
 local _loaded    = false
@@ -201,11 +195,15 @@ end
 
 -- ---- LOAD -----------------------------------------------------------------
 
---- Load each category's sound list from as_manifest, once. Each sound is { path, min, max, height }.
+--- Load each category's sound list from as_sound_config_gen, once. Each sound row is
+--- { path, blob_min, blob_max, height, ch_min, ch_max, indoor }.
 local function _load_channels()
     if _loaded then return end
     _loaded = true
-    local cats = as_manifest and as_manifest.categories or {}
+    if not as_sound_config_gen then
+        as_debug.warn("as_director: as_sound_config_gen absent - no sounds to play (run build.py deploy)")
+    end
+    local cats = as_sound_config_gen and as_sound_config_gen.categories or {}
     for name in pairs(CAT) do
         _cats[name] = cats[name] or {}
         as_debug.dbg("as_director: category %s = %d sounds", name, #_cats[name])
@@ -459,53 +457,47 @@ local function _compute_dread()
     board.dread   = _resolve_dread(terms, board.position, s.service_near == "allied")
 end
 
---- Distance in the sound's OWN min..max band that yields the dread-aimed loudness fraction (att). att runs
---- from far+faint at DREAD_ON (ATT_FAR) to close+loud at peak (ATT_NEAR) with a random spread, then is
---- HARD-CLAMPED to [ATT_FLOOR, ATT_CEIL]: the floor means it is never placed at max_distance (att 0 = silent)
---- nor below the floor, so it can never mute or go inaudible; the ceiling keeps a near sound from blaring.
---- The MCM distance knob scales it (>1 farther); deep (underground) places a touch closer.
-local function _dread_dist(min_dist, max_dist, dread, deep)
-    if min_dist > max_dist then min_dist = max_dist end
-    local dn = (dread - DREAD_ON) / (1 - DREAD_ON)
-    if dn < 0 then dn = 0 elseif dn > 1 then dn = 1 end
-    local att = ATT_FAR + (ATT_NEAR - ATT_FAR) * dn + (math_random() * 2 - 1) * ATT_SPREAD
-    if deep then att = att + 0.10 end
-    att = att / distance
-    if att < ATT_FLOOR then att = ATT_FLOOR elseif att > ATT_CEIL then att = ATT_CEIL end
-    return max_dist - att * (max_dist - min_dist)
-end
-
---- Fire one positioned one-shot at `path`. `dist` is the HORIZONTAL distance; opts.dist = an explicit metre
---- distance used as-is (the audition player); else dread drives HEARD loudness through placement - it aims a
---- loudness fraction (att) in the sound's OWN min..max band, from far+faint at DREAD_ON (ATT_FAR) to close+loud
---- at peak (ATT_NEAR), clamped to [ATT_FLOOR, ATT_CEIL] so it can never mute or blare, scaled by the MCM
---- distance knob. opts.height offsets
---- the placement VERTICALLY (`pos.y + height`) - the sound's ORIGINAL source-channel elevation, carried per
---- sound in the manifest (snd[4]) and recovered by merge.py `_build_source_height_map`, so an overhead sound (bird,
---- vent, thunder) stays overhead instead of at ear level. Height is pulled DOWN by dread by the same factor as
---- distance, so an overhead cue descends toward ear level as the place turns. The sound's own LEVEL (base_volume) stays dread-free; only its distance-driven loudness changes. Returns the distance.
-function emit(path, opts)
-    local actor = db.actor
-    if not (actor and path and xsound) then return end
-    local height = opts.height or 0
-    local dist = opts.dist
+--- Vanilla update_ambient placement + volume for one spawn band (sound_ambient.script:127-165): min lifted
+--- to the band midpoint outdoors, random(min, max)/2 (fixed_dist skips the roll - the audition player), a
+--- random bearing, pos.y + height, and the indoor/outdoor/underground volume table. The min>max clamp is
+--- boundary validation for the base observer's third-party LTX (math_random errors on an empty interval;
+--- our generated bands cannot invert). Returns dist, position, and the raw table volume (caller applies sliders).
+local function _vanilla_place(actor, ch_min, ch_max, height, indoor, fixed_dist)
+    local underground = GetEvent("underground")
+    local inside = GetEvent("current_safe_cover")
+    local dist = fixed_dist
     if not dist then
-        local dread = opts.dread or 0
-        height = height * (1 - HEIGHT_PULL * dread)
-        -- _dread_dist gives the TARGET 3D distance for the aimed attenuation, but the engine attenuates on
-        -- the full listener->source 3D distance (Emitter_FSM.cpp:352), which includes the vertical height
-        -- leg. Solve the HORIZONTAL leg so sqrt(dist_h^2 + height^2) lands on that target, so an overhead
-        -- cue is not read fainter than aimed. height 0 (most sounds) leaves dist_h = the target unchanged.
-        local target = _dread_dist(opts.min or 1, opts.max or 300, dread, opts.deep)
-        local h2 = height * height
-        dist = (target * target > h2) and math_sqrt(target * target - h2) or 0
+        local spawn_min = underground and ch_min or ((ch_max + ch_min) / 2)
+        if spawn_min > ch_max then spawn_min = ch_max end
+        dist = math_random(spawn_min, ch_max) / 2
     end
     local pos = actor:position()
     local angle = math_rad(math_random(0, 359))
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + height, pos.z + math_sin(angle) * dist)
-    local vol = opts.vol or (vol_global * opt_ambient_volume)
-    xsound.play(path, { position = vec, volume = vol })
-    as_debug.dbg("[PLAY] %s dist=%.1f h=%.0f vol=%.2f dread=%.2f", path, dist, height, vol, opts.dread or 0)
+    local vol
+    if underground or inside then vol = indoor and 1 or 0.3
+    else vol = indoor and 0 or 1 end
+    return dist, vec, vol
+end
+
+--- Fire one positioned one-shot at `path`, EXACTLY as vanilla update_ambient plays it: the sound's own
+--- source-channel spawn band (opts.ch_min/ch_max from as_sound_config_gen, REQUIRED unless opts.dist)
+--- through _vanilla_place, the vanilla volume table times the game ambient slider (vol_global on top,
+--- 1 = untouched vanilla loudness). The blob pair (opts.min/max) is the ATTENUATION range - trace readout
+--- only, never placement. Returns the distance.
+function emit(path, opts)
+    local actor = db.actor
+    if not (actor and path and xsound) then return end
+    local height = opts.height or 0
+    local dist, vec, vol = _vanilla_place(actor, opts.ch_min, opts.ch_max, height, opts.indoor, opts.dist)
+    vol = vol * opt_ambient_volume * vol_global
+    xsound.play_at(path, { position = vec, volume = vol })
+    local mn, mx = opts.min, opts.max
+    local d3d = math_sqrt(dist * dist + height * height)
+    local att = (mn and mx and mx > mn) and (mx - d3d) / (mx - mn) or 0
+    if att < 0 then att = 0 elseif att > 1 then att = 1 end
+    as_debug.dbg("[PLAY] %s dist=%.1f band=%.0f-%.0f h=%.0f att=%.2f vol=%.2f dread=%.2f",
+        path, dist, opts.ch_min or 0, opts.ch_max or 0, height, att, vol, opts.dread or 0)
     return dist
 end
 
@@ -628,8 +620,8 @@ local function _emit_tick(tg)
     if not name then return end
     local snd = _pick_sound(name)
     if snd then
-        emit(snd[1], { min = snd[2], max = snd[3], height = snd[4], dread = dread,
-                       deep = board.environment == "underground" or board.environment == "labs" })
+        emit(snd[1], { min = snd[2], max = snd[3], height = snd[4],
+                       ch_min = snd[5], ch_max = snd[6], indoor = snd[7], dread = dread })
         _last_play = snd[1]
         _play_at = tg
         as_debug.dbg("[PICK] cat=%s snd=%s dread=%.2f", name, snd[1], dread)
@@ -686,18 +678,8 @@ local function _base_fire(ch, tg)
     if _muted then return end
     local file = ch.sounds[math_random(#ch.sounds)]
     _base_last, _base_at = tostring(file), tg
-    local inside, underground = GetEvent("current_safe_cover"), GetEvent("underground")
-    local pos = actor:position()
-    local max_dist = ch.max_dist
-    local min_dist = underground and ch.min_dist or ((max_dist + ch.min_dist) / 2)
-    if min_dist > max_dist then min_dist = max_dist end
-    local dist = math_random(min_dist, max_dist) / 2
-    local angle = math_rad(math_random(0, 359))
-    local vol
-    if underground or inside then vol = ch.indoor and 1 or 0.3
-    else vol = ch.indoor and 0 or 1 end
+    local dist, vec, vol = _vanilla_place(actor, ch.min_dist, ch.max_dist, ch.height, ch.indoor)
     vol = vol * opt_ambient_volume
-    local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + ch.height, pos.z + math_sin(angle) * dist)
     xsound.play(file, { position = vec, volume = vol })
     if as_debug.on() then
         as_debug.dbg("[BASE] lvl=%s ch=%s file=%s dist=%.1f vol=%.2f", level.name(), ch.name, tostring(file), dist, vol)
@@ -775,7 +757,6 @@ end
 
 local function refresh()
     rarity             = as_mcm.get_config("rarity") or 1
-    distance           = as_mcm.get_config("distance") or 1
     vol_global         = as_mcm.get_config("vol_global") or 1
     opt_ambient_volume = (ui_options and ui_options.get("sound/environment/ambient_volume")) or 1
     local wanted = as_mcm.get_config("visuals")
@@ -795,7 +776,7 @@ local function _on_first_update()
     _apply_owned()
     RemoveTimeEvent("as_director", "tick")
     CreateTimeEvent("as_director", "tick", TICK_S, _tick)
-    as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient")
+    as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient; vanilla-band placement")
 end
 
 --- The debug HUD rows, built fresh from the board on demand (as_hud reads this only while visible, so

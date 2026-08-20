@@ -1090,346 +1090,6 @@
   "tone": "tonal"
  },
  {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k10",
-  "dur": 1.9,
-  "cen": 1729,
-  "flat": 0.016,
-  "crest": 6.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k11",
-  "dur": 2.1,
-  "cen": 1487,
-  "flat": 0.015,
-  "crest": 6.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k12",
-  "dur": 2.0,
-  "cen": 1520,
-  "flat": 0.022,
-  "crest": 6.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k13",
-  "dur": 1.3,
-  "cen": 1575,
-  "flat": 0.012,
-  "crest": 6.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k14",
-  "dur": 2.2,
-  "cen": 1627,
-  "flat": 0.013,
-  "crest": 6.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k16",
-  "dur": 1.9,
-  "cen": 1728,
-  "flat": 0.029,
-  "crest": 7.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k17",
-  "dur": 1.6,
-  "cen": 1591,
-  "flat": 0.028,
-  "crest": 5.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k18",
-  "dur": 2.2,
-  "cen": 2177,
-  "flat": 0.018,
-  "crest": 5.9,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k19",
-  "dur": 1.6,
-  "cen": 1303,
-  "flat": 0.02,
-  "crest": 8.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k3",
-  "dur": 2.4,
-  "cen": 1428,
-  "flat": 0.015,
-  "crest": 7.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k4",
-  "dur": 2.0,
-  "cen": 1399,
-  "flat": 0.018,
-  "crest": 6.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k5",
-  "dur": 1.3,
-  "cen": 1318,
-  "flat": 0.015,
-  "crest": 7.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k7",
-  "dur": 0.8,
-  "cen": 1342,
-  "flat": 0.01,
-  "crest": 4.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k8",
-  "dur": 2.2,
-  "cen": 1822,
-  "flat": 0.012,
-  "crest": 6.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_k9",
-  "dur": 1.3,
-  "cen": 1748,
-  "flat": 0.013,
-  "crest": 5.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_m2",
-  "dur": 1.3,
-  "cen": 1333,
-  "flat": 0.018,
-  "crest": 6.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_m3",
-  "dur": 1.5,
-  "cen": 1327,
-  "flat": 0.02,
-  "crest": 7.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_m4",
-  "dur": 1.6,
-  "cen": 1272,
-  "flat": 0.018,
-  "crest": 6.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_m5",
-  "dur": 1.1,
-  "cen": 1762,
-  "flat": 0.045,
-  "crest": 6.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_m6",
-  "dur": 1.4,
-  "cen": 1251,
-  "flat": 0.016,
-  "crest": 6.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_m9",
-  "dur": 1.4,
-  "cen": 2089,
-  "flat": 0.048,
-  "crest": 5.5,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal1",
-  "dur": 2.1,
-  "cen": 1244,
-  "flat": 0.019,
-  "crest": 8.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal10",
-  "dur": 0.7,
-  "cen": 1487,
-  "flat": 0.051,
-  "crest": 8.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal11",
-  "dur": 0.6,
-  "cen": 1702,
-  "flat": 0.072,
-  "crest": 6.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal12",
-  "dur": 1.5,
-  "cen": 1346,
-  "flat": 0.027,
-  "crest": 8.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal13",
-  "dur": 0.6,
-  "cen": 1749,
-  "flat": 0.01,
-  "crest": 3.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal2",
-  "dur": 2.5,
-  "cen": 1140,
-  "flat": 0.019,
-  "crest": 7.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal3",
-  "dur": 1.1,
-  "cen": 1334,
-  "flat": 0.023,
-  "crest": 7.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal4",
-  "dur": 1.1,
-  "cen": 1731,
-  "flat": 0.092,
-  "crest": 7.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal5",
-  "dur": 0.6,
-  "cen": 1527,
-  "flat": 0.032,
-  "crest": 7.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal6",
-  "dur": 1.1,
-  "cen": 1347,
-  "flat": 0.015,
-  "crest": 7.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal7",
-  "dur": 2.1,
-  "cen": 1224,
-  "flat": 0.009,
-  "crest": 8.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal8",
-  "dur": 0.4,
-  "cen": 1855,
-  "flat": 0.093,
-  "crest": 8.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "dark_signal",
-  "source_path": "ambient/lar_nature/metro_horror/walkie_talkie_signal9",
-  "dur": 1.6,
-  "cen": 1228,
-  "flat": 0.009,
-  "crest": 6.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
   "ch": "drip",
   "source_path": "ambient/soundscape/underground/spooks_below/water_drip/sound_01",
   "dur": 1.0,
@@ -4261,16 +3921,6 @@
  },
  {
   "ch": "gunfire",
-  "source_path": "ambient/rnd_outdoor/rnd_shooting_10",
-  "dur": 1.8,
-  "cen": 810,
-  "flat": 0.033,
-  "crest": 6.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "gunfire",
   "source_path": "ambient/rnd_outdoor/rnd_shooting_11",
   "dur": 2.2,
   "cen": 756,
@@ -4361,26 +4011,6 @@
  },
  {
   "ch": "gunfire",
-  "source_path": "ambient/rnd_outdoor/rnd_shooting_4",
-  "dur": 2.3,
-  "cen": 648,
-  "flat": 0.067,
-  "crest": 7.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "gunfire",
-  "source_path": "ambient/rnd_outdoor/rnd_shooting_7",
-  "dur": 1.5,
-  "cen": 937,
-  "flat": 0.042,
-  "crest": 14.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "gunfire",
   "source_path": "ambient/random/rnd_distantmortar3",
   "dur": 2.9,
   "cen": 776,
@@ -4466,16 +4096,6 @@
   "cen": 520,
   "flat": 0.01,
   "crest": 3.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "gunfire",
-  "source_path": "ambient/rnd_outdoor/rnd_shooting_4",
-  "dur": 2.3,
-  "cen": 1128,
-  "flat": 0.023,
-  "crest": 6.3,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -4641,16 +4261,6 @@
  },
  {
   "ch": "gunfire",
-  "source_path": "ambient/rnd_outdoor/rnd_shooting_15",
-  "dur": 2.6,
-  "cen": 1122,
-  "flat": 0.154,
-  "crest": 16.2,
-  "bright": "dark",
-  "tone": "mixed"
- },
- {
-  "ch": "gunfire",
   "source_path": "ambient/rnd_outdoor/rnd_shooting_4",
   "dur": 2.3,
   "cen": 1196,
@@ -4666,26 +4276,6 @@
   "cen": 958,
   "flat": 0.1,
   "crest": 9.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "gunfire",
-  "source_path": "ambient/trx/spooks_above/shooting/sound_20",
-  "dur": 2.7,
-  "cen": 789,
-  "flat": 0.043,
-  "crest": 8.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "gunfire",
-  "source_path": "ambient/trx/spooks_above/shooting/sound_33",
-  "dur": 2.7,
-  "cen": 808,
-  "flat": 0.053,
-  "crest": 6.8,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -5648,16 +5238,6 @@
   "crest": 4.2,
   "bright": "dark",
   "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/soundscape/background/Underground/underground_3",
-  "dur": 241.3,
-  "cen": 179,
-  "flat": 0.355,
-  "crest": 5.2,
-  "bright": "dark",
-  "tone": "mixed"
  },
  {
   "ch": "labs",
@@ -9511,76 +9091,6 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/trx/spooks_below/ambient/sound_60",
-  "dur": 2.5,
-  "cen": 893,
-  "flat": 0.118,
-  "crest": 7.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/trx/spooks_below/ambient/sound_61",
-  "dur": 2.4,
-  "cen": 919,
-  "flat": 0.154,
-  "crest": 9.3,
-  "bright": "dark",
-  "tone": "mixed"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/trx/spooks_below/ambient/sound_63",
-  "dur": 2.2,
-  "cen": 1262,
-  "flat": 0.186,
-  "crest": 8.7,
-  "bright": "dark",
-  "tone": "mixed"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/trx/spooks_below/ambient/sound_64",
-  "dur": 2.1,
-  "cen": 2499,
-  "flat": 0.302,
-  "crest": 13.8,
-  "bright": "mid",
-  "tone": "mixed"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/trx/spooks_below/ambient/sound_69",
-  "dur": 1.9,
-  "cen": 1777,
-  "flat": 0.166,
-  "crest": 10.5,
-  "bright": "dark",
-  "tone": "mixed"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/trx/spooks_below/ambient/sound_76",
-  "dur": 2.1,
-  "cen": 3975,
-  "flat": 0.306,
-  "crest": 17.2,
-  "bright": "mid",
-  "tone": "mixed"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/trx/spooks_below/ambient/sound_77",
-  "dur": 2.3,
-  "cen": 1185,
-  "flat": 0.074,
-  "crest": 7.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "ambient/trx/spooks_below/banging/sound_01",
   "dur": 3.5,
   "cen": 529,
@@ -10671,16 +10181,6 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/ugrnd/ugrnd_ambient_banging_3",
-  "dur": 2.4,
-  "cen": 656,
-  "flat": 0.043,
-  "crest": 4.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "ambient/ugrnd/ugrnd_drip_1",
   "dur": 1.0,
   "cen": 4443,
@@ -10861,16 +10361,6 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/underground/hit_3",
-  "dur": 2.7,
-  "cen": 277,
-  "flat": 0.014,
-  "crest": 4.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "ambient/underground/rnd_drop_1",
   "dur": 2.1,
   "cen": 2494,
@@ -11041,31 +10531,11 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/underground/steam_1",
-  "dur": 2.0,
-  "cen": 6080,
-  "flat": 0.035,
-  "crest": 4.4,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "ambient/underground/steam_2",
   "dur": 6.4,
   "cen": 173,
   "flat": 0.008,
   "crest": 3.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/strange_noise_2",
-  "dur": 2.7,
-  "cen": 497,
-  "flat": 0.011,
-  "crest": 5.7,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -11491,72 +10961,12 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/underground/dark_1",
-  "dur": 1.3,
-  "cen": 58,
-  "flat": 0.001,
-  "crest": 2.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_polter",
-  "dur": 1.4,
-  "cen": 541,
-  "flat": 0.012,
-  "crest": 3.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_polter_1",
-  "dur": 1.4,
-  "cen": 676,
-  "flat": 0.014,
-  "crest": 4.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_polter_2",
-  "dur": 1.4,
-  "cen": 756,
-  "flat": 0.021,
-  "crest": 4.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/steam_1",
-  "dur": 2.0,
-  "cen": 6080,
-  "flat": 0.035,
-  "crest": 4.4,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "ambient/underground/steam_2",
   "dur": 1.8,
   "cen": 4250,
   "flat": 0.015,
   "crest": 4.6,
   "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x16/x16_grate_fall",
-  "dur": 2.6,
-  "cen": 2281,
-  "flat": 0.023,
-  "crest": 5.3,
-  "bright": "mid",
   "tone": "tonal"
  },
  {
@@ -11721,106 +11131,6 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/x18/x18_creak_2",
-  "dur": 2.1,
-  "cen": 2862,
-  "flat": 0.029,
-  "crest": 6.0,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_metal_1",
-  "dur": 1.0,
-  "cen": 2199,
-  "flat": 0.02,
-  "crest": 4.0,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_metal_2",
-  "dur": 2.5,
-  "cen": 1186,
-  "flat": 0.019,
-  "crest": 5.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_metal_3",
-  "dur": 1.7,
-  "cen": 1631,
-  "flat": 0.035,
-  "crest": 5.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_metal_4",
-  "dur": 1.1,
-  "cen": 2345,
-  "flat": 0.029,
-  "crest": 6.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_metal_5",
-  "dur": 1.4,
-  "cen": 1797,
-  "flat": 0.124,
-  "crest": 6.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_move_1",
-  "dur": 2.5,
-  "cen": 733,
-  "flat": 0.019,
-  "crest": 5.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_move_3",
-  "dur": 2.4,
-  "cen": 982,
-  "flat": 0.009,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_move_4",
-  "dur": 1.6,
-  "cen": 1317,
-  "flat": 0.014,
-  "crest": 4.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/x18/x18_move_5",
-  "dur": 1.7,
-  "cen": 961,
-  "flat": 0.039,
-  "crest": 5.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "characters_voice/scenario/pri/followers_underground_phrase1",
   "dur": 9.4,
   "cen": 3607,
@@ -11911,46 +11221,6 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/underground/hit_3",
-  "dur": 2.7,
-  "cen": 277,
-  "flat": 0.014,
-  "crest": 4.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_metal1",
-  "dur": 2.6,
-  "cen": 2026,
-  "flat": 0.034,
-  "crest": 5.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/steam_2",
-  "dur": 1.8,
-  "cen": 4250,
-  "flat": 0.015,
-  "crest": 4.6,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/ugrnd/ugrnd_ambient_banging_3",
-  "dur": 2.4,
-  "cen": 656,
-  "flat": 0.043,
-  "crest": 4.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "ambient/ugrnd/ugrnd_drip_1",
   "dur": 1.0,
   "cen": 4443,
@@ -12026,16 +11296,6 @@
   "cen": 4784,
   "flat": 0.219,
   "crest": 23.5,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/ugrnd/ugrnd_drip_7",
-  "dur": 0.9,
-  "cen": 4187,
-  "flat": 0.203,
-  "crest": 48.5,
   "bright": "bright",
   "tone": "mixed"
  },
@@ -12251,16 +11511,6 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/underground/hit_3",
-  "dur": 2.7,
-  "cen": 277,
-  "flat": 0.014,
-  "crest": 4.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "ambient/underground/hit_4",
   "dur": 5.6,
   "cen": 2034,
@@ -12291,92 +11541,12 @@
  },
  {
   "ch": "labs",
-  "source_path": "ambient/underground/rnd_drop_1",
-  "dur": 2.1,
-  "cen": 2494,
-  "flat": 0.032,
-  "crest": 7.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_drop_2",
-  "dur": 1.6,
-  "cen": 2062,
-  "flat": 0.036,
-  "crest": 9.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_drop_3",
-  "dur": 1.0,
-  "cen": 2464,
-  "flat": 0.05,
-  "crest": 6.3,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_drop_4",
-  "dur": 0.5,
-  "cen": 2616,
-  "flat": 0.077,
-  "crest": 82.0,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_drop_5",
-  "dur": 1.7,
-  "cen": 2237,
-  "flat": 0.076,
-  "crest": 237.0,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_drop_6",
-  "dur": 1.1,
-  "cen": 1910,
-  "flat": 0.053,
-  "crest": 9.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
   "source_path": "ambient/underground/rnd_giant_2",
   "dur": 2.1,
   "cen": 2368,
   "flat": 0.05,
   "crest": 5.6,
   "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/rnd_metal1",
-  "dur": 2.6,
-  "cen": 2026,
-  "flat": 0.034,
-  "crest": 5.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/underground/strange_noise_2",
-  "dur": 2.7,
-  "cen": 497,
-  "flat": 0.011,
-  "crest": 5.7,
-  "bright": "dark",
   "tone": "tonal"
  },
  {
@@ -15051,16 +14221,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/lurker/~hit_3",
-  "dur": 2.0,
-  "cen": 1822,
-  "flat": 0.024,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/pauk/pauk_eat_0",
   "dur": 0.2,
   "cen": 4576,
@@ -15411,16 +14571,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/zombie/zombie_idle_1",
-  "dur": 2.1,
-  "cen": 1641,
-  "flat": 0.044,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/zombie/zombie_idle_10",
   "dur": 3.1,
   "cen": 2995,
@@ -15487,26 +14637,6 @@
   "flat": 0.139,
   "crest": 5.4,
   "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/zombie/zombie_idle_2",
-  "dur": 2.1,
-  "cen": 2585,
-  "flat": 0.093,
-  "crest": 4.5,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/soundscape/mutants/flesh/distant_1",
-  "dur": 1.9,
-  "cen": 419,
-  "flat": 0.011,
-  "crest": 4.3,
-  "bright": "dark",
   "tone": "tonal"
  },
  {
@@ -15751,16 +14881,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/chimera/chimera_idle_3",
-  "dur": 1.7,
-  "cen": 1288,
-  "flat": 0.074,
-  "crest": 169.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/flesh/flesh_idle_0",
   "dur": 1.8,
   "cen": 1698,
@@ -15966,26 +15086,6 @@
   "cen": 3078,
   "flat": 0.073,
   "crest": 10.9,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/psysucker/idle_1",
-  "dur": 2.1,
-  "cen": 3249,
-  "flat": 0.054,
-  "crest": 6.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/psysucker/idle_5",
-  "dur": 2.3,
-  "cen": 3225,
-  "flat": 0.068,
-  "crest": 7.5,
   "bright": "mid",
   "tone": "tonal"
  },
@@ -16241,66 +15341,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "ambient/soundscape/mutants/cat/distant_1",
-  "dur": 2.2,
-  "cen": 1221,
-  "flat": 0.016,
-  "crest": 4.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/soundscape/mutants/cat/distant_2",
-  "dur": 2.6,
-  "cen": 1892,
-  "flat": 0.028,
-  "crest": 4.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/soundscape/mutants/flesh/distant_1",
-  "dur": 1.9,
-  "cen": 419,
-  "flat": 0.011,
-  "crest": 4.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/soundscape/mutants/giant/distant_2",
-  "dur": 2.3,
-  "cen": 1216,
-  "flat": 0.074,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/soundscape/mutants/poltergeist/distant_4",
-  "dur": 1.3,
-  "cen": 9182,
-  "flat": 0.318,
-  "crest": 7.0,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/soundscape/mutants/poltergeist/distant_9",
-  "dur": 1.5,
-  "cen": 357,
-  "flat": 0.037,
-  "crest": 6.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/zombie/zombie_idle_1",
   "dur": 5.9,
   "cen": 7325,
@@ -16441,16 +15481,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "ambient/lar_ambients/af3/rnd_growl_1",
-  "dur": 2.3,
-  "cen": 1216,
-  "flat": 0.074,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "ambient/lar_ambients/af3/rnd_growl_2",
   "dur": 1.7,
   "cen": 3647,
@@ -16558,16 +15588,6 @@
   "crest": 4.1,
   "bright": "dark",
   "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/rnd_outdoor/rnd_mutant_11",
-  "dur": 1.6,
-  "cen": 2140,
-  "flat": 0.183,
-  "crest": 12.5,
-  "bright": "mid",
-  "tone": "mixed"
  },
  {
   "ch": "mutant",
@@ -16691,26 +15711,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/bloodsucker/idle_5",
-  "dur": 2.3,
-  "cen": 3225,
-  "flat": 0.068,
-  "crest": 7.5,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/bloodsucker/idle_8",
-  "dur": 2.3,
-  "cen": 3225,
-  "flat": 0.068,
-  "crest": 7.5,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/bloodsucker/sucker_breath_0",
   "dur": 7.0,
   "cen": 2688,
@@ -16821,26 +15821,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/boar/boar_eat_4",
-  "dur": 2.1,
-  "cen": 3510,
-  "flat": 0.088,
-  "crest": 6.9,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_eat_5",
-  "dur": 2.0,
-  "cen": 3362,
-  "flat": 0.098,
-  "crest": 8.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/boar/boar_idle_0",
   "dur": 1.5,
   "cen": 2055,
@@ -16872,46 +15852,6 @@
  {
   "ch": "mutant",
   "source_path": "monsters/boar/boar_idle_3",
-  "dur": 1.8,
-  "cen": 1928,
-  "flat": 0.046,
-  "crest": 8.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_idle_4",
-  "dur": 1.5,
-  "cen": 2055,
-  "flat": 0.064,
-  "crest": 8.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_idle_5",
-  "dur": 1.2,
-  "cen": 1703,
-  "flat": 0.068,
-  "crest": 7.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_idle_6",
-  "dur": 1.3,
-  "cen": 1543,
-  "flat": 0.056,
-  "crest": 8.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_idle_7",
   "dur": 1.8,
   "cen": 1928,
   "flat": 0.046,
@@ -16981,16 +15921,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/cat/c2_idle_3",
-  "dur": 1.5,
-  "cen": 1130,
-  "flat": 0.033,
-  "crest": 5.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/cat/idle_1",
   "dur": 1.3,
   "cen": 2487,
@@ -17007,16 +15937,6 @@
   "flat": 0.043,
   "crest": 14.1,
   "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/chimera/chimera_growl_1",
-  "dur": 1.7,
-  "cen": 1288,
-  "flat": 0.074,
-  "crest": 169.0,
-  "bright": "dark",
   "tone": "tonal"
  },
  {
@@ -17087,46 +16007,6 @@
   "flat": 0.359,
   "crest": 9.3,
   "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/chimera/idle_1",
-  "dur": 1.7,
-  "cen": 4230,
-  "flat": 0.285,
-  "crest": 9.1,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/chimera/idle_2",
-  "dur": 1.6,
-  "cen": 2867,
-  "flat": 0.095,
-  "crest": 7.3,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/controller/controller_idle_1",
-  "dur": 2.0,
-  "cen": 3945,
-  "flat": 0.281,
-  "crest": 5.2,
-  "bright": "mid",
-  "tone": "mixed"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/controller/controller_idle_2",
-  "dur": 1.8,
-  "cen": 3650,
-  "flat": 0.257,
-  "crest": 4.9,
-  "bright": "mid",
   "tone": "mixed"
  },
  {
@@ -17421,16 +16301,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/dog/bdog_eat_2",
-  "dur": 0.3,
-  "cen": 2635,
-  "flat": 0.105,
-  "crest": 13.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/dog/bdog_eat_9",
   "dur": 0.5,
   "cen": 2646,
@@ -17508,16 +16378,6 @@
   "crest": 8.6,
   "bright": "dark",
   "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/dog/bdog_idle_4",
-  "dur": 0.3,
-  "cen": 2039,
-  "flat": 0.153,
-  "crest": 7.4,
-  "bright": "mid",
-  "tone": "mixed"
  },
  {
   "ch": "mutant",
@@ -17667,116 +16527,6 @@
   "flat": 0.097,
   "crest": 9.7,
   "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_eat_0",
-  "dur": 2.0,
-  "cen": 1875,
-  "flat": 0.029,
-  "crest": 6.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_eat_2",
-  "dur": 2.1,
-  "cen": 1037,
-  "flat": 0.019,
-  "crest": 3.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_eat_3",
-  "dur": 2.0,
-  "cen": 1276,
-  "flat": 0.019,
-  "crest": 4.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_eat_4",
-  "dur": 2.1,
-  "cen": 1300,
-  "flat": 0.018,
-  "crest": 3.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_eat_5",
-  "dur": 2.6,
-  "cen": 2047,
-  "flat": 0.032,
-  "crest": 4.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_0",
-  "dur": 1.8,
-  "cen": 1698,
-  "flat": 0.054,
-  "crest": 6.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_1",
-  "dur": 2.3,
-  "cen": 1531,
-  "flat": 0.059,
-  "crest": 6.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_2",
-  "dur": 1.7,
-  "cen": 1785,
-  "flat": 0.048,
-  "crest": 7.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_3",
-  "dur": 1.7,
-  "cen": 1750,
-  "flat": 0.057,
-  "crest": 6.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/fracture/idle_0",
-  "dur": 2.1,
-  "cen": 3260,
-  "flat": 0.053,
-  "crest": 5.3,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/fracture/idle_1",
-  "dur": 1.6,
-  "cen": 2460,
-  "flat": 0.04,
-  "crest": 3.7,
-  "bright": "mid",
   "tone": "tonal"
  },
  {
@@ -18011,26 +16761,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/pseudodog/pdog_idle_3",
-  "dur": 1.7,
-  "cen": 2884,
-  "flat": 0.139,
-  "crest": 17.6,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/pseudodog/pdog_idle_4",
-  "dur": 0.4,
-  "cen": 1786,
-  "flat": 0.147,
-  "crest": 6.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/rat/idle_0",
   "dur": 0.5,
   "cen": 4167,
@@ -18091,16 +16821,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/snork/snork_idle_2",
-  "dur": 1.1,
-  "cen": 2921,
-  "flat": 0.06,
-  "crest": 4.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/stalker/hiccup/idle_8",
   "dur": 0.2,
   "cen": 3374,
@@ -18156,16 +16876,6 @@
   "cen": 3286,
   "flat": 0.106,
   "crest": 8.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/zombie/zombie_eat_2",
-  "dur": 2.5,
-  "cen": 3324,
-  "flat": 0.079,
-  "crest": 7.4,
   "bright": "mid",
   "tone": "tonal"
  },
@@ -18838,26 +17548,6 @@
   "crest": 10.3,
   "bright": "bright",
   "tone": "noisy"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_eat_0",
-  "dur": 1.8,
-  "cen": 4243,
-  "flat": 0.103,
-  "crest": 8.3,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_eat_1",
-  "dur": 2.2,
-  "cen": 3866,
-  "flat": 0.093,
-  "crest": 8.7,
-  "bright": "mid",
-  "tone": "tonal"
  },
  {
   "ch": "mutant",
@@ -19821,36 +18511,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/giant/giant_breath_0",
-  "dur": 1.7,
-  "cen": 2280,
-  "flat": 0.051,
-  "crest": 4.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/giant/giant_breath_1",
-  "dur": 2.1,
-  "cen": 2263,
-  "flat": 0.049,
-  "crest": 5.3,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/giant/giant_breath_2",
-  "dur": 1.7,
-  "cen": 1984,
-  "flat": 0.043,
-  "crest": 4.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/giant2/giant_breath_0",
   "dur": 4.4,
   "cen": 6252,
@@ -20171,46 +18831,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/poltergeist/idle_0",
-  "dur": 1.4,
-  "cen": 1059,
-  "flat": 0.016,
-  "crest": 7.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/poltergeist/idle_1",
-  "dur": 1.4,
-  "cen": 1514,
-  "flat": 0.014,
-  "crest": 4.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/poltergeist/idle_2",
-  "dur": 1.4,
-  "cen": 1078,
-  "flat": 0.011,
-  "crest": 4.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/poltergeist/idle_3",
-  "dur": 1.4,
-  "cen": 1129,
-  "flat": 0.016,
-  "crest": 4.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/poltergeist1/idle_0",
   "dur": 2.2,
   "cen": 7933,
@@ -20521,56 +19141,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_eat_0",
-  "dur": 1.2,
-  "cen": 5574,
-  "flat": 0.119,
-  "crest": 11.3,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_idle_0",
-  "dur": 1.6,
-  "cen": 2700,
-  "flat": 0.081,
-  "crest": 6.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_idle_1",
-  "dur": 0.8,
-  "cen": 3230,
-  "flat": 0.11,
-  "crest": 8.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_idle_2",
-  "dur": 0.9,
-  "cen": 3248,
-  "flat": 0.093,
-  "crest": 7.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_idle_3",
-  "dur": 1.1,
-  "cen": 3286,
-  "flat": 0.106,
-  "crest": 8.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/tushkano1/idle_0",
   "dur": 3.4,
   "cen": 9883,
@@ -20821,16 +19391,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/zombie_orig/zombie_eat_2",
-  "dur": 2.5,
-  "cen": 3324,
-  "flat": 0.079,
-  "crest": 7.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/zombie_s/zombie_eat_0",
   "dur": 5.6,
   "cen": 7483,
@@ -20951,106 +19511,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/bloodsucker/idle_1",
-  "dur": 2.1,
-  "cen": 3249,
-  "flat": 0.054,
-  "crest": 6.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/bloodsucker/sucker_growl_0",
-  "dur": 2.2,
-  "cen": 1329,
-  "flat": 0.025,
-  "crest": 4.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/bloodsucker/sucker_growl_1",
-  "dur": 2.3,
-  "cen": 1145,
-  "flat": 0.018,
-  "crest": 3.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/bloodsucker/sucker_growl_2",
-  "dur": 1.8,
-  "cen": 1325,
-  "flat": 0.018,
-  "crest": 3.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/bloodsucker/sucker_growl_3",
-  "dur": 2.3,
-  "cen": 1334,
-  "flat": 0.016,
-  "crest": 3.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/bloodsucker/sucker_growl_4",
-  "dur": 1.7,
-  "cen": 1697,
-  "flat": 0.032,
-  "crest": 4.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_idle_0",
-  "dur": 1.5,
-  "cen": 2055,
-  "flat": 0.064,
-  "crest": 8.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_idle_1",
-  "dur": 1.2,
-  "cen": 1703,
-  "flat": 0.068,
-  "crest": 7.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_idle_2",
-  "dur": 1.3,
-  "cen": 1543,
-  "flat": 0.056,
-  "crest": 8.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/boar/boar_idle_3",
-  "dur": 1.8,
-  "cen": 1928,
-  "flat": 0.046,
-  "crest": 8.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/cat/cat_eat_0",
   "dur": 0.9,
   "cen": 1354,
@@ -21101,96 +19561,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/dog/bdog_distant_0",
-  "dur": 1.7,
-  "cen": 1285,
-  "flat": 0.088,
-  "crest": 8.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/dog/bdog_distant_4",
-  "dur": 2.0,
-  "cen": 978,
-  "flat": 0.052,
-  "crest": 7.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/dog/bdog_distant_5",
-  "dur": 1.0,
-  "cen": 948,
-  "flat": 0.049,
-  "crest": 6.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_0",
-  "dur": 1.7,
-  "cen": 887,
-  "flat": 0.021,
-  "crest": 6.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_1",
-  "dur": 1.6,
-  "cen": 2070,
-  "flat": 0.086,
-  "crest": 9.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_2",
-  "dur": 1.4,
-  "cen": 765,
-  "flat": 0.027,
-  "crest": 6.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_3",
-  "dur": 1.8,
-  "cen": 1226,
-  "flat": 0.024,
-  "crest": 6.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/flesh/flesh_idle_4",
-  "dur": 1.5,
-  "cen": 1081,
-  "flat": 0.033,
-  "crest": 6.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/pseudodog/pdog_idle_0",
-  "dur": 2.5,
-  "cen": 2863,
-  "flat": 0.07,
-  "crest": 9.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/snork/snork_idle_0",
   "dur": 1.7,
   "cen": 961,
@@ -21221,66 +19591,6 @@
  },
  {
   "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_eat_0",
-  "dur": 1.2,
-  "cen": 5574,
-  "flat": 0.119,
-  "crest": 11.3,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_idle_0",
-  "dur": 1.6,
-  "cen": 2700,
-  "flat": 0.081,
-  "crest": 6.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_idle_1",
-  "dur": 0.8,
-  "cen": 3230,
-  "flat": 0.11,
-  "crest": 8.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_idle_2",
-  "dur": 0.9,
-  "cen": 3248,
-  "flat": 0.093,
-  "crest": 7.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/tushkano/tushkano_idle_3",
-  "dur": 1.1,
-  "cen": 3286,
-  "flat": 0.106,
-  "crest": 8.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/zombie/zombie_eat_2",
-  "dur": 2.5,
-  "cen": 3324,
-  "flat": 0.079,
-  "crest": 7.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "ambient/rnd_outdoor/ambient_mutant_1",
   "dur": 4.1,
   "cen": 607,
@@ -21291,91 +19601,11 @@
  },
  {
   "ch": "mutant",
-  "source_path": "ambient/rnd_outdoor/rnd_mutant_11",
-  "dur": 1.6,
-  "cen": 2140,
-  "flat": 0.183,
-  "crest": 12.5,
-  "bright": "mid",
-  "tone": "mixed"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/rnd_outdoor/rnd_mutant_13",
-  "dur": 2.4,
-  "cen": 1099,
-  "flat": 0.132,
-  "crest": 4.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/rnd_outdoor/rnd_mutant_14",
-  "dur": 2.3,
-  "cen": 1376,
-  "flat": 0.126,
-  "crest": 5.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "ambient/rnd_outdoor/rnd_mutant_2",
-  "dur": 2.6,
-  "cen": 1041,
-  "flat": 0.097,
-  "crest": 6.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/bibliotekar/idle_1",
-  "dur": 2.6,
-  "cen": 1410,
-  "flat": 0.035,
-  "crest": 8.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
   "source_path": "monsters/cat/idle",
   "dur": 13.4,
   "cen": 3458,
   "flat": 0.037,
   "crest": 7.6,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/crow/idle_0",
-  "dur": 0.5,
-  "cen": 3694,
-  "flat": 0.045,
-  "crest": 4.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/crow/idle_1",
-  "dur": 1.8,
-  "cen": 3797,
-  "flat": 0.102,
-  "crest": 5.9,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/crow/idle_2",
-  "dur": 0.9,
-  "cen": 3967,
-  "flat": 0.084,
-  "crest": 5.1,
   "bright": "mid",
   "tone": "tonal"
  },
@@ -22467,46 +20697,6 @@
   "flat": 0.039,
   "crest": 6.7,
   "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/rat/idle_0",
-  "dur": 0.5,
-  "cen": 4167,
-  "flat": 0.042,
-  "crest": 6.0,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/rat/idle_1",
-  "dur": 0.3,
-  "cen": 6240,
-  "flat": 0.073,
-  "crest": 3.4,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/rat/idle_2",
-  "dur": 0.4,
-  "cen": 3926,
-  "flat": 0.097,
-  "crest": 6.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "mutant",
-  "source_path": "monsters/rat/idle_3",
-  "dur": 0.6,
-  "cen": 5061,
-  "flat": 0.061,
-  "crest": 6.3,
-  "bright": "bright",
   "tone": "tonal"
  },
  {
@@ -25131,16 +23321,6 @@
  },
  {
   "ch": "scream",
-  "source_path": "ambient/trx/spooks_above/screams/sound_02",
-  "dur": 2.5,
-  "cen": 1213,
-  "flat": 0.068,
-  "crest": 7.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "scream",
   "source_path": "ambient/trx/nature/screams/s_01",
   "dur": 9.2,
   "cen": 439,
@@ -25300,16 +23480,6 @@
   "tone": "tonal"
  },
  {
-  "ch": "scream",
-  "source_path": "ambient/trx/spooks_above/screams/sound_02",
-  "dur": 2.5,
-  "cen": 1213,
-  "flat": 0.068,
-  "crest": 7.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
   "ch": "spook",
   "source_path": "ambient/anomaly/psy_voices_1_l",
   "dur": 19.5,
@@ -25462,26 +23632,6 @@
  {
   "ch": "spook",
   "source_path": "ambient/soundscape/underground/spooks_above/spooks/sound_07",
-  "dur": 13.5,
-  "cen": 800,
-  "flat": 0.492,
-  "crest": 2.1,
-  "bright": "dark",
-  "tone": "noisy"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_02",
-  "dur": 13.5,
-  "cen": 800,
-  "flat": 0.492,
-  "crest": 2.1,
-  "bright": "dark",
-  "tone": "noisy"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_03",
   "dur": 13.5,
   "cen": 800,
   "flat": 0.492,
@@ -27371,16 +25521,6 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_04",
-  "dur": 12.7,
-  "cen": 373,
-  "flat": 0.512,
-  "crest": 5.5,
-  "bright": "dark",
-  "tone": "noisy"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/soundscape/underground/spooks_above/spooks/sound_09",
   "dur": 8.2,
   "cen": 334,
@@ -27398,16 +25538,6 @@
   "crest": 6.9,
   "bright": "dark",
   "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_09",
-  "dur": 8.2,
-  "cen": 334,
-  "flat": 0.756,
-  "crest": 7.1,
-  "bright": "dark",
-  "tone": "noisy"
  },
  {
   "ch": "spook",
@@ -27481,27 +25611,7 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_21",
-  "dur": 9.4,
-  "cen": 806,
-  "flat": 0.659,
-  "crest": 10.3,
-  "bright": "dark",
-  "tone": "noisy"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/soundscape/underground/spooks_above/spooks/sound_14",
-  "dur": 4.7,
-  "cen": 1310,
-  "flat": 0.642,
-  "crest": 9.0,
-  "bright": "dark",
-  "tone": "noisy"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_above/spooks/sound_25",
   "dur": 4.7,
   "cen": 1310,
   "flat": 0.642,
@@ -27701,27 +25811,7 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_26",
-  "dur": 4.5,
-  "cen": 1486,
-  "flat": 0.787,
-  "crest": 11.6,
-  "bright": "dark",
-  "tone": "noisy"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/soundscape/underground/spooks_above/spooks/sound_27",
-  "dur": 3.9,
-  "cen": 1270,
-  "flat": 0.717,
-  "crest": 6.4,
-  "bright": "dark",
-  "tone": "noisy"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_27",
   "dur": 3.9,
   "cen": 1270,
   "flat": 0.717,
@@ -27811,16 +25901,6 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_32",
-  "dur": 5.5,
-  "cen": 171,
-  "flat": 0.409,
-  "crest": 4.0,
-  "bright": "dark",
-  "tone": "noisy"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/soundscape/underground/spooks_above/spooks/sound_32",
   "dur": 5.5,
   "cen": 217,
@@ -27872,26 +25952,6 @@
  {
   "ch": "spook",
   "source_path": "ambient/soundscape/underground/spooks_above/spooks/sound_35",
-  "dur": 4.4,
-  "cen": 75,
-  "flat": 0.367,
-  "crest": 5.8,
-  "bright": "dark",
-  "tone": "mixed"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_above/spooks/sound_36",
-  "dur": 4.4,
-  "cen": 75,
-  "flat": 0.367,
-  "crest": 5.8,
-  "bright": "dark",
-  "tone": "mixed"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/spooks/sound_36",
   "dur": 4.4,
   "cen": 75,
   "flat": 0.367,
@@ -28401,26 +26461,6 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_dark/sound_34",
-  "dur": 1.3,
-  "cen": 182,
-  "flat": 0.064,
-  "crest": 5.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_dark/sound_35",
-  "dur": 1.3,
-  "cen": 207,
-  "flat": 0.082,
-  "crest": 6.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/trx/spooks_above/amb_dark/sound_40",
   "dur": 2.5,
   "cen": 4697,
@@ -28438,66 +26478,6 @@
   "crest": 103.8,
   "bright": "bright",
   "tone": "noisy"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_dark/sound_44",
-  "dur": 0.8,
-  "cen": 251,
-  "flat": 0.098,
-  "crest": 5.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_dark/sound_46",
-  "dur": 0.8,
-  "cen": 290,
-  "flat": 0.054,
-  "crest": 5.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_dark/sound_47",
-  "dur": 0.8,
-  "cen": 226,
-  "flat": 0.116,
-  "crest": 5.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_night/sound_01",
-  "dur": 2.7,
-  "cen": 1262,
-  "flat": 0.099,
-  "crest": 9.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_night/sound_05",
-  "dur": 2.5,
-  "cen": 1568,
-  "flat": 0.09,
-  "crest": 7.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_night/sound_08",
-  "dur": 2.7,
-  "cen": 1370,
-  "flat": 0.055,
-  "crest": 9.2,
-  "bright": "dark",
-  "tone": "tonal"
  },
  {
   "ch": "spook",
@@ -28801,16 +26781,6 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_dark/sound_04",
-  "dur": 2.7,
-  "cen": 193,
-  "flat": 0.036,
-  "crest": 3.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
   "source_path": "anomaly/psy_voices_1_l",
   "dur": 14.4,
   "cen": 1416,
@@ -28991,56 +26961,6 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_25",
-  "dur": 2.0,
-  "cen": 2549,
-  "flat": 0.157,
-  "crest": 4.6,
-  "bright": "mid",
-  "tone": "mixed"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_26",
-  "dur": 1.8,
-  "cen": 1035,
-  "flat": 0.066,
-  "crest": 4.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_28",
-  "dur": 1.0,
-  "cen": 1385,
-  "flat": 0.064,
-  "crest": 3.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_29",
-  "dur": 2.6,
-  "cen": 1371,
-  "flat": 0.104,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_30",
-  "dur": 2.6,
-  "cen": 1371,
-  "flat": 0.104,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_31",
   "dur": 2.0,
   "cen": 2257,
@@ -29096,46 +27016,6 @@
   "cen": 1563,
   "flat": 0.064,
   "crest": 5.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_37",
-  "dur": 2.0,
-  "cen": 2257,
-  "flat": 0.122,
-  "crest": 7.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_38",
-  "dur": 1.4,
-  "cen": 1719,
-  "flat": 0.045,
-  "crest": 5.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_39",
-  "dur": 1.4,
-  "cen": 1554,
-  "flat": 0.052,
-  "crest": 6.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/soundscape/underground/spooks_below/spooks/sound_40",
-  "dur": 1.4,
-  "cen": 1504,
-  "flat": 0.066,
-  "crest": 6.7,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -31011,16 +28891,6 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/rnd_outdoor/rnd_moan6",
-  "dur": 2.0,
-  "cen": 478,
-  "flat": 0.021,
-  "crest": 6.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/special/agru_warning",
   "dur": 5.2,
   "cen": 1512,
@@ -31326,16 +29196,6 @@
   "cen": 770,
   "flat": 0.067,
   "crest": 6.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/transformer_hum1",
-  "dur": 1.5,
-  "cen": 186,
-  "flat": 0.001,
-  "crest": 2.8,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -32441,156 +30301,6 @@
  },
  {
   "ch": "spook",
-  "source_path": "characters_voice/human_01/dolg/help/wounded_psy/psy_1",
-  "dur": 0.8,
-  "cen": 3403,
-  "flat": 0.051,
-  "crest": 5.0,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/dolg/help/wounded_psy/psy_10",
-  "dur": 1.9,
-  "cen": 2565,
-  "flat": 0.062,
-  "crest": 5.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/dolg/help/wounded_psy/psy_2",
-  "dur": 2.4,
-  "cen": 2999,
-  "flat": 0.08,
-  "crest": 8.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/dolg/help/wounded_psy/psy_3",
-  "dur": 2.0,
-  "cen": 4359,
-  "flat": 0.048,
-  "crest": 6.7,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/dolg/help/wounded_psy/suicide_2",
-  "dur": 2.1,
-  "cen": 3081,
-  "flat": 0.042,
-  "crest": 3.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/ecolog/help/wounded_psy/psy_1",
-  "dur": 0.8,
-  "cen": 3403,
-  "flat": 0.051,
-  "crest": 5.0,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/ecolog/help/wounded_psy/psy_10",
-  "dur": 1.9,
-  "cen": 2565,
-  "flat": 0.062,
-  "crest": 5.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/ecolog/help/wounded_psy/psy_2",
-  "dur": 2.4,
-  "cen": 2999,
-  "flat": 0.08,
-  "crest": 8.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/ecolog/help/wounded_psy/psy_3",
-  "dur": 2.0,
-  "cen": 4359,
-  "flat": 0.048,
-  "crest": 6.7,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/ecolog/help/wounded_psy/suicide_2",
-  "dur": 2.1,
-  "cen": 3081,
-  "flat": 0.042,
-  "crest": 3.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/military/help/wounded_psy/psy_1",
-  "dur": 0.8,
-  "cen": 3403,
-  "flat": 0.051,
-  "crest": 5.0,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/military/help/wounded_psy/psy_10",
-  "dur": 1.9,
-  "cen": 2565,
-  "flat": 0.062,
-  "crest": 5.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/military/help/wounded_psy/psy_2",
-  "dur": 2.4,
-  "cen": 2999,
-  "flat": 0.08,
-  "crest": 8.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/military/help/wounded_psy/psy_3",
-  "dur": 2.0,
-  "cen": 4359,
-  "flat": 0.048,
-  "crest": 6.7,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_01/military/help/wounded_psy/suicide_2",
-  "dur": 2.1,
-  "cen": 3081,
-  "flat": 0.042,
-  "crest": 3.4,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
   "source_path": "characters_voice/human_03/bandit/help/wounded_psy/psy_1",
   "dur": 0.7,
   "cen": 3261,
@@ -32881,56 +30591,6 @@
  },
  {
   "ch": "spook",
-  "source_path": "characters_voice/human_03/monolith/help/wounded_psy/psy_1",
-  "dur": 0.8,
-  "cen": 3322,
-  "flat": 0.091,
-  "crest": 4.6,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_03/monolith/help/wounded_psy/psy_10",
-  "dur": 1.9,
-  "cen": 2637,
-  "flat": 0.103,
-  "crest": 5.3,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_03/monolith/help/wounded_psy/psy_2",
-  "dur": 2.4,
-  "cen": 3075,
-  "flat": 0.125,
-  "crest": 7.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_03/monolith/help/wounded_psy/psy_3",
-  "dur": 2.0,
-  "cen": 4369,
-  "flat": 0.104,
-  "crest": 6.1,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "characters_voice/human_03/monolith/help/wounded_psy/suicide_2",
-  "dur": 2.1,
-  "cen": 3073,
-  "flat": 0.085,
-  "crest": 3.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/pripyat/fear_sound_1",
   "dur": 5.4,
   "cen": 2126,
@@ -33028,106 +30688,6 @@
   "crest": 7.4,
   "bright": "dark",
   "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/device_hum_1",
-  "dur": 1.3,
-  "cen": 158,
-  "flat": 0.001,
-  "crest": 2.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/device_hum_2",
-  "dur": 1.3,
-  "cen": 236,
-  "flat": 0.004,
-  "crest": 2.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/device_hum_3",
-  "dur": 1.0,
-  "cen": 239,
-  "flat": 0.001,
-  "crest": 2.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/lim_transformer",
-  "dur": 1.5,
-  "cen": 186,
-  "flat": 0.001,
-  "crest": 2.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/marsh_beep_1",
-  "dur": 0.2,
-  "cen": 1506,
-  "flat": 0.033,
-  "crest": 2.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/marsh_beep_2",
-  "dur": 1.2,
-  "cen": 2083,
-  "flat": 0.088,
-  "crest": 4.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/marsh_click_1",
-  "dur": 0.2,
-  "cen": 2906,
-  "flat": 0.062,
-  "crest": 5.6,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/marsh_click_2",
-  "dur": 0.1,
-  "cen": 3378,
-  "flat": 0.07,
-  "crest": 5.9,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/marsh_click_3",
-  "dur": 0.1,
-  "cen": 6898,
-  "flat": 0.394,
-  "crest": 6.3,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/special/marsh_click_3a",
-  "dur": 0.2,
-  "cen": 6912,
-  "flat": 0.386,
-  "crest": 6.7,
-  "bright": "bright",
-  "tone": "mixed"
  },
  {
   "ch": "spook",
@@ -33301,21 +30861,21 @@
  },
  {
   "ch": "spook",
-  "source_path": "horror/h15",
-  "dur": 2.7,
-  "cen": 1262,
-  "flat": 0.099,
-  "crest": 9.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
   "source_path": "horror/h17",
   "dur": 12.3,
   "cen": 2661,
   "flat": 0.15,
   "crest": 7.7,
+  "bright": "mid",
+  "tone": "mixed"
+ },
+ {
+  "ch": "spook",
+  "source_path": "horror/h19",
+  "dur": 1.6,
+  "cen": 2140,
+  "flat": 0.183,
+  "crest": 12.5,
   "bright": "mid",
   "tone": "mixed"
  },
@@ -33621,171 +31181,11 @@
  },
  {
   "ch": "spook",
-  "source_path": "ambient/random/rnd_moan",
-  "dur": 2.2,
-  "cen": 897,
-  "flat": 0.005,
-  "crest": 4.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/random/rnd_moan3",
-  "dur": 0.9,
-  "cen": 1315,
-  "flat": 0.025,
-  "crest": 5.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/random/rnd_moan4",
-  "dur": 2.4,
-  "cen": 367,
-  "flat": 0.006,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
   "source_path": "ambient/tuman/bdog_distant_10",
   "dur": 5.6,
   "cen": 1271,
   "flat": 0.005,
   "crest": 4.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_1",
-  "dur": 1.6,
-  "cen": 1085,
-  "flat": 0.031,
-  "crest": 8.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_11",
-  "dur": 1.0,
-  "cen": 1967,
-  "flat": 0.201,
-  "crest": 5.5,
-  "bright": "dark",
-  "tone": "mixed"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_12",
-  "dur": 1.1,
-  "cen": 1752,
-  "flat": 0.16,
-  "crest": 6.1,
-  "bright": "dark",
-  "tone": "mixed"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_13",
-  "dur": 0.9,
-  "cen": 1490,
-  "flat": 0.091,
-  "crest": 7.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_14",
-  "dur": 0.9,
-  "cen": 1512,
-  "flat": 0.106,
-  "crest": 7.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_2",
-  "dur": 1.8,
-  "cen": 1114,
-  "flat": 0.028,
-  "crest": 7.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_3",
-  "dur": 1.1,
-  "cen": 1149,
-  "flat": 0.034,
-  "crest": 7.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_4",
-  "dur": 2.1,
-  "cen": 1689,
-  "flat": 0.146,
-  "crest": 8.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_5",
-  "dur": 2.6,
-  "cen": 1610,
-  "flat": 0.103,
-  "crest": 6.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_6",
-  "dur": 1.6,
-  "cen": 1806,
-  "flat": 0.145,
-  "crest": 7.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_7",
-  "dur": 2.7,
-  "cen": 1698,
-  "flat": 0.121,
-  "crest": 6.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_8",
-  "dur": 1.5,
-  "cen": 1806,
-  "flat": 0.141,
-  "crest": 6.9,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/tuman/fog_crow_9",
-  "dur": 1.4,
-  "cen": 1784,
-  "flat": 0.135,
-  "crest": 6.7,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -35940,46 +33340,6 @@
   "tone": "tonal"
  },
  {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_dark/sound_04",
-  "dur": 2.7,
-  "cen": 193,
-  "flat": 0.036,
-  "crest": 3.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_night/sound_01",
-  "dur": 2.7,
-  "cen": 1262,
-  "flat": 0.099,
-  "crest": 9.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_night/sound_05",
-  "dur": 2.5,
-  "cen": 1568,
-  "flat": 0.09,
-  "crest": 7.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "spook",
-  "source_path": "ambient/trx/spooks_above/amb_night/sound_08",
-  "dur": 2.7,
-  "cen": 1370,
-  "flat": 0.055,
-  "crest": 9.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
   "ch": "structural",
   "source_path": "device/airtight_door_idle",
   "dur": 1.4,
@@ -36941,16 +34301,6 @@
  },
  {
   "ch": "structural",
-  "source_path": "device/door_closing",
-  "dur": 2.5,
-  "cen": 1419,
-  "flat": 0.094,
-  "crest": 4.8,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "structural",
   "source_path": "device/door_locked",
   "dur": 2.5,
   "cen": 1732,
@@ -36976,16 +34326,6 @@
   "cen": 1672,
   "flat": 0.037,
   "crest": 6.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "structural",
-  "source_path": "device/door_stop",
-  "dur": 1.4,
-  "cen": 1464,
-  "flat": 0.015,
-  "crest": 4.1,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -37097,16 +34437,6 @@
   "flat": 0.036,
   "crest": 6.8,
   "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "structural",
-  "source_path": "device/door_locked",
-  "dur": 2.5,
-  "cen": 1732,
-  "flat": 0.081,
-  "crest": 6.8,
-  "bright": "dark",
   "tone": "tonal"
  },
  {
@@ -42071,16 +39401,6 @@
  },
  {
   "ch": "wildlife",
-  "source_path": "ambient/trx/nature/dog/sound_12",
-  "dur": 1.7,
-  "cen": 721,
-  "flat": 0.143,
-  "crest": 6.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
   "source_path": "ambient/trx/nature/dog/sound_13",
   "dur": 2.0,
   "cen": 883,
@@ -42151,16 +39471,6 @@
  },
  {
   "ch": "wildlife",
-  "source_path": "ambient/trx/nature/dog/sound_20",
-  "dur": 1.6,
-  "cen": 599,
-  "flat": 0.065,
-  "crest": 6.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
   "source_path": "ambient/trx/nature/dog/sound_21",
   "dur": 2.6,
   "cen": 642,
@@ -42176,16 +39486,6 @@
   "cen": 745,
   "flat": 0.113,
   "crest": 6.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/trx/nature/dog/sound_23",
-  "dur": 1.7,
-  "cen": 777,
-  "flat": 0.132,
-  "crest": 6.2,
   "bright": "dark",
   "tone": "tonal"
  },
@@ -44201,76 +41501,6 @@
  },
  {
   "ch": "wildlife",
-  "source_path": "ambient/lar_ambients/lar_frog/frog_01",
-  "dur": 4.3,
-  "cen": 1970,
-  "flat": 0.068,
-  "crest": 5.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_ambients/lar_frog/frog_02",
-  "dur": 2.4,
-  "cen": 1950,
-  "flat": 0.089,
-  "crest": 7.2,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_ambients/lar_frog/frog_03",
-  "dur": 3.9,
-  "cen": 1821,
-  "flat": 0.042,
-  "crest": 8.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_ambients/lar_frog/frog_04",
-  "dur": 5.5,
-  "cen": 1931,
-  "flat": 0.063,
-  "crest": 8.6,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_ambients/lar_frog/frog_05",
-  "dur": 2.8,
-  "cen": 2607,
-  "flat": 0.131,
-  "crest": 6.8,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_ambients/lar_frog/frog_06",
-  "dur": 2.0,
-  "cen": 2991,
-  "flat": 0.079,
-  "crest": 9.5,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_ambients/lar_frog/frog_07",
-  "dur": 3.5,
-  "cen": 3205,
-  "flat": 0.093,
-  "crest": 10.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
   "source_path": "ambient/lar_ambients/lar_wolf/wolf_howl_01",
   "dur": 5.7,
   "cen": 1010,
@@ -44578,86 +41808,6 @@
   "crest": 4.0,
   "bright": "dark",
   "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_nature/lar_pigeon/pigeon_01",
-  "dur": 2.0,
-  "cen": 3929,
-  "flat": 0.188,
-  "crest": 29.5,
-  "bright": "mid",
-  "tone": "mixed"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_nature/lar_pigeon/pigeon_02",
-  "dur": 2.0,
-  "cen": 4317,
-  "flat": 0.194,
-  "crest": 73.9,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_nature/lar_pigeon/pigeon_03",
-  "dur": 2.0,
-  "cen": 4928,
-  "flat": 0.218,
-  "crest": 23.7,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_nature/lar_pigeon/pigeon_04",
-  "dur": 2.0,
-  "cen": 4933,
-  "flat": 0.21,
-  "crest": 13.6,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_nature/lar_pigeon/pigeon_05",
-  "dur": 1.5,
-  "cen": 4001,
-  "flat": 0.143,
-  "crest": 26.4,
-  "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_nature/lar_pigeon/pigeon_06",
-  "dur": 2.0,
-  "cen": 4062,
-  "flat": 0.174,
-  "crest": 9.4,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_nature/lar_pigeon/pigeon_07",
-  "dur": 2.0,
-  "cen": 4646,
-  "flat": 0.208,
-  "crest": 45.1,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/lar_nature/lar_pigeon/pigeon_08",
-  "dur": 2.9,
-  "cen": 4034,
-  "flat": 0.316,
-  "crest": 26.9,
-  "bright": "bright",
-  "tone": "mixed"
  },
  {
   "ch": "wildlife",

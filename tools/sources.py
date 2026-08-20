@@ -2,7 +2,7 @@
 
 One declarative entry per source pack. Sources are ALWAYS pulled locally by hand - the pipeline never
 downloads anything. `url` is a REFERENCE link only (the moddb / origin page), kept for credit and provenance
-(readme, licensing). The build reads `path`; a source missing there is reported by `merge.py provision` and
+(readme, licensing). The build reads `path`; a source missing there is reported by `build.py provision` and
 must be fetched by you. This keeps every shipped sound traceable to a recorded origin without any network step.
 
 ORDER IS LOAD-BEARING: dedup (dedupe) is mildly order-sensitive, so the entries stay in the exact order

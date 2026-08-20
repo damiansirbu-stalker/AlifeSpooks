@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """soundpool.py - probe + dedup primitives for the AlifeSpooks pipeline.
 
-`merge.py` is the pipeline (plan/classify/loudness/deploy/ledger/provenance); this module holds only the
+`build.py` is the pipeline (plan/classify/loudness/deploy/ledger/provenance); this module holds only the
 shared low-level primitives it imports: external-tool resolution, a parallel map, ffprobe metadata, the
-Chromaprint fingerprint + similarity, and the PCM cross-correlation same-recording decider. Standard
-library only; drives ffprobe, ffmpeg, and fpcalc (Chromaprint) as external CLIs.
+Chromaprint fingerprint + similarity, the PCM cross-correlation same-recording decider, and the stereo->mono
+masterization. Standard library only; drives ffprobe, ffmpeg, and fpcalc (Chromaprint) as external CLIs.
+
+These primitives carry no AlifeSpooks concepts (no categories, routing, manifest, or veto), so any sound
+pipeline can reuse them: probe/dedup a pool, fold stereo to mono, measure loudness. The project-specific
+driver (routing, scope, output layout) lives in build.py; this file is the reusable core.
 
 The older standalone CLI (inventory/select/generate/validate over a `pools.json`, emitting a
-`sound_channels.ltx`) was retired when merge.py replaced the channel model with structural per-file capture
+`sound_channels.ltx`) was retired when build.py replaced the channel model with structural per-file capture
 + the manifest + the DLTX veto. It is not this module's job any more.
 
 External tools resolve from $PORTX_ROOT/packages (default C:/App/PORTX), or $FFPROBE / $FFMPEG / $FPCALC
@@ -18,6 +22,7 @@ import array
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -208,3 +213,73 @@ def pcm_correlation(samples_a, samples_b):
         if r > best:
             best = r
     return best
+
+
+# --- stereo -> mono masterization ------------------------------------------
+# The engine 3D-positions MONO only; it force-2Ds any 2-channel buffer to at-ear, full volume
+# (SoundRender_Core.cpp:344,368,391), so a POSITIONED one-shot has to be mono. Fold a stereo file
+# by its mid/side energy: (L+R)/2 by default (the standard downmix, energy-preserving for a
+# correlated image), but keep one channel where the two are ANTI-PHASE and summing would cancel
+# (mid=(L+R)/2 -> ~silence while side=(L-R)/2 stays loud). The measured mid/side peaks decide.
+STEREO_ENCODE_Q   = 6      # libvorbis -q for the mono re-encode: high quality, deterministic (no dither)
+SIDE_ANTIPHASE_DB = 3.0    # side RMS this many dB ABOVE mid RMS -> anti-phase, sum cancels -> drop a channel.
+                           # RMS (energy), not peak: a localized transient can spike the side peak on a
+                           # correlated file, but only sustained opposition (side energy > sum energy) means
+                           # summing actually loses the signal. Measured gap: anti-phase +4.5..+7.3, wide -8..-13.
+
+
+def _mid_side_rms_db(path):
+    """RMS dB of the mid (L+R)/2 and side (L-R)/2 of a stereo file, or (None, None) on failure.
+    A correlated (summable) file has side well below mid; an anti-phase file has side at or above mid."""
+    r = run([tool("ffmpeg"), "-v", "info", "-i", str(path), "-af",
+             "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0-0.5*c1,astats=metadata=1:reset=0", "-f", "null", "-"])
+    rms = re.findall(r"RMS level dB:\s*(-?inf|[-\d.]+)", r.stderr)
+    if len(rms) < 2:
+        return None, None
+
+    def _db(x):
+        return -120.0 if x in ("-inf", "inf") else float(x)
+
+    return _db(rms[0]), _db(rms[1])
+
+
+def stereo_method(path):
+    """How to fold `path` to mono: 'mono' (already 1 channel, leave it), 'sum' ((L+R)/2, the
+    default), or 'drop' (keep one channel, only when the pair is anti-phase and summing cancels).
+    A surround/multichannel file (>2) has no mid/side, so it downmixes via 'sum' (-ac 1)."""
+    ch = (probe(path) or {}).get("channels", 0)
+    if ch < 2:
+        return "mono"
+    if ch > 2:
+        return "sum"
+    mid, side = _mid_side_rms_db(path)
+    if mid is None:
+        return "sum"
+    return "drop" if side - mid > SIDE_ANTIPHASE_DB else "sum"
+
+
+def fold_to_mono(src, dst, method):
+    """Re-encode `src` to a mono 44100 Hz vorbis ogg at `dst`. method 'sum' = -ac 1 ((L+R)/2);
+    'drop' = keep the left channel (anti-phase). libvorbis at STEREO_ENCODE_Q, input metadata
+    stripped, so the AUDIO pages are byte-deterministic across runs (a re-fold reproduces the same
+    file - what makes a re-add idempotent). Returns True on success. Does NOT write the X-Ray blob;
+    the driver does that afterwards (loudness/min-max are a separate, project-level concern."""
+    dst = Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    af = ["-ac", "1"] if method == "sum" else ["-af", "pan=mono|c0=c0"]
+    r = run([tool("ffmpeg"), "-y", "-v", "error", "-i", str(src), *af, "-ar", "44100",
+             "-c:a", "libvorbis", "-q:a", str(STEREO_ENCODE_Q), "-map_metadata", "-1", str(dst)])
+    return r.returncode == 0 and dst.exists()
+
+
+def to_mono(src, dst):
+    """One-call fold: classify `src`, then produce a mono ogg at `dst`. Returns the method used -
+    'copy' (already mono, byte-verbatim so any source X-Ray blob survives), 'sum', 'drop', or None
+    on encode failure. The reusable entry point a driver calls per file."""
+    method = stereo_method(src)
+    dst = Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if method == "mono":
+        shutil.copy2(src, dst)
+        return "copy"
+    return method if fold_to_mono(src, dst, method) else None

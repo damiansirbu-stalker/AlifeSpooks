@@ -7,7 +7,7 @@ meta.ini
 *.bak
 *~
 
-# build intermediates (reproducible via tools/merge.py)
+# build intermediates (reproducible via tools/build.py)
 tools/__pycache__/
 tools/manifest.json
 tools/merged_channels.json
@@ -17,5 +17,6 @@ tools/intra_dups.json
 tools/base_dropped.json
 tools/silence_dropped.json
 tools/_sliced/
+tools/_mono/
 tools/longfile_culled.json
 tools/sliced_dropped.json

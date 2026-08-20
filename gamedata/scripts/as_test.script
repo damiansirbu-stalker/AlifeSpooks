@@ -86,7 +86,7 @@ function as_test.snd(method, dist)
 end
 
 -- ---- corpus smoke test (audition every shipped sound, spaced by its own length) ----
--- Plays every sound in as_manifest one after another at-ear (2D, full volume), each spaced by its
+-- Plays every sound in as_sound_config_gen one after another at-ear (2D, full volume), each spaced by its
 -- measured duration + a gap so a long drone never overlaps the next. Play and length both go through
 -- xsound (wrapped), never a raw sound_object. Run/stop from the console (close it after):
 --   run_string as_test.smoke()            -- the whole corpus, category order
@@ -95,9 +95,9 @@ end
 local SMOKE_GAP_MS = 700
 local _smoke = { list = nil, i = 0, last = nil, paused = false, dist = nil }
 
---- Flatten as_manifest to a { cat, path } list in sorted-category order (optionally one category).
+--- Flatten as_sound_config_gen to a { cat, path } list in sorted-category order (optionally one category).
 local function _smoke_flat(only_cat)
-    local out, cats = {}, (as_manifest and as_manifest.categories) or {}
+    local out, cats = {}, (as_sound_config_gen and as_sound_config_gen.categories) or {}
     local names = {}
     for cat in pairs(cats) do
         if not only_cat or cat == only_cat then names[#names + 1] = cat end

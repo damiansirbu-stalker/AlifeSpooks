@@ -41,20 +41,23 @@
 		<text font="letterica16" align="l" vert_align="c" r="66" g="157" b="195"/>
 	</lbl_pos>
 
-	<!-- transport: [ position - ] [ position + ]   [ prev ] [ play ] [ next ] -->
+	<!-- transport: [ mode - ] [ mode + ]   [ prev ] [ play ] [ stop ] [ next ] -->
 	<btn_pos_down x="470" y="232" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_down</texture>
 	</btn_pos_down>
 	<btn_pos_up x="520" y="232" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_up</texture>
 	</btn_pos_up>
-	<btn_prior x="600" y="232" width="48" height="30" stretch="1">
+	<btn_prior x="584" y="232" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_prev</texture>
 	</btn_prior>
-	<btn_play x="650" y="232" width="48" height="30" stretch="1">
+	<btn_play x="632" y="232" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_start2</texture>
 	</btn_play>
-	<btn_next x="700" y="232" width="48" height="30" stretch="1">
+	<btn_stop x="680" y="232" width="48" height="30" stretch="1">
+		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_stop2</texture>
+	</btn_stop>
+	<btn_next x="728" y="232" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_next</texture>
 	</btn_next>
 

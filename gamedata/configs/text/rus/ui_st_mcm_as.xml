@@ -18,12 +18,6 @@
   <string id="ui_mcm_as_rarity_desc">
     <text>Пауза между акцентами. Выше — реже.</text>
   </string>
-  <string id="ui_mcm_as_distance">
-    <text>Расстояние</text>
-  </string>
-  <string id="ui_mcm_as_distance_desc">
-    <text>Как далеко возникают акценты. Выше — дальше и тише.</text>
-  </string>
   <string id="ui_mcm_as_development_desc">
     <text>Трассировка для диагностики звукового ландшафта. Не влияет на игровой процесс.</text>
   </string>
