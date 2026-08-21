@@ -1,10 +1,10 @@
---- as_director: dread director v2. One 100ms tick round-robins a sensor board (environment, stalkers,
+--- as_director: dread director. One 100ms tick round-robins a sensor board (environment, stalkers,
 --- monsters, anomalies, time), SELECT gates categories by map + environment + presence, a two-level
 --- shuffle-bag picks, and grounded additive dread drives ONLY emission frequency and selection - never
---- placement or volume. Each sound plays EXACTLY as vanilla update_ambient plays it: its own source
---- channel's spawn band + the vanilla placement/volume code, verbatim (emit). Man and monster collapse
+--- placement or volume. Each sound plays EXACTLY as the base game's update_ambient plays it: its own source
+--- channel's spawn band + the base placement/volume code, verbatim (emit). Man and monster collapse
 --- to one low/med/high power (se:rank), so threat reads both with one rule. A separate observer owns the
---- vanilla update_ambient slot only to replay+LOG the base ambient; the base's copies of our sounds are
+--- base update_ambient slot only to replay+LOG the base ambient; the base's copies of our sounds are
 --- removed statically by the DLTX overlay.
 
 local math_random, math_rad = math.random, math.rad
@@ -27,7 +27,7 @@ local SEC_POSITIONS = "positions"
 -- Category runtime attributes: env (enclosure states it may play in) + need (a live gate). The MAP list
 -- (as_static_map.ltx) decides per-level eligibility; THIS decides enclosure + need, keyed by name.
 -- env flags out/ind/ug = outdoor/indoor/underground; labs satisfies ug. need "mutant"|"human"|"anomaly"|nil.
-local CAT = {
+local CATEGORY = {
     mutant                = { out = true, ind = true, ug = true, need = "mutant" },
     mutant_ambient_forest = { out = true },
     mutant_ambient_swamp  = { out = true },
@@ -88,22 +88,22 @@ local NEAR_R  = 60
 local NEAR_R2 = NEAR_R * NEAR_R
 
 -- Emission + pacing. The gap between plays scales with CURRENT dread, re-evaluated every tick, so a calm
--- place breathes (~SPACE_CALM_MS - silence carries the dread) and a scary one overwhelms (~SPACE_PEAK_MS),
+-- place has long gaps (~SPACE_CALM_MS - silence carries the dread) and a scary one short gaps (~SPACE_PEAK_MS),
 -- and a rising dread tightens the gap AT ONCE (a threat mid-calm-gap fires promptly). SPACE_JITTER keeps it
 -- irregular. Nothing emits only at dread 0 (a safe hub / fully-calmed place); any dread above 0 plays. The
 -- gap is power-eased off calm (SPACE_EASE); mean gaps calm ~40s / mundane ~33s / mid ~19s / peak ~8s
 -- (rate pushed 20% lower than the first tuning: gaps x1.25).
 -- DREAD_ON is the pacing curve's calm anchor (frequency only), NOT an emission gate. Placement, height,
--- and loudness are vanilla's per sound (see emit) - dread never touches them.
+-- and loudness are the base game's per sound (see emit) - dread never touches them.
 local DREAD_ON      = 0.10
 local SPACE_CALM_MS = 40000
 local SPACE_PEAK_MS = 8125
 local SPACE_JITTER  = 0.15
 local SPACE_EASE    = 0.5
--- Placement is VANILLA's, verbatim (sound_ambient.script:127-165): each sound carries its source channel's
--- spawn band (ch_min/ch_max in as_sound_config_gen) and emit() places it exactly as update_ambient would -
--- min lifted to the band midpoint outdoors, random(min, max)/2, random bearing, pos.y + height, then the
--- vanilla indoor/outdoor/underground volume table times the game ambient slider. Dread never touches
+-- Placement is the base game's, verbatim (sound_ambient.script:127-165): each sound carries its source
+-- channel's spawn band (ch_min/ch_max in as_sound_config_gen) and emit() places it exactly as update_ambient
+-- would - min lifted to the band midpoint outdoors, random(min, max)/2, random bearing, pos.y + height, then
+-- the base indoor/outdoor/underground volume table times the game ambient slider. Dread never touches
 -- placement or loudness.
 local TICK_S       = 0.1
 local BASE_TICK_S  = 1
@@ -139,9 +139,9 @@ local board = {
     elig_set = {},
 }
 
--- Runtime state. _cats: category -> sound list from as_sound_config_gen. _map/_map_set: the level's category set.
--- _cat_bag/_snd_bag: the two shuffle-bags. _enc: the environment raycast cache (by cell). _vis: visual state.
-local _cats      = {}
+-- Runtime state. _category_sounds: category -> sound list from as_sound_config_gen. _map/_map_set: the level's category set.
+-- _cat_bag/_snd_bag: the two shuffle-bags. _enclosure: the environment raycast cache (by cell). _visual: visual state.
+local _category_sounds      = {}
 local _loaded    = false
 local _map       = nil
 local _map_level = nil
@@ -158,14 +158,14 @@ local _base_at   = 0
 -- dev tab master silence: cuts the director's own emission + the base-ambient replay
 local _muted     = false
 local _rows      = {}
-local _enc = { level = nil, cx = nil, cz = nil, val = "outdoor" }
-local _vis = { insane_since = nil, next_ok = 0, handle = nil }
+local _enclosure = { level = nil, cx = nil, cz = nil, val = "outdoor" }
+local _visual = { insane_since = nil, next_ok = 0, handle = nil }
 
 -- Forward declarations for helpers referenced before their definition line (kept local, never global).
-local _build_hud, _vis_pulse, _visual_tick
+local _build_hud, fire_visual_pulse, try_visual_pulse
 
 --- Comma-join short strings into lines each <= width chars (the wrapped HUD available list).
-local function _wrap_csv(items, width)
+local function wrap_list(items, width)
     local lines, buf, len = {}, {}, 0
     for i = 1, #items do
         local sep = (i < #items) and ", " or ""
@@ -180,7 +180,7 @@ local function _wrap_csv(items, width)
 end
 
 --- A raw rank -> "none"|"low"|"med"|"high" power token against a scale's med/high cut points.
-local function _rank_to_tier(rank, med, high)
+local function get_power_tier(rank, med, high)
     if not rank or rank <= 0 then return "low" end
     if rank >= high then return "high" end
     if rank >= med then return "med" end
@@ -205,9 +205,9 @@ local function _load_channels()
         as_debug.warn("as_director: as_sound_config_gen absent - no sounds to play (run build.py deploy)")
     end
     local cats = as_sound_config_gen and as_sound_config_gen.categories or {}
-    for name in pairs(CAT) do
-        _cats[name] = cats[name] or {}
-        as_debug.dbg("as_director: category %s = %d sounds", name, #_cats[name])
+    for name in pairs(CATEGORY) do
+        _category_sounds[name] = cats[name] or {}
+        as_debug.dbg("as_director: category %s = %d sounds", name, #_category_sounds[name])
     end
 end
 
@@ -217,14 +217,14 @@ local function _load_map(level_name)
     _map_level = level_name
     if not _map then _map = ini_file(MAP_FILE) end
     _map_set = {}
-    local function add(section)
+    local function add_section(section)
         if not (_map and _map:section_exist(section)) then return end
         for _, name in ipairs(parse_list(_map, section, "categories")) do
-            if CAT[name] and #(_cats[name] or {}) > 0 then _map_set[name] = true end
+            if CATEGORY[name] and #(_category_sounds[name] or {}) > 0 then _map_set[name] = true end
         end
     end
-    add(SEC_DEFAULT)
-    add(level_name)
+    add_section(SEC_DEFAULT)
+    add_section(level_name)
     _cat_bag = {}
 end
 
@@ -282,15 +282,15 @@ local function _read_environment(actor)
     local level_name = level.name()
     if GetEvent("underground") then return LAB_LEVELS[level_name] and "labs" or "underground" end
     local cx, cz = math_floor(pos.x / 4), math_floor(pos.z / 4)
-    if _enc.level ~= level_name or _enc.cx ~= cx or _enc.cz ~= cz then
-        _enc.level, _enc.cx, _enc.cz = level_name, cx, cz
-        _enc.val = (xcombat and xcombat.is_indoor and xcombat.is_indoor(pos)) and "indoor" or "outdoor"
+    if _enclosure.level ~= level_name or _enclosure.cx ~= cx or _enclosure.cz ~= cz then
+        _enclosure.level, _enclosure.cx, _enclosure.cz = level_name, cx, cz
+        _enclosure.val = (xcombat and xcombat.is_indoor and xcombat.is_indoor(pos)) and "indoor" or "outdoor"
     end
-    return _enc.val
+    return _enclosure.val
 end
 
 --- Fold one online stalker id into the stalkers sensor (guard-clause; near-only past the distance test).
-local function _fold_stalker(id, actor_id, apos, out)
+local function scan_stalker(id, actor_id, apos, out)
     if id == actor_id then return end
     local st = db.storage[id]
     local npc = st and st.object
@@ -299,7 +299,7 @@ local function _fold_stalker(id, actor_id, apos, out)
     local dist_sqr = apos:distance_to_sqr(npc:position())
     if dist_sqr > NEAR_R2 then return end
     local rel  = xcreature.relation(npc, db.actor)
-    local tier = _rank_to_tier(npc:character_rank(), STALKER_MED, STALKER_HIGH)
+    local tier = get_power_tier(npc:character_rank(), STALKER_MED, STALKER_HIGH)
     if rel == "enemy" then
         if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
     else
@@ -316,18 +316,18 @@ local function _scan_stalkers(actor)
     local online = db.OnlineStalkers
     if not online then return out end
     local actor_id, apos = actor:id(), actor:position()
-    for i = 1, #online do _fold_stalker(online[i], actor_id, apos, out) end
+    for i = 1, #online do scan_stalker(online[i], actor_id, apos, out) end
     return out
 end
 
 --- Fold one online monster into the monsters sensor (the iterator yields monsters; near-only tiering).
-local function _fold_monster(id, obj, apos, out)
+local function scan_monster(id, obj, apos, out)
     if not obj then return end
     out.online = true
     if apos:distance_to_sqr(obj:position()) > NEAR_R2 then return end
     local se = xobject.se(id)
     if not se then return end
-    local tier = _rank_to_tier(se:rank(), MONSTER_MED, MONSTER_HIGH)
+    local tier = get_power_tier(se:rank(), MONSTER_MED, MONSTER_HIGH)
     if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
 end
 
@@ -337,7 +337,7 @@ local function _scan_monsters(actor)
     local out = { online = false, enemy_near = "none" }
     if not (xcreature and xcreature.online_monster_iter) then return out end
     local apos = actor:position()
-    for id, obj in xcreature.online_monster_iter() do _fold_monster(id, obj, apos, out) end
+    for id, obj in xcreature.online_monster_iter() do scan_monster(id, obj, apos, out) end
     return out
 end
 
@@ -360,17 +360,17 @@ end
 
 --- True if a category is eligible now: the level's map list names it, its env allows the environment,
 --- and its live need (level-wide presence / anomaly-near) is met. Reads the board.
-local function _eligible(name, position)
+local function is_eligible(name, position)
     local allowed = _map_set[name]
     if position and position.cats then
         if position.only then
-            allowed = position.cats[name] and CAT[name] and #(_cats[name] or {}) > 0
-        elseif position.cats[name] and CAT[name] and #(_cats[name] or {}) > 0 then
+            allowed = position.cats[name] and CATEGORY[name] and #(_category_sounds[name] or {}) > 0
+        elseif position.cats[name] and CATEGORY[name] and #(_category_sounds[name] or {}) > 0 then
             allowed = true
         end
     end
     if not allowed then return false end
-    local def = CAT[name]
+    local def = CATEGORY[name]
     local env = board.environment
     if env == "outdoor" and not def.out then return false end
     if env == "indoor" and not def.ind then return false end
@@ -402,7 +402,7 @@ end
 
 --- Sound shuffle-bag within a category: every sound plays once before any repeat.
 local function _pick_sound(name)
-    local sounds = _cats[name]
+    local sounds = _category_sounds[name]
     if not sounds or #sounds == 0 then return nil end
     if #sounds == 1 then return sounds[1] end
     local bag = _snd_bag[name]
@@ -421,17 +421,17 @@ end
 -- ---- APPLY (dread + positioned play) --------------------------------------
 
 --- The threat dread term: the scariest near thing (man or monster, one power), or loneliness if none near.
-local function _get_threat_term(s, m)
-    local worst = math_max(POWER[s.enemy_near], POWER[m.enemy_near])
+local function _get_threat_term(stalkers, monsters)
+    local worst = math_max(POWER[stalkers.enemy_near], POWER[monsters.enemy_near])
     if worst > 0 then return THREAT_ADD[worst] end
-    if s.ally_near == "none" then return LONELINESS end
+    if stalkers.ally_near == "none" then return LONELINESS end
     return 0
 end
 
-local function _clamp01(v)
-    if v < 0 then return 0 end
-    if v > 1 then return 1 end
-    return v
+local function _clamp01(value)
+    if value < 0 then return 0 end
+    if value > 1 then return 1 end
+    return value
 end
 
 --- Grounded additive dread from the board, clamped 0..1. An allied service near (a safe hub) forces 0;
@@ -446,24 +446,24 @@ local function _resolve_dread(terms, position, allied)
 end
 
 local function _compute_dread()
-    local s, m = board.stalkers, board.monsters
+    local stalkers, monsters = board.stalkers, board.monsters
     local terms = board.terms
     terms.lore    = LORE_LEVEL[level.name()] or LORE_DEFAULT
     terms.env     = ENV_ADD[board.environment] or 0
     terms.time    = TIME_ADD[board.time] or 0
-    terms.threat  = _get_threat_term(s, m)
-    terms.company = ALLY_CALM[s.ally_near] or 0
+    terms.threat  = _get_threat_term(stalkers, monsters)
+    terms.company = ALLY_CALM[stalkers.ally_near] or 0
     terms.anomaly = board.anomalies.near and ANOMALY_ADD or 0
-    terms.service = (s.service_near == "hostile") and SERVICE_HOSTILE or 0
-    board.dread   = _resolve_dread(terms, board.position, s.service_near == "allied")
+    terms.service = (stalkers.service_near == "hostile") and SERVICE_HOSTILE or 0
+    board.dread   = _resolve_dread(terms, board.position, stalkers.service_near == "allied")
 end
 
---- Vanilla update_ambient placement + volume for one spawn band (sound_ambient.script:127-165): min lifted
+--- Base-game update_ambient placement + volume for one spawn band (sound_ambient.script:127-165): min lifted
 --- to the band midpoint outdoors, random(min, max)/2 (fixed_dist skips the roll - the audition player), a
 --- random bearing, pos.y + height, and the indoor/outdoor/underground volume table. The min>max clamp is
 --- boundary validation for the base observer's third-party LTX (math_random errors on an empty interval;
 --- our generated bands cannot invert). Returns dist, position, and the raw table volume (caller applies sliders).
-local function _vanilla_place(actor, ch_min, ch_max, height, indoor, fixed_dist)
+local function get_placement(actor, ch_min, ch_max, height, indoor, fixed_dist)
     local underground = GetEvent("underground")
     local inside = GetEvent("current_safe_cover")
     local dist = fixed_dist
@@ -481,16 +481,16 @@ local function _vanilla_place(actor, ch_min, ch_max, height, indoor, fixed_dist)
     return dist, vec, vol
 end
 
---- Fire one positioned one-shot at `path`, EXACTLY as vanilla update_ambient plays it: the sound's own
+--- Fire one positioned one-shot at `path`, EXACTLY as the base game's update_ambient plays it: the sound's own
 --- source-channel spawn band (opts.ch_min/ch_max from as_sound_config_gen, REQUIRED unless opts.dist)
---- through _vanilla_place, the vanilla volume table times the game ambient slider (vol_global on top,
---- 1 = untouched vanilla loudness). The blob pair (opts.min/max) is the ATTENUATION range - trace readout
+--- through get_placement, the base volume table times the game ambient slider (vol_global on top,
+--- 1 = untouched base loudness). The blob pair (opts.min/max) is the ATTENUATION range - trace readout
 --- only, never placement. Returns the distance.
 function emit(path, opts)
     local actor = db.actor
     if not (actor and path and xsound) then return end
     local height = opts.height or 0
-    local dist, vec, vol = _vanilla_place(actor, opts.ch_min, opts.ch_max, height, opts.indoor, opts.dist)
+    local dist, vec, vol = get_placement(actor, opts.ch_min, opts.ch_max, height, opts.indoor, opts.dist)
     vol = vol * opt_ambient_volume * vol_global
     xsound.play_at(path, { position = vec, volume = vol })
     local mn, mx = opts.min, opts.max
@@ -509,8 +509,8 @@ end
 local function _rebuild_eligible()
     local position = board.position
     local elig = {}
-    for name in pairs(CAT) do
-        if _eligible(name, position) then elig[#elig + 1] = name end
+    for name in pairs(CATEGORY) do
+        if is_eligible(name, position) then elig[#elig + 1] = name end
     end
     board.eligible = elig
     board.elig_set = {}
@@ -524,7 +524,7 @@ function _build_hud()
     local base_playing = _base_at > 0 and (time_global() - _base_at) < PLAY_WINDOW_MS
     local dread = board.dread
     local grade = (dread >= INSANE_DREAD) and "g_insane" or (dread >= DREAD_ON) and "g_med" or "g_none"
-    local s, m = board.stalkers, board.monsters
+    local stalkers, monsters = board.stalkers, board.monsters
     _rows = {
         { "PLAYING", "", "", "hdr" },
         { "spook", _last_play, "", playing and "play" or "stop" },
@@ -532,7 +532,7 @@ function _build_hud()
         { "", "", "" },
         { "SELECT", "", "", "hdr" },
     }
-    local avail = _wrap_csv(board.eligible, TYPE_WRAP)
+    local avail = wrap_list(board.eligible, TYPE_WRAP)
     if #avail == 0 then avail = { "-" } end
     for i = 1, #avail do _rows[#_rows + 1] = { i == 1 and "available" or "", avail[i], "" } end
     _rows[#_rows + 1] = { "dread", string_format("%.2f", dread), "", grade }
@@ -557,61 +557,61 @@ function _build_hud()
     _rows[#_rows + 1] = { "SENSORS", "", "", "hdr" }
     _rows[#_rows + 1] = { "environment", board.environment, "" }
     _rows[#_rows + 1] = { "time", board.time, "" }
-    _rows[#_rows + 1] = { "stalkers.online", s.online and "yes" or "no", "" }
-    _rows[#_rows + 1] = { "stalkers.enemy_near", s.enemy_near, "" }
-    _rows[#_rows + 1] = { "stalkers.ally_near", s.ally_near, "" }
-    _rows[#_rows + 1] = { "stalkers.service_near", s.service_near, "" }
-    _rows[#_rows + 1] = { "monsters.online", m.online and "yes" or "no", "" }
-    _rows[#_rows + 1] = { "monsters.enemy_near", m.enemy_near, "" }
+    _rows[#_rows + 1] = { "stalkers.online", stalkers.online and "yes" or "no", "" }
+    _rows[#_rows + 1] = { "stalkers.enemy_near", stalkers.enemy_near, "" }
+    _rows[#_rows + 1] = { "stalkers.ally_near", stalkers.ally_near, "" }
+    _rows[#_rows + 1] = { "stalkers.service_near", stalkers.service_near, "" }
+    _rows[#_rows + 1] = { "monsters.online", monsters.online and "yes" or "no", "" }
+    _rows[#_rows + 1] = { "monsters.enemy_near", monsters.enemy_near, "" }
     _rows[#_rows + 1] = { "anomalies.near", board.anomalies.near and "yes" or "no", "" }
 end
 
 -- ---- visual layer ---------------------------------------------------------
 
 --- Fire one subtle distortion pulse: acquire a cyclic effector, drive its factor up, release after a hold.
-function _vis_pulse()
+function fire_visual_pulse()
     if not xpp then return end
     local ppe = VIS_PPE[math_random(#VIS_PPE)]
-    if _vis.handle and xpp.is_active(_vis.handle) then xpp.release(_vis.handle) end
+    if _visual.handle and xpp.is_active(_visual.handle) then xpp.release(_visual.handle) end
     local handle = xpp.acquire(ppe, { cyclic = true, smoothing = VIS_SMOOTH })
-    _vis.handle = handle
+    _visual.handle = handle
     if handle then
         xpp.set_target(handle, VIS_FACTOR, VIS_SMOOTH)
         CreateTimeEvent("as_director", "vis_release", VIS_HOLD_S, function()
             if xpp.is_active(handle) then xpp.release(handle) end
-            if _vis.handle == handle then _vis.handle = nil end
+            if _visual.handle == handle then _visual.handle = nil end
             return true
         end)
     end
 end
 
 --- Peak-dread visual gate: require sustained peak (dwell), then once per cooldown roll to pulse.
-function _visual_tick(tg)
+function try_visual_pulse(tg)
     if not (visuals_on and xpp) or board.dread < INSANE_DREAD then
-        _vis.insane_since = nil
+        _visual.insane_since = nil
         return
     end
-    if not _vis.insane_since then _vis.insane_since = tg; return end
-    if tg < _vis.next_ok or tg - _vis.insane_since < VIS_DWELL_MS then return end
-    _vis.next_ok = tg + VIS_COOLDOWN_MS
-    if math_random() < VIS_CHANCE then _vis_pulse() end
+    if not _visual.insane_since then _visual.insane_since = tg; return end
+    if tg < _visual.next_ok or tg - _visual.insane_since < VIS_DWELL_MS then return end
+    _visual.next_ok = tg + VIS_COOLDOWN_MS
+    if math_random() < VIS_CHANCE then fire_visual_pulse() end
 end
 
 -- ---- emission (jittered self-schedule) ------------------------------------
 
 --- Emit one one-shot when the dread-scaled gap has elapsed. The gap tracks CURRENT dread every tick, so a
 --- rising dread tightens it at once. Nothing plays only at dread 0 (a safe hub / fully-calmed place); any
---- dread above 0 emits, sparser the calmer it is. dn is power-eased (SPACE_EASE) so the gap drops fast off
+--- dread above 0 emits, sparser the calmer it is. dread_norm is power-eased (SPACE_EASE) so the gap drops fast off
 --- calm then fine-grades toward peak (mid-dread ~15s, not the ~19s of a linear map). The gap advances even
 --- while silent so a resumed dread emits promptly. Reads the board.
-local function _emit_tick(tg)
-    _visual_tick(tg)
+local function try_emit(tg)
+    try_visual_pulse(tg)
     if _muted then return end
     local dread = board.dread
-    local dn = (dread - DREAD_ON) / (1 - DREAD_ON)
-    if dn < 0 then dn = 0 elseif dn > 1 then dn = 1 end
-    dn = dn ^ SPACE_EASE
-    local gap = (SPACE_CALM_MS + (SPACE_PEAK_MS - SPACE_CALM_MS) * dn) * _jitter * math_max(rarity, 0.1)
+    local dread_norm = (dread - DREAD_ON) / (1 - DREAD_ON)
+    if dread_norm < 0 then dread_norm = 0 elseif dread_norm > 1 then dread_norm = 1 end
+    dread_norm = dread_norm ^ SPACE_EASE
+    local gap = (SPACE_CALM_MS + (SPACE_PEAK_MS - SPACE_CALM_MS) * dread_norm) * _jitter * math_max(rarity, 0.1)
     if tg - _gap_at < gap then return end
     _gap_at = tg
     _jitter = 1 + (math_random() * 2 - 1) * SPACE_JITTER
@@ -629,11 +629,11 @@ local function _emit_tick(tg)
     end
 end
 
--- ---- base ambient observer (owns the vanilla update_ambient slot) --------
--- This REPLACES vanilla sound_ambient.update_ambient (RemoveTimeEvent + our clone, in _apply_owned), so it
--- runs for EVERY player, not only at DEBUG. It is a faithful clone of the vanilla channel rotation, timing,
+-- ---- base ambient observer (owns the base update_ambient slot) --------
+-- This REPLACES the base sound_ambient.update_ambient (RemoveTimeEvent + our clone, in install_base_observer), so it
+-- runs for EVERY player, not only at DEBUG. It is a faithful clone of the base channel rotation, timing,
 -- and volume rule, with two deltas: it plays through xsound.play (an engine-owned one-shot, so a base sound
--- is not GC-cut on channel re-fire the way vanilla's retained handle cut it), and it LOGS each base fire at
+-- is not GC-cut on channel re-fire the way the base retained handle cut it), and it LOGS each base fire at
 -- DEBUG. It does no muting (the DLTX overlay already stripped our sounds from the composed config it reads)
 -- and no injection. Trade-off: any other ambient-scheduler mod contends for this slot (last writer wins);
 -- the muting is independent of it (the static overlay), so only the trace/no-cut is lost if another wins.
@@ -651,7 +651,7 @@ local function _read_base_channel(ch, ini_snd)
                      ini_snd:r_float_ex(ch, "period2") or 20, ini_snd:r_float_ex(ch, "period3") or 25 } }
 end
 
-local function _base_reset(level_name, ambient)
+local function reset_base(level_name, ambient)
     _base.chan, _base.idx, _base.tot = {}, 0, 0
     if not (level_name and ambient and ambient ~= "") then return end
     local ini_lvl = ini_file("environment\\ambients\\" .. level_name .. ".ltx")
@@ -670,16 +670,15 @@ local function _base_reset(level_name, ambient)
     end
 end
 
-local function _base_fire(ch, tg)
+local function play_base_channel(ch, tg)
     local actor = db.actor
     if not actor then return end
     local period = ch.periods[math_random(4)]
     ch.next = tg + period
-    -- muted (dev tab): the schedule above already advanced, so simply play nothing this fire
     if _muted then return end
     local file = ch.sounds[math_random(#ch.sounds)]
     _base_last, _base_at = tostring(file), tg
-    local dist, vec, vol = _vanilla_place(actor, ch.min_dist, ch.max_dist, ch.height, ch.indoor)
+    local dist, vec, vol = get_placement(actor, ch.min_dist, ch.max_dist, ch.height, ch.indoor)
     vol = vol * opt_ambient_volume
     xsound.play(file, { position = vec, volume = vol })
     if as_debug.on() then
@@ -687,7 +686,7 @@ local function _base_fire(ch, tg)
     end
 end
 
-local function update_ambient_owned()
+local function update_base_ambient()
     ResetTimeEvent("sound_channels", "update_ambient", BASE_TICK_S)
     if not (level.present() and db.actor) then return false end
     local tg = time_global()
@@ -695,21 +694,21 @@ local function update_ambient_owned()
     if hour ~= _base.hour then
         _base.hour, _base.idx = hour, 0
         local wm = level_weathers and level_weathers.get_weather_manager()
-        _base_reset(level.name(), wm and wm:get_curr_ambient())
+        reset_base(level.name(), wm and wm:get_curr_ambient())
     elseif _base.tot > 0 then
         _base.idx = _base.idx + 1
         if _base.idx > _base.tot then _base.idx = 1 end
         local ch = _base.chan[_base.idx]
         if not ch.next then ch.next = tg + math_random(1, ch.periods[math_random(4)] + 1)
-        elseif ch.next <= tg then _base_fire(ch, tg) end
+        elseif ch.next <= tg then play_base_channel(ch, tg) end
     end
     return false
 end
 
-local function _apply_owned()
+local function install_base_observer()
     _base.hour, _base.idx = nil, 0
     RemoveTimeEvent("sound_channels", "update_ambient")
-    CreateTimeEvent("sound_channels", "update_ambient", 1, update_ambient_owned)
+    CreateTimeEvent("sound_channels", "update_ambient", 1, update_base_ambient)
 end
 
 -- ---- director loop (one tick, round-robin one producer per tick) -----------
@@ -718,7 +717,7 @@ end
 -- the single heaviest scan, never the sum; the full board refreshes over #producers ticks (~0.6s).
 -- Position producer: resolve the active override, edge-logging enter/leave at DEBUG (not every scan).
 local _last_pos_name = nil
-local function _prod_position(actor)
+local function sense_position(actor)
     local position = _scan_position(actor)
     local name = position and position.name
     if name ~= _last_pos_name then
@@ -728,29 +727,29 @@ local function _prod_position(actor)
     board.position = position
 end
 
-local _prod = {
+local _producers = {
     { "stalkers",    function(actor) board.stalkers = _scan_stalkers(actor) end },
     { "monsters",    function(actor) board.monsters = _scan_monsters(actor) end },
     { "environment", function(actor) board.environment = _read_environment(actor) end },
     { "anomalies",   function(actor) board.anomalies.near = _read_anomalies(actor) end },
-    { "position",    _prod_position },
+    { "position",    sense_position },
     { "time",        function()      if level.present() then board.time = _get_time_band(level.get_time_hours()) end end },
 }
 local _cursor = 1
 
-local function _tick()
+local function _on_tick()
     ResetTimeEvent("as_director", "tick", TICK_S)
     if not (level.present() and db.actor) then return false end
     local tg = time_global()
     local dbg = as_debug.on()
-    local entry = _prod[_cursor]
+    local entry = _producers[_cursor]
     local tmr = xprofiler.new_if(dbg):start()
     entry[2](db.actor)
     tmr:stop()
-    _cursor = _cursor % #_prod + 1
+    _cursor = _cursor % #_producers + 1
     _compute_dread()
     if dbg then _rebuild_eligible(); as_debug.dbg("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
-    _emit_tick(tg)
+    try_emit(tg)
     return false
 end
 
@@ -773,11 +772,11 @@ local function _on_first_update()
     _load_map(level.name())
     _gap_at, _jitter, _cursor = 0, 1, 1
     _map_level, _cat_bag, _snd_bag = nil, {}, {}
-    _vis.insane_since, _vis.next_ok, _vis.handle = nil, 0, nil
-    _apply_owned()
+    _visual.insane_since, _visual.next_ok, _visual.handle = nil, 0, nil
+    install_base_observer()
     RemoveTimeEvent("as_director", "tick")
-    CreateTimeEvent("as_director", "tick", TICK_S, _tick)
-    as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient; vanilla-band placement")
+    CreateTimeEvent("as_director", "tick", TICK_S, _on_tick)
+    as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient; source-band placement")
 end
 
 --- The debug HUD rows, built fresh from the board on demand (as_hud reads this only while visible, so
@@ -794,7 +793,7 @@ end
 
 --- Dev tab master silence. When on, the director emits no one-shots and the base-ambient observer replays
 --- nothing (both schedules keep advancing, so unmute resumes cleanly). The tab's own emit/play is unaffected.
-function set_muted(v) _muted = v and true or false end
+function set_muted(value) _muted = value and true or false end
 function is_muted()   return _muted end
 
 function on_game_start()

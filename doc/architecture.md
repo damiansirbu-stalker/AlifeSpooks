@@ -231,7 +231,7 @@ carry `online` + `near`, static anomalies carry only `near`.
 
 ### Power - man and monster on one scale
 
-Every hostile near thing is graded "none"|"low"|"med"|"high" by `_tier(rank)`: a stalker's `character_rank()`
+Every hostile near thing is graded "none"|"low"|"med"|"high" by `get_power_tier(rank)`: a stalker's `character_rank()`
 (0-27000, cuts 9000/14500) and a monster's `se:rank()` (1-20, cuts 5/16) collapse to the SAME token. So
 `stalkers.enemy_near` and `monsters.enemy_near` are the same type, and threat reads both with one rule
 (`max`). The engine facts and the probe-verified monster rank table are in
@@ -254,7 +254,7 @@ no weights.
 
 ### SELECT - which categories can play
 
-A category is eligible only if all three checks pass, in order (`_eligible`, reading the board):
+A category is eligible only if all three checks pass, in order (`is_eligible`, reading the board):
 
 - **map** - the level's list in `as_static_map.ltx` names it. `[default]` holds the universal cues on
   every level; each `[level]` adds its terrain flavor, its interior/facility kinds, and the `dark_signal`
@@ -335,7 +335,7 @@ Where the actor stands inside a position's radius it ALWAYS wins:
 - The override wins over a safe hub: a position with a `dread` suppresses the allied-service silence
   (`_resolve_dread`), so a hand-marked place is never zeroed by a passing trader.
 - **categories** override SELECT: `select = only` plays ONLY the listed categories there, `select = add` adds
-  them to the level's map (`_eligible`), still gated by env and presence.
+  them to the level's map (`is_eligible`), still gated by env and presence.
 
 Nothing here needs an MCM knob - it is data, edited in the LTX and captured via the dev-tab snapshot. The
 debug HUD carries an `OVERRIDE` section (the active position's name, dread, add, select) and an `[OVERRIDE]`
@@ -490,7 +490,7 @@ pack loads. No folder blocking, no mod names, no runtime lookup, no `provenance.
 
 ### The observer hook (owns the vanilla scheduler slot)
 
-A time-event on the vanilla `update_ambient` slot (`update_ambient_owned`, installed by `_apply_owned`)
+A time-event on the vanilla `update_ambient` slot (`update_base_ambient`, installed by `install_base_observer`)
 REPLACES vanilla `sound_ambient.update_ambient`, so it runs for EVERY player, not only at DEBUG. It is a
 clone of the vanilla channel rotation, timing, and volume rule with added nil-guards, with two deltas: it
 replays through `xsound.play` (an engine-owned one-shot), so a base sound is not cut on channel re-fire the
