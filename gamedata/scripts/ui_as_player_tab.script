@@ -116,7 +116,6 @@ function as_player_tab:InitControls()
     self.lbl_pos   = xml:InitStatic("lbl_pos", self):TextControl()
     self.status    = xml:InitStatic("status", self):TextControl()
     self.insp_read = xml:InitStatic("insp_read", self):TextControl()
-    self.insp_note = xml:InitEditBox("insp_note", self)
     self.chk_mute  = xml:InitCheck("chk_mute", self); self:Register(self.chk_mute, "chk_mute")
     local function reg(name) local btn = xml:Init3tButton(name, self); self:Register(btn, name) end
     reg("btn_pos_down"); reg("btn_pos_up"); reg("btn_prior"); reg("btn_play"); reg("btn_stop"); reg("btn_next")
@@ -333,8 +332,7 @@ function as_player_tab:OnBeacon()
     local actor = db.actor
     if not actor then return end
     local pos = actor:position()
-    local note = self.insp_note and self.insp_note:GetText()
-    note = (note and note ~= "") and note or "no-note"
+    local note = "no-note"   -- free-text notes live in the note taker (ui_as_note, INSERT), not this tab
     local board = as_director and as_director.get_board and as_director.get_board()
     if xlog then
         local log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
@@ -346,7 +344,7 @@ function as_player_tab:OnBeacon()
 end
 
 function as_player_tab:OnSnapshot()
-    if as_test and as_test.snapshot then as_test.snapshot(self.insp_note and self.insp_note:GetText()) end
+    if as_test and as_test.snapshot then as_test.snapshot(nil) end   -- note comes from the note taker, not here
     self.status:SetText("full snapshot -> alifespooks_probe.log")
 end
 

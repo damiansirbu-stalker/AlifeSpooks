@@ -1,7 +1,7 @@
 --- as_test: AlifeSpooks dev harness. Console helpers plus the atmosphere probe collector.
 --- Console helpers are inert until called (run_string as_test.dev_setup()). as_test.snapshot() is
 --- the coordinate/atmosphere probe, invoked from the PDA tab inspector (ui_as_player_tab's Snapshot
---- button); it never fires for players. INSERT opens that PDA tab (pda_dynamic_tabs.open_tab).
+--- button); it never fires for players. INSERT opens the note taker (ui_as_note), gated by its MCM toggle.
 
 as_test = as_test or {}
 

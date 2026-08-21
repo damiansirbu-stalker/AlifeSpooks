@@ -85,10 +85,6 @@
 		<text font="letterica16" align="l" vert_align="c" r="180" g="200" b="180"/>
 	</insp_read>
 
-	<insp_note x="444" y="428" width="332" height="28" stretch="1">
-		<text x="5" font="letterica16" vert_align="c" align="l"/>
-		<texture>ui_inGame2_edit_box_2</texture>
-	</insp_note>
 	<btn_beacon x="444" y="468" width="160" height="28" stretch="1">
 		<texture>ui_inGame2_pda_button</texture>
 		<text font="letterica16" align="c">drop beacon</text>

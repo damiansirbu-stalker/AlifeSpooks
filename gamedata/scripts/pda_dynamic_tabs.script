@@ -1,13 +1,15 @@
---- pda_dynamic_tabs: AlifeSpooks PDA integration. Adds the dev Player as a RUNTIME PDA tab through the
+--- pda_dynamic_tabs: AlifeSpooks PDA integration. Adds the Sound player as a RUNTIME PDA tab through the
 --- engine's native dynamic-tab hook (Demonized/monolith AddTab + build_extra_tabs), gated by the MCM
---- dev_tab toggle. No core UI file is overridden. The functor name is fixed by the engine (UIPdaWnd.cpp).
+--- sound_player toggle. No core UI file is overridden. The functor name is fixed by the engine (UIPdaWnd.cpp).
+--- No hotkey: the tab is opened by clicking it in the PDA like any tab. The note taker is a separate tool
+--- on its own toggle (ui_as_note, INSERT), fully decoupled from the PDA.
 
 local TAB_ID = "eptAlifeSpooks"
 
 --- Engine hook: called on every PDA tab rebuild (after RemoveDynamicTabs). Add our tab when the toggle is on.
 function build_extra_tabs(tab_control)
     if not tab_control then return end
-    if as_mcm and as_mcm.get_config and as_mcm.get_config("dev_tab") then
+    if as_mcm and as_mcm.get_config and as_mcm.get_config("sound_player") then
         tab_control:AddTab(TAB_ID, "AlifeSpooks", "eptLogs")
     end
 end
@@ -20,39 +22,11 @@ local function _patched_set_active_subdialog(section)
     return _orig_set_active_subdialog(section)
 end
 
---- Open the PDA to the AlifeSpooks tab. Branches on 3D-PDA like vanilla (actor_effects.script:1714-1723).
---- MUST run from actor_on_update, never inside the key callback: a raw script key-callback fires at a
---- different point than the engine's own PDA key, so switching the slot there re-enters the item/animation
---- path the Busy Hands mod hooks and CTDs. _on_update runs it on the safe actor tick instead.
-function open_tab()
-    if not (db.actor and as_mcm and as_mcm.get_config and as_mcm.get_config("dev_tab")) then return end
-    local menu = ActorMenu.get_pda_menu()
-    if not menu or menu:IsShown() or not db.actor:item_in_slot(8) then return end
-    if get_console_cmd(1, "g_3d_pda") then
-        db.actor:activate_slot(8)
-    else
-        menu:ShowDialog(true)
-    end
-    menu:SetActiveSubdialog(TAB_ID)
-end
-
-local INSERT_KEY = 210
-local _want_open = false
-local function _on_key_press(key)
-    if key == INSERT_KEY then _want_open = true end   -- just flag it; opening here CTDs vs Busy Hands
-end
-local function _on_update()
-    if _want_open then _want_open = false; open_tab() end
-end
-
 --- Install the routing patch once pda.script is loaded (not at module top - the load validator loads this
---- in isolation where pda is nil). Idempotent across save loads. INSERT flags the open; actor_on_update
---- runs it one frame later on the safe tick.
+--- in isolation where pda is nil). Idempotent across save loads.
 function on_game_start()
     if pda and pda.set_active_subdialog ~= _patched_set_active_subdialog then
         _orig_set_active_subdialog = pda.set_active_subdialog
         pda.set_active_subdialog = _patched_set_active_subdialog
     end
-    RegisterScriptCallback("on_key_press", _on_key_press)
-    RegisterScriptCallback("actor_on_update", _on_update)
 end
