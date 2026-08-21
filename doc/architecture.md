@@ -577,16 +577,19 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   itself is the static DLTX overlay the deploy generates).
 - `as_hud.script` is the debug HUD (off by default), a three-column readout built from
   `as_director.get_hud_rows`.
-- `ui_as_player_tab.script` + `pda_dynamic_tabs.script` are the dev PDA tab (gated by the MCM `dev_tab`
+- `ui_as_player_tab.script` + `pda_dynamic_tabs.script` are the dev PDA tab (gated by the MCM `sound_player`
   toggle): a runtime-injected tab (the demonized `build_extra_tabs` + `pda.set_active_subdialog` hook, no
   `pda_16.xml` override) that browses `zs/<category>/` off disk and auditions each sound through the
   director's own `emit` at at-ear / a set distance / the exact director curve, plus an inspector (spot
-  readout, a note box, the n114 Beacon, and a Snapshot that calls `as_test.snapshot`). INSERT opens the PDA
-  straight to it (`open_tab`), deferred through a shown-gated game TimeEvent so the list builds only once
-  the PDA is actually on screen - filling it during the 3D-PDA draw hits a detached list box and CTDs in
-  `CUIScrollView::Clear`. The tab window is NOT `SetAutoDelete` (the vanilla radio/taskboard pattern):
-  `get_ui` caches it in a singleton, so letting the engine free it would feed the PDA a dangling window and
-  CTD in `CUIStatic::Update`. The old `as_test` INSERT note box is retired - this inspector supersedes it.
+  readout, the n114 Beacon, and a Snapshot that calls `as_test.snapshot`). INSERT no longer opens the PDA;
+  the tab is reached through the PDA when `sound_player` is on, and its list is built deferred through a
+  shown-gated game TimeEvent so it fills only once the PDA is on screen - filling it during the 3D-PDA draw
+  hits a detached list box and CTDs in `CUIScrollView::Clear`. The tab window is NOT `SetAutoDelete` (the
+  vanilla radio/taskboard pattern): `get_ui` caches it in a singleton, so letting the engine free it would
+  feed the PDA a dangling window and CTD in `CUIStatic::Update`.
+- `ui_as_note.script` is the INSERT note-taker (gated by the MCM `note_taker` toggle): a standalone 2D popup
+  (CaptureFocus, the vanilla backpack-window pattern) that owns the keyboard, since a PDA-subdialog editbox
+  never captured input. The note box lives here, not in the inspector.
 - `as_debug.script` is the trace facade. At DEBUG it records every sound played and every term of the
   dread score to `alifespooks.log`, so the soundscape is checked by observation. Below DEBUG the off
   path marshals nothing and crosses no luabind bridge.
@@ -594,8 +597,8 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   per-category sliders) - also the balance control between the horror and the player's base ambience, since
   the mod levels its own corpus but not the base (see "Coexistence with a base soundscape"). Visuals toggles
   the peak-dread screen distortion. Development holds the trace
-  level, a log flush, the debug HUD position, and a reset-to-defaults button. Every control is neutral
-  at its default. Labels in English and Russian.
+  level, a log flush, the debug HUD position, the sound-player and note-taker dev toggles, and a
+  reset-to-defaults button. Every control is neutral at its default. Labels in English and Russian.
 
 ## Tools and data artifacts
 
