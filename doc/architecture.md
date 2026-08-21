@@ -160,16 +160,20 @@ writes the blob - its author's blob is captured from the source BEFORE the fold 
 fold does not lose the author's values.
 
 - **Attenuation** (min/max distance) is the AUTHOR's, with ONE uniform, declared transform: the min_distance
-  FLOOR (`_normalize_blobs`, `BAND_MIN_K`). 61% of the corpus carries min 1-2 - the UNSET tool default, not a
-  decision - and OpenAL's inverse rolloff keys on min (`AL_REFERENCE_DISTANCE`), so those files lost
-  -25..-33 dB at their felt placement and played silent. The floor raises each file's written min to
-  `BAND_MIN_K (0.5) x its own felt-far distance` (band_max/2) - Antares' measured authoring practice (his
-  min/felt-far median is 0.50, the hottest authored pack and the user's ear-validated reference; vanilla's
-  is 0.33, the cross-pack consensus 0.2-0.4), landing ~-5 dB at the band's far edge; it never lowers an
-  authored min, so
-  the distance-baked 300-10000m sounds and every deliberately-authored range stay untouched. max ships
-  verbatim; guard `max > min` keeps the engine divide safe. A file that never carried a blob gets its
-  category-folder median min/max, then the same floor.
+  FLOOR (`_normalize_blobs`). 61% of the corpus carries min 1-2 - the UNSET tool default, not a decision -
+  and OpenAL's inverse rolloff keys on min (`AL_REFERENCE_DISTANCE`), so those files lost -25..-33 dB at
+  their felt placement and played silent. The floor raises each file's written min to `ratio x its felt-far
+  distance` (band_max/2); it never lowers an authored min, so the distance-baked 300-10000m sounds and every
+  deliberately-authored range stay untouched. max ships verbatim; guard `max > min` keeps the engine divide safe.
+  - The ratio is NOT flat. PRINCIPLE (measured, mild-moderate, automated): placement loudness follows CREST,
+    INVERTED (`_crest_ratio`). A sustained low-crest tone carries in air, so a higher ratio keeps it present
+    at distance; a sharp high-crest transient is a near-field detail, so a lower ratio keeps it intimate.
+    Crest is measured per file (`classification.json`). Verified across the corpus: `drip` (24 dB), `rats`,
+    `foliage` are the sharp near-field sounds; the sustained dread (`drone`/`scream`/`mutant`/`spook`,
+    ~6-7 dB) carries. Span 0.40-0.60 (`RATIO_LO`/`RATIO_HI`) centers on the old flat 0.5, ~3 dB of far-edge
+    spread, so scares and beds separate without anything dropping to silence. This restores the near/far
+    loudness depth a single flat ratio had removed. A blob-less file gets its category-folder median min/max,
+    then the same crest floor.
 - **Loudness is the AUTHOR's base_volume, verbatim** (`_normalize_blobs`). base_volume is a linear multiplier
   the engine applies on every play (see `sound-source-and-emitter.md`). The deploy writes each file's OWN
   authored base_volume, unchanged - NO leveling of any kind (no corpus median, no peak-cap, no floor). The
@@ -295,10 +299,14 @@ values from the config: the channel SPAWN band (`ch_min`/`ch_max`, recovered by 
 `_build_source_band_map` + `_resolve_band` from the same channel files the veto reads, SAME-AUTHOR: the
 band comes from the pack the shipped copy and its blob came from - blob and placement must be one author's
 pair or the combination reproduces nobody's mix; fallbacks in order: a collapsed duplicate's own pack, any
-pack wiring the path, then the file's OWN blob pair (never a category median - a folder-only sound is
-placed inside its own authored range), with every cross-pack comparison following the sources.py
-registry order - Shrike's latest Amplified line first, the same preference dedup uses to pick the winning
-copy; within one pack the author's largest-max wiring wins) goes through the vanilla
+pack wiring the path, then the UNWIRED fallback - the sound gets its CATEGORY CENTER (the robust median of
+that category's wired bands, or of its own blobs when nothing in it is wired) plus a deterministic +/-25%
+jitter (`_name_jitter`, seeded by the deployed name so a rebuild never reshuffles), capped to the sound's
+own blob max so it is never placed past its silence point. This replaces an earlier own-blob fallback that
+flung a default 1-300 blob out to 150m; the category center places a folder-only sound where that category
+actually sits. Per-category plus the blob-max cap means no cross-category leak. Every cross-pack comparison
+follows the sources.py registry order - Shrike's latest Amplified line first, the same preference dedup uses
+to pick the winning copy; within one pack the author's largest-max wiring wins) goes through the vanilla
 transform - min lifted to the band midpoint outdoors, `random(min, max)/2`, a random bearing, `pos.y +
 height` - and the vanilla indoor/outdoor/underground volume table times the game ambient slider sets the
 play volume, with the MCM master `vol_global` on top (1.0 = untouched). The heard loudness at that distance

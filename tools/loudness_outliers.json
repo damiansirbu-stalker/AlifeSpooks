@@ -1062,56 +1062,51 @@
  {
   "ch": "wildlife",
   "source_path": "ambient/soundscape/crows/crow4",
-  "gain_db": 28.9
+  "gain_db": 28.7
  },
  {
   "ch": "wildlife",
   "source_path": "ambient/trx/nature/owl/bak/sound_10",
-  "gain_db": 26.1
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/trx/nature/owl/bak/sound_11",
-  "gain_db": 26.9
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/trx/nature/owl/bak/sound_01",
-  "gain_db": 27.6
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/trx/nature/owl/bak/sound_03",
-  "gain_db": 48.6
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/trx/nature/owl/bak/sound_04",
-  "gain_db": 22.2
- },
- {
-  "ch": "wildlife",
-  "source_path": "ambient/trx/nature/owl/bak/sound_05",
   "gain_db": 25.9
  },
  {
   "ch": "wildlife",
+  "source_path": "ambient/trx/nature/owl/bak/sound_11",
+  "gain_db": 26.6
+ },
+ {
+  "ch": "wildlife",
+  "source_path": "ambient/trx/nature/owl/bak/sound_01",
+  "gain_db": 27.4
+ },
+ {
+  "ch": "wildlife",
+  "source_path": "ambient/trx/nature/owl/bak/sound_03",
+  "gain_db": 48.4
+ },
+ {
+  "ch": "wildlife",
+  "source_path": "ambient/trx/nature/owl/bak/sound_05",
+  "gain_db": 25.7
+ },
+ {
+  "ch": "wildlife",
   "source_path": "ambient/trx/nature/owl/bak/sound_07",
-  "gain_db": 27.9
+  "gain_db": 27.7
  },
  {
   "ch": "wildlife",
   "source_path": "ambient/trx/nature/owl/sound_03",
-  "gain_db": 43.1
+  "gain_db": 42.9
  },
  {
   "ch": "wildlife",
   "source_path": "ambient/trx/nature/owl/sound_12",
-  "gain_db": 48.6
+  "gain_db": 48.4
  },
  {
   "ch": "wildlife",
   "source_path": "ambient/trx/nature/owl/sound_13",
-  "gain_db": 48.6
+  "gain_db": 48.4
  }
 ]

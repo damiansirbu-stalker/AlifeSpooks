@@ -39011,56 +39011,6 @@
  },
  {
   "ch": "wildlife",
-  "source_path": "monsters/mwolf/wolf_attack_1",
-  "dur": 2.7,
-  "cen": 1817,
-  "flat": 0.041,
-  "crest": 5.0,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "monsters/mwolf/wolf_attack_2",
-  "dur": 1.8,
-  "cen": 1657,
-  "flat": 0.045,
-  "crest": 4.5,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "monsters/mwolf/wolf_attack_hit_1",
-  "dur": 2.3,
-  "cen": 1506,
-  "flat": 0.042,
-  "crest": 7.7,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "monsters/mwolf/wolf_attack_hit_2",
-  "dur": 1.3,
-  "cen": 1274,
-  "flat": 0.041,
-  "crest": 5.3,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "monsters/mwolf/wolf_death_1",
-  "dur": 2.9,
-  "cen": 899,
-  "flat": 0.044,
-  "crest": 5.4,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
   "source_path": "monsters/mwolf/wolf_idle_1",
   "dur": 3.0,
   "cen": 1279,
@@ -41897,26 +41847,6 @@
   "flat": 0.019,
   "crest": 39.9,
   "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "characters_voice/scenario/wolf/wolf_thanks_1",
-  "dur": 1.4,
-  "cen": 1732,
-  "flat": 0.042,
-  "crest": 4.1,
-  "bright": "dark",
-  "tone": "tonal"
- },
- {
-  "ch": "wildlife",
-  "source_path": "characters_voice/scenario/wolf/wolf_thanks_2",
-  "dur": 3.7,
-  "cen": 3099,
-  "flat": 0.104,
-  "crest": 5.2,
-  "bright": "mid",
   "tone": "tonal"
  },
  {

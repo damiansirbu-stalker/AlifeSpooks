@@ -91,12 +91,13 @@ local NEAR_R2 = NEAR_R * NEAR_R
 -- place breathes (~SPACE_CALM_MS - silence carries the dread) and a scary one overwhelms (~SPACE_PEAK_MS),
 -- and a rising dread tightens the gap AT ONCE (a threat mid-calm-gap fires promptly). SPACE_JITTER keeps it
 -- irregular. Nothing emits only at dread 0 (a safe hub / fully-calmed place); any dread above 0 plays. The
--- gap is power-eased off calm (SPACE_EASE); mean gaps calm ~32s / mundane ~26s / mid ~15s / peak ~6.5s.
+-- gap is power-eased off calm (SPACE_EASE); mean gaps calm ~40s / mundane ~33s / mid ~19s / peak ~8s
+-- (rate pushed 20% lower than the first tuning: gaps x1.25).
 -- DREAD_ON is the pacing curve's calm anchor (frequency only), NOT an emission gate. Placement, height,
 -- and loudness are vanilla's per sound (see emit) - dread never touches them.
 local DREAD_ON      = 0.10
-local SPACE_CALM_MS = 32000
-local SPACE_PEAK_MS = 6500
+local SPACE_CALM_MS = 40000
+local SPACE_PEAK_MS = 8125
 local SPACE_JITTER  = 0.15
 local SPACE_EASE    = 0.5
 -- Placement is VANILLA's, verbatim (sound_ambient.script:127-165): each sound carries its source channel's

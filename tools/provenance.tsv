@@ -3900,11 +3900,6 @@ zs\wildlife\distant_6_29aadc74c7	wildlife	Amplified	ambient/soundscape/mutants/w
 zs\wildlife\distant_7_a9154a2f30	wildlife	Amplified	ambient/soundscape/mutants/wolf	distant_7	1.5
 zs\wildlife\distant_8_b7270dc774	wildlife	Amplified	ambient/soundscape/mutants/wolf	distant_8	1.5
 zs\wildlife\distant_9_794039d22b	wildlife	Amplified	ambient/soundscape/mutants/wolf	distant_9	1.5
-zs\wildlife\wolf_attack_1_45e7dfe66d	wildlife	Amplified	monsters/mwolf	wolf_attack_1	1.0
-zs\wildlife\wolf_attack_2_b452083f0e	wildlife	Amplified	monsters/mwolf	wolf_attack_2	1.0
-zs\wildlife\wolf_attack_hit_1_1aa0018627	wildlife	Amplified	monsters/mwolf	wolf_attack_hit_1	1.0
-zs\wildlife\wolf_attack_hit_2_bb2142ce3e	wildlife	Amplified	monsters/mwolf	wolf_attack_hit_2	1.0
-zs\wildlife\wolf_death_1_c8e49e034e	wildlife	Amplified	monsters/mwolf	wolf_death_1	1.0
 zs\wildlife\wolf_idle_1_04464c06c6	wildlife	Amplified	monsters/mwolf	wolf_idle_1	1.0
 zs\wildlife\wolf_idle_2_925edf4d2d	wildlife	Amplified	monsters/mwolf	wolf_idle_2	1.0
 zs\wildlife\sound_01_9eedbeb73b	wildlife	RETUNE457	ambient/trx/nature/crow	sound_01	1.0
@@ -4189,8 +4184,6 @@ zs\wildlife\sound_23_8a85c6143c	wildlife	vanilla	ambient/trx/nature/dog	sound_23
 zs\wildlife\rnd_wolfhowl01_6340807e5c	wildlife	OGSE	ambient/random	rnd_wolfhowl01	1.0
 zs\wildlife\rnd_wolfhowl02_46329466da	wildlife	OGSE	ambient/random	rnd_wolfhowl02	1.0
 zs\wildlife\drifter_dog_howling_742f11e184	wildlife	OGSE	characters_voice/scenario	drifter_dog_howling	1.0
-zs\wildlife\wolf_thanks_1_558eb347f9	wildlife	OGSE	characters_voice/scenario/wolf	wolf_thanks_1	1.0
-zs\wildlife\wolf_thanks_2_d04a9b7c28	wildlife	OGSE	characters_voice/scenario/wolf	wolf_thanks_2	1.0
 zs\wildlife\outside_howl1_23e40cf4eb	wildlife	Prosector	ambient/rnd_outdoor	outside_howl1	1.0
 zs\wildlife\outside_howl2_d5b80b3723	wildlife	Prosector	ambient/rnd_outdoor	outside_howl2	1.0
 zs\wildlife\outside_howl3_50005727f9	wildlife	Prosector	ambient/rnd_outdoor	outside_howl3	1.0

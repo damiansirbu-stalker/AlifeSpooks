@@ -134,11 +134,12 @@ def route(path):
     for z in ZONES:
         if z + "daymutants" in low or z + "nightmutants" in low:
             return "mutant_ambient_" + z
-    # creature pool. wolf/mwolf are eerie wildlife, not creatures. monsters/<sp> is a creature-sound tree
-    # with COMBAT mixed in, so MUTANT_KEEP filters out attack/hit/die there. soundscape/mutants and the flat
-    # spooks_above/mutants are ALREADY ambient/distant dread (named sound_NN), so keep them all - no filter.
+    # creature pool. wolf/mwolf are eerie wildlife, not creatures - BUT monsters/mwolf mixes in NPC COMBAT
+    # vocalizations (wolf_attack/death/hit), which must NOT play as random ambience, so the same MUTANT_KEEP
+    # combat filter applies: keep idle/distant/growl/etc. as wildlife, drop the attack/hit/die. soundscape/
+    # mutants and the flat spooks_above/mutants are ALREADY ambient/distant dread (named sound_NN), no filter.
     if "/wolf/" in low or "/mwolf/" in low:
-        return "wildlife"
+        return "wildlife" if MUTANT_KEEP.search(low) else None
     if "/monsters/" in low:
         return "mutant" if MUTANT_KEEP.search(low) else None
     if "/soundscape/mutants/" in low or "spooks_above/mutants" in low:
@@ -808,7 +809,8 @@ def _build_layers(mc, cls, ch_to_group):
         if ch in ch_to_group:
             effects[ch_to_group[ch]].append(
                 {"ch": ch, "source_path": c["source_path"], "abs": c["abs"], "pool": c["pool"],
-                 "dups": c.get("dups", []), "dur": r["dur"], "idx": idx, "channels": c.get("channels", 0)})
+                 "dups": c.get("dups", []), "dur": r["dur"], "crest": r.get("crest", 0),
+                 "idx": idx, "channels": c.get("channels", 0)})
     return effects
 
 
@@ -1083,22 +1085,40 @@ def _build_veto_overlay(effects):
 # level and stay untouched.
 
 
-# min_distance floor (2026-08-21, user-approved). The OpenAL layer attenuates every 3D voice by an
-# inverse curve keyed on the blob min (AL_REFERENCE_DISTANCE, TargetA.cpp:166; model never disabled).
-# 61% of the corpus carries the UNSET default min 1-2 ("whisper"), which costs -25..-33 dB at the felt
-# placement distances and silenced the director wholesale. The floor raises each file's written min to
-# BAND_MIN_K x its own felt-far distance (band_max/2). k CALIBRATION (measured authored min/felt-far
-# ratios): vanilla 0.33, cross-pack consensus 0.2-0.4, Antares/myRETUNE 0.50 (his p75 >= 1.0 - near-flat
-# loudness across the band, the pack the user's ear rated best). k=0.5 = Antares' practice, ~-5 dB at the
-# band's far edge (vanilla's 0.29 would be ~-9 dB there). Authored mins ABOVE the floor are kept verbatim;
-# the floor never lowers anyone. FLOOR_MAX_FRAC caps the floor below the blob max so a real fade band survives.
-BAND_MIN_K     = 0.5
+# min_distance floor (2026-08-21, user-approved). The OpenAL layer attenuates every 3D voice by an inverse
+# curve keyed on the blob min (AL_REFERENCE_DISTANCE, TargetA.cpp:166; model never disabled). 61% of the
+# corpus carries the UNSET default min 1-2 ("whisper"), which costs -25..-33 dB at the felt placement
+# distances and silenced the director. The floor raises each file's written min to (ratio x its felt-far
+# distance = band_max/2). Authored mins ABOVE the floor are kept verbatim; the floor never lowers anyone.
+# FLOOR_MAX_FRAC caps the floor below the blob max so a real fade band survives.
+#
+# The ratio is not flat. PRINCIPLE (measured, mild-moderate, automated): placement loudness follows crest,
+# INVERTED. A sustained low-crest tone carries in air -> higher ratio -> stays present at distance; a sharp
+# high-crest transient is a near-field detail -> lower ratio -> stays intimate. Crest is measured per file
+# (classification.json). Verified across the corpus: transients (drip 24dB, rats 18, foliage 17) are the
+# sharp near-field sounds; the sustained dread (drone/scream/mutant/spook ~6-7dB) carries. The span 0.40-0.60
+# centers on the old flat 0.5 (~3 dB spread at the far edge), so nothing shifts dramatically.
+RATIO_HI       = 0.60   # sustained (low crest): carries, present at distance
+RATIO_LO       = 0.40   # transient (high crest): near-field, intimate
+CREST_LO       = 6.0    # dB, corpus floor (sustained) -> RATIO_HI
+CREST_HI       = 24.0   # dB, corpus ceiling (sharpest transient) -> RATIO_LO
 FLOOR_MAX_FRAC = 0.8
+
+
+def _crest_ratio(crest):
+    """Crest (dB) -> min/felt-far ratio, INVERTED: high crest (transient) -> RATIO_LO, low crest (sustained)
+    -> RATIO_HI. Clamped to the corpus crest span."""
+    t = (crest - CREST_LO) / (CREST_HI - CREST_LO)
+    if t < 0.0:
+        t = 0.0
+    elif t > 1.0:
+        t = 1.0
+    return RATIO_HI - (RATIO_HI - RATIO_LO) * t
 
 
 def _normalize_blobs(effects, snd, bands):
     """Write every kept file's ogg blob from the author's values: min/max attenuation range and base_volume
-    unchanged EXCEPT the min_distance floor (BAND_MIN_K x the sound's felt-far placement, above) - the one
+    unchanged EXCEPT the min_distance floor (crest-inverted ratio x the sound's felt-far placement, above) - the one
     uniform, declared transform, correcting the field the pack tooling never authored. NO leveling
     (base_volume is the author's number, or 1.0 when the source carried none or <=0). A blob-less /
     re-encoded file (folded stereo, sliced dark_signal) has no authored blob, so it inherits its category's
@@ -1125,7 +1145,7 @@ def _normalize_blobs(effects, snd, bands):
                 mn = 0.0
             band = bands.get(id(e))
             if band:
-                floor = BAND_MIN_K * (band[1] / 2.0)
+                floor = _crest_ratio(e.get("crest", 0)) * (band[1] / 2.0)   # crest-inverted ratio x felt-far
                 if floor > mx * FLOOR_MAX_FRAC:
                     floor = mx * FLOOR_MAX_FRAC
                 if mn < floor:
@@ -1137,8 +1157,8 @@ def _normalize_blobs(effects, snd, bands):
                 wrote += 1
             else:
                 skipped += 1
-    print(f"normalize: wrote author blob + min floor (BAND_MIN_K={BAND_MIN_K}) for {wrote} files; "
-          f"floored {floored}; skipped {skipped} (non-standard ogg layout)")
+    print(f"normalize: wrote author blob + crest-inverted min floor (ratio {RATIO_LO}-{RATIO_HI}) for {wrote} "
+          f"files; floored {floored}; skipped {skipped} (non-standard ogg layout)")
 
 
 # Each effect channel keeps its VERBATIM source settings - no median. Channels are grouped
@@ -1260,6 +1280,17 @@ def _resolve_band(bmap, entry):
     return None, "unwired"
 
 
+# Unwired sounds (no pack channel) get their CATEGORY's center band + this jitter, deterministic per name.
+UNWIRED_JITTER = 0.25
+
+
+def _name_jitter(name, frac):
+    """Deterministic jitter in [-frac, frac] seeded by the deployed name, so a rebuild never reshuffles the
+    unwired placements (a live random() would give every build a different corpus)."""
+    h = int(hashlib.md5(name.encode("utf-8")).hexdigest()[:8], 16)
+    return (h / 0xffffffff * 2.0 - 1.0) * frac
+
+
 def cmd_deploy(a):
     root = Path(a.root) if a.root else GDATA
     env = root / "configs/environment"
@@ -1292,18 +1323,44 @@ def cmd_deploy(a):
     review = []                                              # unwired sounds, flagged for hand review
     bands = {}                                               # id(entry) -> (ch_min, ch_max, indoor)
     for cat in sorted(effects):
+        # pass 1: resolve wired bands + gather this category's blob pairs, to build the unwired center
+        names, blobs, resolved, wired = {}, {}, {}, []
         for e in effects[cat]:
             n = _deployed_name(e)
+            names[id(e)] = n
             ab = _read_blob((snd / cat / f"{n}.ogg").read_bytes()) or e.get("src_blob")
-            amn, amx = (round(ab[0], 1), round(ab[1], 1)) if ab else (1, 100)
+            blobs[id(e)] = (round(ab[0], 1), round(ab[1], 1)) if ab else (1.0, 100.0)
             band, how = _resolve_band(bmap, e)
             band_src[how] += 1
+            resolved[id(e)] = band
+            if band:
+                wired.append(band)
+        # UNWIRED band = the CATEGORY CENTER (robust median of the wired bands, or of the category's own blobs
+        # when nothing in it is wired) + deterministic jitter, capped to each sound's own blob max. This
+        # replaces the own-blob fallback (a default 1-300 blob flung a sound to 150m); the category center
+        # places it where that category actually sits. Per-category + the blob-max cap = no cross-category
+        # leak and no placement past a sound's silence point.
+        src = [(b[0], b[1]) for b in wired] if wired else [blobs[id(e)] for e in effects[cat]]
+        c_min = _median(sorted(s[0] for s in src))
+        c_max = _median(sorted(s[1] for s in src))
+        if c_max <= c_min:
+            c_max = c_min + 1.0
+        # pass 2: wired keep their band; unwired get the category center jittered, capped to blob max
+        for e in effects[cat]:
+            band = resolved[id(e)]
             if not band:
-                band = (amn, amx, False)
-                review.append((cat, n, e["pool"], e["source_path"], amn, amx))
+                n, (amn, amx) = names[id(e)], blobs[id(e)]
+                j = 1.0 + _name_jitter(n, UNWIRED_JITTER)
+                bmn, bmx = c_min * j, c_max * j
+                if bmx > amx:                                # never place past this sound's own silence point
+                    bmx = amx
+                if bmn >= bmx:
+                    bmn = bmx * 0.5
+                band = (round(bmn, 1), round(bmx, 1), False)
+                review.append((cat, n, e["pool"], e["source_path"], round(bmn, 1), round(bmx, 1)))
             bands[id(e)] = band
 
-    _normalize_blobs(effects, snd, bands)    # author blob + the min floor against each sound's own band
+    _normalize_blobs(effects, snd, bands)    # author blob + the crest-inverted min floor against each band
 
     # as_sound_config_gen: category -> its sounds, each { path, blob_min, blob_max, height, ch_min, ch_max,
     # indoor }. The director reads THIS instead of sound_channels.ltx. Two distance pairs per sound, never
@@ -1358,7 +1415,7 @@ def cmd_deploy(a):
         "category\tdeployed\tpool\tsource_path\tband_min\tband_max\n" +
         "".join(f"{c}\t{n}\t{p}\t{sp}\t{a}\t{b}\n" for c, n, p, sp, a, b in review), encoding="utf-8")
     print(f"  bands: {band_src['same-author']} same-author, {band_src['dup-pack']} dup-pack, "
-          f"{band_src['other-pack']} other-pack, {band_src['unwired']} unwired -> own-blob "
+          f"{band_src['other-pack']} other-pack, {band_src['unwired']} unwired -> category center+jitter "
           f"(flagged in tools/band_review.tsv)")
 
     # Static DLTX veto overlay: remove our own sounds from the base ambient channels so the base never
