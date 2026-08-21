@@ -10,7 +10,6 @@ end
 local defaults = {
     vol_global   = 1.0,
     rarity       = 1.0,
-    distance     = 1.0,
     visuals      = true,
     hud_position = "off",
     log_level    = "WARN", log_flush = false,
@@ -19,7 +18,7 @@ local defaults = {
 }
 
 local _key_to_tab = {
-    vol_global = "spooks", rarity = "spooks", distance = "spooks",
+    vol_global = "spooks", rarity = "spooks",
     visuals = "visuals",
     hud_position = "development", log_level = "development", log_flush = "development",
     sound_player = "development", note_taker = "development", btn_reset_all = "development",
