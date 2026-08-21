@@ -1,8 +1,8 @@
 --- as_director: dread director. One 100ms tick round-robins a sensor board (environment, stalkers,
 --- monsters, anomalies, time), SELECT gates categories by map + environment + presence, a two-level
---- shuffle-bag picks, and grounded additive dread drives ONLY emission frequency and selection - never
---- placement or volume. Each sound plays EXACTLY as the base game's update_ambient plays it: its own source
---- channel's spawn band + the base placement/volume code, verbatim (emit). Man and monster collapse
+--- shuffle-bag picks, and grounded additive dread drives emission frequency, selection, and a placement
+--- pull (up to 20% closer) - not the volume table. Each sound is placed by the base game's update_ambient
+--- code from its own source-channel spawn band, then pulled by dread (emit). Man and monster collapse
 --- to one low/med/high power (se:rank), so threat reads both with one rule. A separate observer owns the
 --- base update_ambient slot only to replay+LOG the base ambient; the base's copies of our sounds are
 --- removed statically by the DLTX overlay.
@@ -93,18 +93,21 @@ local NEAR_R2 = NEAR_R * NEAR_R
 -- irregular. Nothing emits only at dread 0 (a safe hub / fully-calmed place); any dread above 0 plays. The
 -- gap is power-eased off calm (SPACE_EASE); mean gaps calm ~40s / mundane ~33s / mid ~19s / peak ~8s
 -- (rate pushed 20% lower than the first tuning: gaps x1.25).
--- DREAD_ON is the pacing curve's calm anchor (frequency only), NOT an emission gate. Placement, height,
--- and loudness are the base game's per sound (see emit) - dread never touches them.
+-- DREAD_ON is the pacing curve's calm anchor (frequency only), NOT an emission gate. Height and the volume
+-- table are the base game's per sound; dread pulls placement up to 20% closer (DREAD_PULL, see emit).
 local DREAD_ON      = 0.10
 local SPACE_CALM_MS = 40000
 local SPACE_PEAK_MS = 8125
 local SPACE_JITTER  = 0.15
 local SPACE_EASE    = 0.5
--- Placement is the base game's, verbatim (sound_ambient.script:127-165): each sound carries its source
--- channel's spawn band (ch_min/ch_max in as_sound_config_gen) and emit() places it exactly as update_ambient
--- would - min lifted to the band midpoint outdoors, random(min, max)/2, random bearing, pos.y + height, then
--- the base indoor/outdoor/underground volume table times the game ambient slider. Dread never touches
--- placement or loudness.
+-- Dread pulls the placement up to DREAD_PULL closer (raw dread, linear): calm = base distance, peak = 20%
+-- nearer. Only ever closer (0.8..1.0 factor), never past silence. Applied in emit, not get_placement.
+local DREAD_PULL    = 0.20
+-- Placement is the base game's roll (sound_ambient.script:127-165): each sound carries its source channel's
+-- spawn band (ch_min/ch_max in as_sound_config_gen), min lifted to the band midpoint outdoors, random(min,
+-- max)/2, random bearing, pos.y + height, then the base indoor/outdoor/underground volume table times the
+-- game ambient slider. emit() then pulls the rolled distance up to 20% closer by dread (DREAD_PULL); the
+-- volume table is untouched.
 local TICK_S       = 0.1
 local BASE_TICK_S  = 1
 local INSANE_DREAD = 0.80
@@ -458,20 +461,24 @@ local function _compute_dread()
     board.dread   = _resolve_dread(terms, board.position, stalkers.service_near == "allied")
 end
 
---- Base-game update_ambient placement + volume for one spawn band (sound_ambient.script:127-165): min lifted
---- to the band midpoint outdoors, random(min, max)/2 (fixed_dist skips the roll - the audition player), a
---- random bearing, pos.y + height, and the indoor/outdoor/underground volume table. The min>max clamp is
---- boundary validation for the base observer's third-party LTX (math_random errors on an empty interval;
---- our generated bands cannot invert). Returns dist, position, and the raw table volume (caller applies sliders).
+--- The base-game spawn distance roll for a channel band (sound_ambient.script:127-165): min lifted to the
+--- band midpoint outdoors, random(min, max)/2. The spawn_min>ch_max clamp guards the base observer's
+--- third-party LTX (math_random errors on an empty interval; our generated bands cannot invert). emit pulls
+--- this by dread; the base observer uses it raw.
+local function _roll_spawn_dist(ch_min, ch_max)
+    local spawn_min = GetEvent("underground") and ch_min or ((ch_max + ch_min) / 2)
+    if spawn_min > ch_max then spawn_min = ch_max end
+    return math_random(spawn_min, ch_max) / 2
+end
+
+--- Base-game update_ambient placement + volume for one spawn band (sound_ambient.script:127-165): rolls the
+--- spawn distance (_roll_spawn_dist) unless fixed_dist is given (the audition player, or emit's dread-pulled
+--- distance), a random bearing, pos.y + height, and the indoor/outdoor/underground volume table. Returns
+--- dist, position, and the raw table volume (caller applies sliders).
 local function get_placement(actor, ch_min, ch_max, height, indoor, fixed_dist)
     local underground = GetEvent("underground")
     local inside = GetEvent("current_safe_cover")
-    local dist = fixed_dist
-    if not dist then
-        local spawn_min = underground and ch_min or ((ch_max + ch_min) / 2)
-        if spawn_min > ch_max then spawn_min = ch_max end
-        dist = math_random(spawn_min, ch_max) / 2
-    end
+    local dist = fixed_dist or _roll_spawn_dist(ch_min, ch_max)
     local pos = actor:position()
     local angle = math_rad(math_random(0, 359))
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + height, pos.z + math_sin(angle) * dist)
@@ -481,16 +488,25 @@ local function get_placement(actor, ch_min, ch_max, height, indoor, fixed_dist)
     return dist, vec, vol
 end
 
---- Fire one positioned one-shot at `path`, EXACTLY as the base game's update_ambient plays it: the sound's own
---- source-channel spawn band (opts.ch_min/ch_max from as_sound_config_gen, REQUIRED unless opts.dist)
---- through get_placement, the base volume table times the game ambient slider (vol_global on top,
---- 1 = untouched base loudness). The blob pair (opts.min/max) is the ATTENUATION range - trace readout
---- only, never placement. Returns the distance.
+--- The director's spawn distance: the base-game roll pulled up to DREAD_PULL closer by dread (0 or nil dread
+--- = no pull). A caller-provided fixed distance bypasses this, so the audition player's set distance is exact.
+local function _pulled_spawn_dist(ch_min, ch_max, dread)
+    local dist = _roll_spawn_dist(ch_min, ch_max)
+    if dread and dread > 0 then dist = dist * (1 - DREAD_PULL * dread) end
+    return dist
+end
+
+--- Fire one positioned one-shot at `path`: roll the spawn distance from the sound's own source-channel band
+--- (opts.ch_min/ch_max from as_sound_config_gen, REQUIRED unless opts.dist), pull it up to 20% closer by
+--- opts.dread (DREAD_PULL), then place it via get_placement - the base volume table times the game ambient
+--- slider (vol_global on top, 1 = untouched base loudness). The blob pair (opts.min/max) is the ATTENUATION
+--- range - trace readout only, never placement. Returns the distance.
 function emit(path, opts)
     local actor = db.actor
     if not (actor and path and xsound) then return end
     local height = opts.height or 0
-    local dist, vec, vol = get_placement(actor, opts.ch_min, opts.ch_max, height, opts.indoor, opts.dist)
+    local place_dist = opts.dist or _pulled_spawn_dist(opts.ch_min, opts.ch_max, opts.dread)
+    local dist, vec, vol = get_placement(actor, opts.ch_min, opts.ch_max, height, opts.indoor, place_dist)
     vol = vol * opt_ambient_volume * vol_global
     xsound.play_at(path, { position = vec, volume = vol })
     local mn, mx = opts.min, opts.max
@@ -793,7 +809,9 @@ end
 
 --- Dev tab master silence. When on, the director emits no one-shots and the base-ambient observer replays
 --- nothing (both schedules keep advancing, so unmute resumes cleanly). The tab's own emit/play is unaffected.
-function set_muted(value) _muted = value and true or false end
+function set_muted(value)
+    _muted = value and true or false
+end
 function is_muted()   return _muted end
 
 function on_game_start()

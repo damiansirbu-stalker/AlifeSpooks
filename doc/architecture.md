@@ -271,7 +271,7 @@ Selection is a **symmetrical two-level shuffle-bag**, no weights: a category-bag
 category once before repeats (a 2-sound category can never be hammered while others wait), and a per-category
 sound-bag cycles every sound once. Rarity emerges from rotation, not from any limiter.
 
-### APPLY - dread drives frequency; placement is vanilla's
+### APPLY - dread drives frequency and a placement pull
 
 Dread is a scalar 0..1, additive, **no baseline constant** - the sum of whatever grounded conditions hold now:
 
@@ -290,11 +290,12 @@ Dread is a scalar 0..1, additive, **no baseline constant** - the sum of whatever
 A `service_near` of "allied" (a safe hub) REPLACES the sum with 0 - fully silent; "hostile" (an enemy-held
 base) adds. The base is detected by a live service NPC (trader/medic/mechanic) within 60m, per-NPC relation
 deciding allied vs hostile - warfare-correct, never the over-assigned `is_base` prop. Every term is grounded,
-so there is no "+X just because." Dread feeds APPLY only, never SELECT, and it drives ONE thing:
-**frequency** (a shorter gap between plays as dread rises). It never touches placement or loudness.
+so there is no "+X just because." Dread feeds APPLY only, never SELECT, and it drives two things:
+**frequency** (a shorter gap between plays as dread rises) and a **placement pull** (`emit` moves the rolled
+spawn distance up to 20% closer at peak, `DREAD_PULL`). It never touches the volume table.
 
-Each emitted sound plays EXACTLY as vanilla `update_ambient` plays it - `emit` is a verbatim clone of the
-vanilla placement and volume code (`sound_ambient.script:127-165`) fed with the sound's OWN source-channel
+Each emitted sound is placed by the base game's `update_ambient` code - `get_placement` clones its placement
+and volume math (`sound_ambient.script:127-165`), fed with the sound's OWN source-channel
 values from the config: the channel SPAWN band (`ch_min`/`ch_max`, recovered by build.py
 `_build_source_band_map` + `_resolve_band` from the same channel files the veto reads, SAME-AUTHOR: the
 band comes from the pack the shipped copy and its blob came from - blob and placement must be one author's
