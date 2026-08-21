@@ -114,6 +114,11 @@ local INSANE_DREAD = 0.80
 local PLAY_WINDOW_MS = 6000
 local TYPE_WRAP      = 34
 
+-- Dread bucket cut points: board.dread -> the scene bucket the sound-bag draws from. Tunable, centered
+-- where dread actually sits in play (~0.5). The "all" bucket plays at every scene (the uncurated wildcard).
+local DREAD_CUT_LOW = 0.40
+local DREAD_CUT_MED = 0.70
+
 -- Visual layer: at peak dread only, a subtle distortion pulse (dwell-gated, cooldown, >=50% roll).
 local VIS_PPE         = { "blur.ppe", "total_recall.ppe", "steam_mine.ppe" }
 local VIS_FACTOR      = 0.25
@@ -142,7 +147,7 @@ local board = {
     elig_set = {},
 }
 
--- Runtime state. _category_sounds: category -> sound list from as_sound_config_gen. _map/_map_set: the level's category set.
+-- Runtime state. _category_sounds: category -> {dread bucket -> sound list} from as_sound_config_gen. _map/_map_set: the level's category set.
 -- _cat_bag/_snd_bag: the two shuffle-bags. _enclosure: the environment raycast cache (by cell). _visual: visual state.
 local _category_sounds      = {}
 local _loaded    = false
@@ -199,8 +204,18 @@ end
 
 -- ---- LOAD -----------------------------------------------------------------
 
---- Load each category's sound list from as_sound_config_gen, once. Each sound row is
---- { path, blob_min, blob_max, height, ch_min, ch_max, indoor }.
+--- Total sounds across a category's dread buckets (the nested { dread -> { row } } table).
+local function _count_sounds(cat)
+    local total = 0
+    for _, bucket in pairs(cat or {}) do total = total + #bucket end
+    return total
+end
+
+--- True if a category has any sound in any dread bucket.
+local function _has_sounds(cat) return _count_sounds(cat) > 0 end
+
+--- Load each category's dread-bucketed sound table from as_sound_config_gen, once. The category value is
+--- { dread -> { row, ... } }, each row { path, blob_min, blob_max, height, ch_min, ch_max, indoor }.
 local function _load_channels()
     if _loaded then return end
     _loaded = true
@@ -210,7 +225,7 @@ local function _load_channels()
     local cats = as_sound_config_gen and as_sound_config_gen.categories or {}
     for name in pairs(CATEGORY) do
         _category_sounds[name] = cats[name] or {}
-        as_debug.dbg("as_director: category %s = %d sounds", name, #_category_sounds[name])
+        as_debug.dbg("as_director: category %s = %d sounds", name, _count_sounds(_category_sounds[name]))
     end
 end
 
@@ -223,7 +238,7 @@ local function _load_map(level_name)
     local function add_section(section)
         if not (_map and _map:section_exist(section)) then return end
         for _, name in ipairs(parse_list(_map, section, "categories")) do
-            if CATEGORY[name] and #(_category_sounds[name] or {}) > 0 then _map_set[name] = true end
+            if CATEGORY[name] and _has_sounds(_category_sounds[name]) then _map_set[name] = true end
         end
     end
     add_section(SEC_DEFAULT)
@@ -367,8 +382,8 @@ local function is_eligible(name, position)
     local allowed = _map_set[name]
     if position and position.cats then
         if position.only then
-            allowed = position.cats[name] and CATEGORY[name] and #(_category_sounds[name] or {}) > 0
-        elseif position.cats[name] and CATEGORY[name] and #(_category_sounds[name] or {}) > 0 then
+            allowed = position.cats[name] and CATEGORY[name] and _has_sounds(_category_sounds[name])
+        elseif position.cats[name] and CATEGORY[name] and _has_sounds(_category_sounds[name]) then
             allowed = true
         end
     end
@@ -403,22 +418,36 @@ local function _pick_category()
     return name
 end
 
---- Sound shuffle-bag within a category: every sound plays once before any repeat.
-local function _pick_sound(name)
-    local sounds = _category_sounds[name]
-    if not sounds or #sounds == 0 then return nil end
-    if #sounds == 1 then return sounds[1] end
-    local bag = _snd_bag[name]
+--- The scene dread bucket the sound-bag draws from (plus the always-on "all" wildcard).
+local function _dread_bucket(dread)
+    if dread >= DREAD_CUT_MED then return "high" end
+    if dread >= DREAD_CUT_LOW then return "med" end
+    return "low"
+end
+
+--- Sound shuffle-bag within a category's dread buckets: the pool is the scene bucket plus the always-on
+--- "all" wildcard, and every sound in the pool plays once before any repeat. Keyed per category+bucket so a
+--- scene-dread shift rebuilds the bag against the new pool.
+local function _pick_sound(name, scene_bucket)
+    local cat = _category_sounds[name]
+    if not cat then return nil end
+    local pool, matched, all = {}, cat[scene_bucket], cat.all
+    if matched then for i = 1, #matched do pool[#pool + 1] = matched[i] end end
+    if all then for i = 1, #all do pool[#pool + 1] = all[i] end end
+    if #pool == 0 then return nil end
+    if #pool == 1 then return pool[1] end
+    local key = name .. "/" .. scene_bucket
+    local bag = _snd_bag[key]
     if not bag or #bag == 0 then
         bag = {}
-        for i = 1, #sounds do bag[i] = i end
-        _snd_bag[name] = bag
+        for i = 1, #pool do bag[i] = i end
+        _snd_bag[key] = bag
     end
     local pick = math_random(#bag)
     local idx = bag[pick]
     bag[pick] = bag[#bag]
     bag[#bag] = nil
-    return sounds[idx]
+    return pool[idx]
 end
 
 -- ---- APPLY (dread + positioned play) --------------------------------------
@@ -635,7 +664,7 @@ local function try_emit(tg)
     _rebuild_eligible()
     local name = _pick_category()
     if not name then return end
-    local snd = _pick_sound(name)
+    local snd = _pick_sound(name, _dread_bucket(dread))
     if snd then
         emit(snd[1], { min = snd[2], max = snd[3], height = snd[4],
                        ch_min = snd[5], ch_max = snd[6], indoor = snd[7], dread = dread })

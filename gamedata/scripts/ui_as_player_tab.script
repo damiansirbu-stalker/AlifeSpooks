@@ -4,6 +4,7 @@
 
 local table_sort = table.sort
 local string_format, bit_or = string.format, bit_or
+local pairs, ipairs = pairs, ipairs
 
 local SND_ROOT    = "zs"
 -- position modes cycled by the distance steppers: false = 2D at-ear (raw quality check), "auto" = the
@@ -12,6 +13,8 @@ local DIST_STEPS  = { false, "auto", 5, 10, 25, 50, 100 }
 
 local _cats    = nil
 local _files   = {}
+-- cat -> { deployed name -> its dread bucket subdir }
+local _bucket_of = {}
 local _cat_i   = 1
 local _at_root = true
 local _dist_i  = 1
@@ -35,17 +38,54 @@ local function _scan_categories()
     table_sort(_cats)
 end
 
-local function _scan_files(cat)
-    if _files[cat] then return _files[cat] end
-    local out = {}
-    local fl = getFS():file_list_open("$game_sounds$", SND_ROOT .. "\\" .. cat .. "\\", bit_or(FS.FS_ListFiles, FS.FS_RootOnly))
+--- Scan one dread-bucket dir's oggs into out + bucket_of (deployed name -> bucket).
+local function _scan_bucket_files(dir, bucket, out, bucket_of)
+    local fl = getFS():file_list_open("$game_sounds$", dir, bit_or(FS.FS_ListFiles, FS.FS_RootOnly))
     for i = 1, (fl and fl:Size() or 0) do
         local fname = fl:GetAt(i - 1)
-        if fname:sub(-4) == ".ogg" then out[#out + 1] = fname:sub(1, -5) end
+        if fname:sub(-4) == ".ogg" then
+            local name = fname:sub(1, -5)
+            out[#out + 1] = name
+            bucket_of[name] = bucket
+        end
+    end
+end
+
+local function _scan_files(cat)
+    if _files[cat] then return _files[cat] end
+    local out, bucket_of, base = {}, {}, SND_ROOT .. "\\" .. cat .. "\\"
+    local bl = getFS():file_list_open("$game_sounds$", base, bit_or(FS.FS_ListFolders, FS.FS_RootOnly))
+    for b = 1, (bl and bl:Size() or 0) do
+        local bucket = bl:GetAt(b - 1):gsub("[\\/]", "")
+        if bucket ~= "" and bucket ~= "." and bucket ~= ".." then
+            _scan_bucket_files(base .. bucket .. "\\", bucket, out, bucket_of)
+        end
     end
     table_sort(out)
-    _files[cat] = out
+    _files[cat], _bucket_of[cat] = out, bucket_of
     return out
+end
+
+--- The _cur record for a browsed sound: its full path includes the dread bucket subdir it lives in.
+local function _cur_for(cat, name)
+    local bucket = (_bucket_of[cat] or {})[name] or "all"
+    return { cat = cat, name = name, path = SND_ROOT .. "\\" .. cat .. "\\" .. bucket .. "\\" .. name }
+end
+
+--- Flatten a category's { bucket -> rows } config into one row list.
+local function _rows_of(cats)
+    local flat = {}
+    for _, rows in pairs(cats or {}) do
+        for k = 1, #rows do flat[#flat + 1] = rows[k] end
+    end
+    return flat
+end
+
+--- The config row whose path matches, across all of a category's dread buckets.
+local function _find_row(cats, path)
+    for _, row in ipairs(_rows_of(cats)) do
+        if row[1] == path then return row end
+    end
 end
 
 -- ---- the tab --------------------------------------------------------------
@@ -155,13 +195,13 @@ function as_player_tab:_fill_category(cat)
     if not cat then return end
     self.list:AddTextItem("..")
     local files = _scan_files(cat)
-    local list, root = self.list, SND_ROOT .. "\\" .. cat .. "\\"
+    local list = self.list
     if not xslice then
         for i = 1, #files do list:AddTextItem(files[i]) end
         return
     end
     xslice.start("as_player_fill", files, { step = 15, func = function(name)
-        local ms = (xsound and xsound.length and xsound.length(root .. name)) or 0
+        local ms = (xsound and xsound.length and xsound.length(_cur_for(cat, name).path)) or 0
         list:AddTextItem(string_format("%s    %.1fs", name, ms / 1000))
         return true
     end })
@@ -207,11 +247,8 @@ function as_player_tab:_play_current()
         xsound.play_at(_cur.path, { s2d = true, volume = 1.0 })
     elseif dist == "auto" then
         -- n124 names are <name>_<hash>, not a numeric index, so find the config row by its path.
-        local list = as_sound_config_gen and as_sound_config_gen.categories and as_sound_config_gen.categories[_cur.cat]
-        local entry
-        if list then
-            for k = 1, #list do if list[k][1] == _cur.path then entry = list[k]; break end end
-        end
+        local cats = as_sound_config_gen and as_sound_config_gen.categories and as_sound_config_gen.categories[_cur.cat]
+        local entry = _find_row(cats, _cur.path)
         as_director.emit(_cur.path, { min = entry and entry[2] or 2, max = entry and entry[3] or 100,
             height = entry and entry[4] or 0, ch_min = entry and entry[5] or 30,
             ch_max = entry and entry[6] or 100, indoor = entry and entry[7] or false })
@@ -238,7 +275,7 @@ function as_player_tab:OnPlay()
     if not cat then return end
     local name = _scan_files(cat)[idx]
     if not name then return end
-    _cur = { cat = cat, name = name, path = SND_ROOT .. "\\" .. cat .. "\\" .. name }
+    _cur = _cur_for(cat, name)
     self:_play_current()
     self:_refresh_state()
     self.status:SetText(string_format("playing:  %s\\%s", cat, name))
@@ -287,7 +324,7 @@ function as_player_tab:_step_sound(delta)
     end
     i = (i - 1 + delta) % #files + 1
     local name = files[i]
-    _cur = { cat = cat, name = name, path = SND_ROOT .. "\\" .. cat .. "\\" .. name }
+    _cur = _cur_for(cat, name)
     self.list:SetSelectedIndex(i)
     self:_play_current()
     self:_refresh_state()

@@ -825,6 +825,41 @@ def _emit_audio(entry, dst):
     sh.copy2(entry["abs"], dst)
 
 
+def _stamp_buckets(effects, snd):
+    """Stamp e['bucket'] = the dread bucket a sound already sits in (its subdir under zs/<cat>/), else 'all'.
+    A file directly under zs/<cat>/ (the pre-bucket flat layout) reads as 'all', so the first bucketed build
+    migrates it. rebuild wipes zs/ before this runs, so the scan is empty and everything is 'all'; add keeps
+    the tree, so curated buckets survive. No side file - the tree IS the record."""
+    here = {}
+    if snd.exists():
+        base = str(snd).replace("\\", "/").rstrip("/")
+        for ogg in snd.rglob("*.ogg"):
+            parts = str(ogg).replace("\\", "/")[len(base) + 1:].split("/")
+            if len(parts) < 2:
+                continue
+            bucket = parts[1] if len(parts) > 2 else "all"
+            here.setdefault(parts[0], {})[parts[-1][:-4]] = bucket
+    for cat in effects:
+        m = here.get(cat, {})
+        for e in effects[cat]:
+            e["bucket"] = m.get(_deployed_name(e), "all")
+
+
+def _remove_stale(snd, effects):
+    """The no-wipe path leaves the tree in place, so drop any deployed ogg no longer in the corpus."""
+    keep = set()
+    for cat in effects:
+        for e in effects[cat]:
+            keep.add((cat, _deployed_name(e)))
+    if not snd.exists():
+        return
+    base = str(snd).replace("\\", "/").rstrip("/")
+    for ogg in snd.rglob("*.ogg"):
+        parts = str(ogg).replace("\\", "/")[len(base) + 1:].split("/")
+        if (parts[0], parts[-1][:-4]) not in keep:
+            ogg.unlink()
+
+
 # --- n108: X-Ray ogg comment blob (per-file min/max distance + base_volume) ------------
 # The engine reads the FIRST vorbis comment of an ogg as a binary struct (version 0x0003:
 # u32 ver, f32 min, f32 max, f32 base_volume, u32 game_type, f32 max_ai) and applies
@@ -1129,7 +1164,7 @@ def _normalize_blobs(effects, snd, bands):
     wrote = skipped = floored = 0
     for cat in sorted(effects):
         names = [_deployed_name(e) for e in effects[cat]]
-        blobs = [_read_blob((snd / cat / f"{n}.ogg").read_bytes()) for n in names]
+        blobs = [_read_blob((snd / cat / e["bucket"] / f"{n}.ogg").read_bytes()) for e, n in zip(effects[cat], names)]
         carried = [b for b in blobs if b]
         cmin = _median(sorted(c[0] for c in carried)) if carried else 1.0
         cmax = _median(sorted(c[1] for c in carried)) if carried else 100.0
@@ -1153,7 +1188,7 @@ def _normalize_blobs(effects, snd, bands):
                     floored += 1
             if mx < mn + 0.1:                                          # engine (max-min) divide / loader safety
                 mx = mn + 0.1
-            if _write_blob(snd / cat / f"{n}.ogg", mn, mx, bv):
+            if _write_blob(snd / cat / e["bucket"] / f"{n}.ogg", mn, mx, bv):
                 wrote += 1
             else:
                 skipped += 1
@@ -1303,7 +1338,10 @@ def cmd_deploy(a):
     _dedupe_folded(effects)                      # collapse stereo files that fold to identical mono (veto-safe)
     _cull_dead(effects)                         # drop only DEAD files (unmeasurable / silent after the fold)
 
-    _clean(snd); _clean(env / "ambients")
+    if getattr(a, "wipe", True):
+        _clean(snd)
+    _clean(env / "ambients")
+    _stamp_buckets(effects, snd)
     for stale in ("mod_sound_channels_alifespooks.ltx", "as_channel_layers.ltx"):
         (env / stale).unlink(missing_ok=True)      # old channel model, no longer written
     (root / "scripts" / "as_manifest.script").unlink(missing_ok=True)   # renamed to as_sound_config_gen
@@ -1312,7 +1350,7 @@ def cmd_deploy(a):
     # sound_channels.ltx for our content - the director reads as_sound_config_gen, not channels.
     for cat in sorted(effects):
         for e in effects[cat]:
-            _emit_audio(e, snd / cat / f"{_deployed_name(e)}.ogg")
+            _emit_audio(e, snd / cat / e["bucket"] / f"{_deployed_name(e)}.ogg")
 
     # Resolve every sound's spawn band ONCE, from the AUTHOR blobs (before the floor is written): the
     # blob writer needs the band for the min floor, and the config writer must stamp the same values -
@@ -1328,7 +1366,7 @@ def cmd_deploy(a):
         for e in effects[cat]:
             n = _deployed_name(e)
             names[id(e)] = n
-            ab = _read_blob((snd / cat / f"{n}.ogg").read_bytes()) or e.get("src_blob")
+            ab = _read_blob((snd / cat / e["bucket"] / f"{n}.ogg").read_bytes()) or e.get("src_blob")
             blobs[id(e)] = (round(ab[0], 1), round(ab[1], 1)) if ab else (1.0, 100.0)
             band, how = _resolve_band(bmap, e)
             band_src[how] += 1
@@ -1372,8 +1410,8 @@ def cmd_deploy(a):
     # indoor = the channel's flag for the vanilla volume rule. height = the ORIGINAL source-channel
     # elevation (_build_source_height_map, highest non-zero wins). Anomaly Lua cannot list a directory at
     # runtime, so the sound list ships as data. No play rules here (env/requires/gates live in as_director).
-    man = ["--- as_sound_config_gen: GENERATED by tools/build.py, do not edit. Category -> its sounds for",
-           "--- the director (read instead of sound_channels.ltx). Each row:",
+    man = ["--- as_sound_config_gen: GENERATED by tools/build.py, do not edit. Category -> { dread bucket ->",
+           "--- its sounds } for the director (read instead of sound_channels.ltx). Each row:",
            "--- { path, blob_min, blob_max, height, ch_min, ch_max, indoor } - blob pair = attenuation",
            "--- range (engine fade curve); ch pair = the source channel's SPAWN band vanilla's placement",
            "--- formula transforms; indoor = the channel flag for the vanilla volume rule.",
@@ -1393,17 +1431,22 @@ def cmd_deploy(a):
         return out
 
     for cat in sorted(effects):
-        cells = []
+        by_bucket = {}
         for e in effects[cat]:
             n = _deployed_name(e)
-            b = _read_blob((snd / cat / f"{n}.ogg").read_bytes())
+            bk = e["bucket"]
+            b = _read_blob((snd / cat / bk / f"{n}.ogg").read_bytes())
             mn, mx = (round(b[0], 1), round(b[1], 1)) if b else (1, 100)   # the DEPLOYED (floored) blob pair
             h = hmap.get(e["source_path"], 0)                 # aggregated source height (any pack), else 0
             bmn, bmx, ind = bands[id(e)]
-            cells.append('{ "zs\\\\%s\\\\%s", %s, %s, %s, %s, %s, %s }' % (
-                cat, n, mn, mx, h, round(bmn, 1), round(bmx, 1), "true" if ind else "false"))
+            by_bucket.setdefault(bk, []).append(
+                '{ "zs\\\\%s\\\\%s\\\\%s", %s, %s, %s, %s, %s, %s }' % (
+                    cat, bk, n, mn, mx, h, round(bmn, 1), round(bmx, 1), "true" if ind else "false"))
         man.append('\t["%s"] = {' % cat)
-        man += _pack(cells, "\t\t")
+        for bk in sorted(by_bucket):
+            man.append('\t\t["%s"] = {' % bk)
+            man += _pack(by_bucket[bk], "\t\t\t")
+            man.append('\t\t},')
         man.append("\t},")
     man += ["}"]
     (root / "scripts").mkdir(parents=True, exist_ok=True)
@@ -1426,6 +1469,8 @@ def cmd_deploy(a):
     env.mkdir(parents=True, exist_ok=True)
     (env / "mod_sound_channels_alifespooks.ltx").write_text(dltx, encoding="utf-8")
 
+    if not getattr(a, "wipe", True):
+        _remove_stale(snd, effects)
     print(f"deployed to {root}")
     print(f"  categories: {len(effects)}; sounds: {sum(len(v) for v in effects.values())}")
     print(f"  veto DLTX: {veto['removals']} removals across {veto['channels']} channels; "
@@ -1565,6 +1610,7 @@ def cmd_provenance(a):
     _dedupe_folded(effects)           # SAME collapse deploy applies, so the row set matches the tree
     _cull_dead(effects)               # SAME drop deploy applies, so the N-numbering matches the tree
     zs = (Path(a.root) if getattr(a, "root", None) else GDATA) / "sounds/zs"   # honor --root like deploy
+    _stamp_buckets(effects, zs)                                                # e['bucket'] from the deployed tree
 
     # Structural capture: a sound's origin is its SOURCE PATH (orig_dir/orig_file from the source path) + the
     # pack it came from. No channel/settings/sections columns - categories are not channels. min/max/
@@ -1574,9 +1620,9 @@ def cmd_provenance(a):
     for cat in sorted(effects):                       # every sound deploys to zs\<category>\<name>
         for e in effects[cat]:
             n = _deployed_name(e)
-            dep = f"zs\\{cat}\\{n}"
+            dep = f"zs\\{cat}\\{e['bucket']}\\{n}"
             source_path = e["source_path"]
-            dfile = zs / cat / f"{n}.ogg"
+            dfile = zs / cat / e["bucket"] / f"{n}.ogg"
             bv = ""
             if dfile.exists():
                 b = _read_blob(dfile.read_bytes())
@@ -1641,22 +1687,11 @@ def _drop_frozen_reencodes(new_merged):
     return total
 
 
-def cmd_add(a):
-    """ADDITIVE ingest: fold ONE new source over the frozen published corpus. Nothing already shipped is
-    renamed or re-hashed - the name+hash identity means a net-new sound is just a new name and everything
-    else stays put. Steps: scan+gate the one source (the shared capture rule), waveform-dedup it against
-    itself, DROP anything already in the corpus of record (audio hash vs merged_channels.json), append the
-    net-new to merged_channels.json, then regenerate classify + deploy over the appended corpus. The
-    slow full-pool plan and the ledger proof are SKIPPED - run `build.py all` before a release to refresh
-    them. `build.py add <SourceName> <path-to-source-gamedata>`.
-
-    Dedup covers BOTH exact reships (audio hash vs the deployed names) AND re-encodes of a published sound
-    (fp + PCM xcorr vs the frozen corpus, `_drop_frozen_reencodes`), plus full md5+fp+xcorr within the new
-    source. Limit: deploy re-emits the whole corpus from source, so the source packs must be on disk (same
-    as a full build); a full `all` refreshes the ledger + provenance proofs. Each file keeps its author's
-    own blob (no leveling), so an add never shifts an existing file's loudness - names, audio, and
-    base_volume all stay frozen."""
-    name, gd = a.name, a.gd
+def _ingest_source(name, gd):
+    """Fold ONE new source over the frozen published corpus and append the net-new to merged_channels.json;
+    return the net-new count. Nothing already shipped is renamed or re-hashed. Dedup covers exact reships
+    (audio hash) and re-encodes (fp + PCM xcorr) vs the frozen corpus, plus md5+fp+xcorr within the source.
+    Each net-new file keeps its author's own blob, so an add never shifts a published file's loudness."""
     mc = json.loads((HERE / "merged_channels.json").read_text())
     # Frozen identity = the audio hashes of the CORPUS OF RECORD (existing merged_channels.json entries),
     # NOT the deployed files. A sound that survives dedup but is culled at deploy (dead / silent after fold) is
@@ -1693,15 +1728,23 @@ def cmd_add(a):
     (HERE / "merged_channels.json").write_text(json.dumps(mc, indent=1), encoding="utf-8")
     print(f"\nadd {name}: +{n_new} net-new ({n_dup} already published; off-44100 {offrate}; "
           f"out-of-scope {out_scope})")
-    if not n_new:
-        print("nothing net-new; corpus unchanged, skipping rebuild.")
-        return
+    return n_new
+
+
+def cmd_add(a):
+    """Incremental, NON-WIPING build. `add <Source> <path>` ingests one new source (net-new -> <cat>/all/);
+    `add` with no source just re-syncs the config from the current tree, applying your dread-bucket moves.
+    Never wipes zs/, so curation (files moved into low/med/high) is preserved. Run `rebuild` before a release
+    to refresh the ledger + provenance proofs."""
+    name, gd = getattr(a, "name", None), getattr(a, "gd", None)
+    n_new = _ingest_source(name, gd) if (name and gd) else 0
     import types
-    ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None))
-    print("\n========== classify =========="); cmd_classify(ns)
-    print("\n========== deploy ==========");    cmd_deploy(ns)
-    print(f"\nadded {name}: +{n_new} sounds deployed. Run `build.py all` before release to refresh the "
-          f"ledger + provenance proofs.")
+    ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None), wipe=False)
+    if n_new:
+        print("\n========== classify =========="); cmd_classify(ns)
+    print("\n========== deploy (no wipe - dread buckets preserved) =========="); cmd_deploy(ns)
+    print(f"add: +{n_new} net-new deployed; config re-synced from the tree. "
+          f"Run `rebuild` before release to refresh ledger + provenance.")
 
 
 def cmd_provision(a):
@@ -1723,9 +1766,11 @@ def cmd_provision(a):
         print("\nall sources present - `build.py all` reproduces the corpus.")
 
 
-def cmd_all(a):
-    """Run the whole pipeline in order: plan -> classify -> loudness -> deploy -> ledger -> provenance.
-    One command so the sequence (and the classify-after-plan rule) can never be got wrong by hand."""
+def cmd_rebuild(a):
+    """FULL rebuild from scratch: plan -> classify -> loudness -> deploy -> ledger -> provenance. Wipes zs/
+    and re-emits the whole corpus into <cat>/all/ (resets dread curation - RARE, deliberate). One command so
+    the sequence (and the classify-after-plan rule) can never be got wrong. Use `add` for the curation-safe
+    incremental path."""
     import types, time
     sources.check_licences()                          # never build with an uncleared source (licence=pending)
     ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None))
@@ -1755,9 +1800,9 @@ if __name__ == "__main__":
     p = sub.add_parser("classify"); p.add_argument("--out"); p.set_defaults(func=cmd_classify)
     p = sub.add_parser("loudness"); p.add_argument("--out"); p.set_defaults(func=cmd_loudness)
     p = sub.add_parser("deploy"); p.add_argument("--root"); p.set_defaults(func=cmd_deploy)
-    p = sub.add_parser("add"); p.add_argument("name"); p.add_argument("gd"); p.add_argument("--root"); p.set_defaults(func=cmd_add)
+    p = sub.add_parser("add"); p.add_argument("name", nargs="?"); p.add_argument("gd", nargs="?"); p.add_argument("--root"); p.set_defaults(func=cmd_add)
     sub.add_parser("ledger").set_defaults(func=cmd_ledger)
     sub.add_parser("provenance").set_defaults(func=cmd_provenance)
     sub.add_parser("provision").set_defaults(func=cmd_provision)
-    p = sub.add_parser("all"); p.add_argument("--root"); p.set_defaults(func=cmd_all)
+    p = sub.add_parser("rebuild"); p.add_argument("--root"); p.set_defaults(func=cmd_rebuild)
     a = ap.parse_args(); a.func(a)
