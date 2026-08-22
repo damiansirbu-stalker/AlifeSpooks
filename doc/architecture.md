@@ -165,7 +165,7 @@ This runs among the source packs only, within a pack and between the packs we pu
 does not deduplicate against the target modpack. It never drops a sound because the install already
 plays it. Doubling with the base is handled by the static DLTX veto overlay at config load.
 
-## Byte-for-byte audio, author's blob verbatim
+## Byte-for-byte audio, author's blob unchanged
 
 A MONO sound's AUDIO ships byte for byte - no re-encode, the vorbis pages are untouched; what the deploy
 writes is only the X-Ray ogg comment blob (min distance, max distance, base_volume), a lossless header-page
@@ -179,7 +179,7 @@ fold does not lose the author's values.
   and OpenAL's inverse rolloff keys on min (`AL_REFERENCE_DISTANCE`), so those files lost -25..-33 dB at
   their felt placement and played silent. The floor raises each file's written min to `ratio x its felt-far
   distance` (band_max/2); it never lowers an authored min, so the distance-baked 300-10000m sounds and every
-  deliberately-authored range stay untouched. max ships verbatim; guard `max > min` keeps the engine divide safe.
+  deliberately-authored range stay untouched. max is kept unchanged; guard `max > min` keeps the engine divide safe.
   - The ratio is NOT flat. PRINCIPLE (measured, mild-moderate, automated): placement loudness follows CREST,
     INVERTED (`_crest_ratio`). A sustained low-crest tone carries in air, so a higher ratio keeps it present
     at distance; a sharp high-crest transient is a near-field detail, so a lower ratio keeps it intimate.
@@ -328,7 +328,7 @@ values from the config: the channel SPAWN band (`ch_min`/`ch_max`, recovered by 
 `_build_source_band_map` + `_resolve_band` from the same channel files the veto reads, SAME-AUTHOR: the
 band comes from the pack the shipped copy and its blob came from - blob and placement must be one author's
 pair or the combination reproduces nobody's mix; fallbacks in order: a collapsed duplicate's own pack, any
-pack wiring the path, then the UNWIRED fallback - the sound gets its CATEGORY CENTER (the robust median of
+pack wiring the path, then the UNWIRED fallback - the sound gets its CATEGORY CENTER (the median of
 that category's wired bands, or of its own blobs when nothing in it is wired) plus a deterministic +/-25%
 jitter (`_name_jitter`, seeded by the deployed name so a rebuild never reshuffles), capped to the sound's
 own blob max so it is never placed past its silence point. This replaces an earlier own-blob fallback that
@@ -405,7 +405,7 @@ volume in `emit` alongside the game ambient slider), for a base that runs unusua
 about the mix depends on the player leveling anything.
 
 So everything per-file is the AUTHOR's - `base_volume` (lifted only by the loudness floor for the too-quiet),
-`max` verbatim, the spawn band, `indoor` flag, and `height` from the source channel - with two corrected
+`max` unchanged, the spawn band, `indoor` flag, and `height` from the source channel - with two corrected
 fields the pack tooling never authored: the min_distance floor and the base_volume loudness floor (above).
 
 ### Visual layer

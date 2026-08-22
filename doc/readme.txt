@@ -70,7 +70,7 @@ The audio is built by a reproducible, measured pipeline, one command end to end,
 ffmpeg reads its spectral centroid and flatness, its crest factor, and its integrated loudness in EBU R128 LUFS. ffprobe reads its duration, sample rate, and codec.
 Each pack's folders are mapped to horror categories by hand, and every file in them is pulled, so nothing the pack buries goes missed.
 A sound too long for a one-shot is dropped, and the long radio-signal bed is sliced into short pieces, so nothing overlaps itself.
-Each file keeps its own author's loudness, the X-Ray gain the source author set in the ogg comment, written back verbatim with no leveling. The authored levels are tight and field-tested in the source mods, so the corpus already plays at one even level, and dread comes from where a sound is placed, never from re-leveling one file against the next. It is a number in the header, not the audio, so nothing is re-encoded.
+Each file keeps its own author's loudness, the X-Ray gain the source author set in the ogg comment, written back unchanged, with no leveling. The authored levels are tight and field-tested in the source mods, so the corpus already plays at one even level, and dread comes from where a sound is placed, never from re-leveling one file against the next. It is a number in the header, not the audio, so nothing is re-encoded.
 
 Identity is decided by the waveform, in three stages, cheapest first, so the expensive test runs only on the pairs the cheap ones flag. An exact md5 hash collapses byte-identical reships.
 A Chromaprint acoustic fingerprint proposes the re-encoded copies the hash misses, but its same-versus-distinct ranges overlap, so it only proposes and never decides.
@@ -80,7 +80,7 @@ The mod never drops a sound because your install already plays it. It carries th
 
 Every mono sound is redistributed byte for byte, its audio untouched, carrying its author's own X-Ray volume and distance band in its ogg comment. A stereo sound is the one exception: the engine cannot place a stereo sound in 3D, it plays flat at your ear, so the build folds it to mono and then writes the comment, its author's values captured before the fold so they are not lost.
 A source that lacks that metadata is given it losslessly, the median of its category band, so only the comment header changes and the audio bytes stay identical.
-Most of this corpus was never actually heard where it came from. Two thirds of the files were shipped by their packs but wired into no channel, so their own schedulers never played them once, and most of the rest carry an unset engine distance field that silences a sound placed more than a few meters away. The build corrects that one field to the game's own far-ambience standard, so thousands of sounds that existed only as files on disk now play in the world, at their author's loudness, for the first time.
+Most of this corpus was never actually heard where it came from. Two thirds of the files were carried by their packs but wired into no channel, so their own schedulers never played them once, and most of the rest carry an unset engine distance field that silences a sound placed more than a few meters away. The build corrects that one field to the game's own far-ambience standard, so thousands of sounds that existed only as files on disk now play in the world, at their author's loudness, for the first time.
 A fitness gate keeps 44.1 kHz vorbis, the X-Ray standard, and accounts anything dropped. A ledger proves no net-new dark sound is missed.
 A provenance record maps every carried sound back to its origin mod, folder, and name, and self-verifies by audio hash.
 Nothing loses its origin, even though the files are organized into the mod's own categories.
@@ -121,11 +121,11 @@ Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscap
 You can install or remove it mid-save. Weather sound stays the base ambience's job, AlifeSpooks adds no storm or rain.
 
 Credits:
-Most of the sounds come from the original S.T.A.L.K.E.R. games and from the standalone builds that carry and rework their audio: Solyanka (NS OGSR), Dead Air, OGSE, Prosector, NLC, and OLR.
+Most of the sounds come from the original S.T.A.L.K.E.R. games and from the standalone builds that carry and rework their audio: Solyanka (NS OGSR), Dead Air, OGSE, Prosector, NLC, OLR, and Lost Alpha.
 The rest is dark ambience from community soundscape packs, with thanks to their authors: the Dark Signal family and Amplified Soundscape by Shrike, Soundscape Overhaul by Solarint, RETUNE by Aphrodite_child and myRETUNE Antares, Audio Expansion by AniHVX, Ambient Extended by Txiku, Immersive Ambience Expansion by Kutee, and Real Distant Mutants Sounds.
 Shrike also gave unreleased interior audio he made for Dark Signal and never released, exclusive to this mod.
-Every author is credited above. Only selected audio is redistributed. If an author does not want their work included, it is removed from the build.
-Each source's license and the granting author's permission are recorded in licensing.md; nothing ships without a free license or the author's consent.
+Every source is either freely licensed or used with the author's permission, granted for my mods, not tied to any one mod. Every author is credited above; only selected audio is included, and if an author does not want their work included it is removed.
+Each source's license and the granting author's permission are recorded in licensing.md; nothing is included without a free license or the author's consent.
 
 Usage and License:
 Modpacks are allowed and encouraged. Keep the readme and license files.

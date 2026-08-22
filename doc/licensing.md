@@ -1,6 +1,10 @@
 # AlifeSpooks source licensing
 
-The license of every sound source AlifeSpooks ships from. The mod ships only free content or content whose author granted permission. The readme Licensing section is derived from this record.
+The license of every sound source AlifeSpooks uses. The mod includes only free content or content whose author granted permission for my mods. The readme Licensing section is derived from this record.
+
+## Permission is not mod-specific
+
+The authors below granted permission for my S.T.A.L.K.E.R. mods generally, not for one mod. The same grant covers AlifeSpooks and AlifeAmbience alike; there is nothing to extend per mod. Free sources (Public Domain, Creative Commons, GSC-original) need no grant at all.
 
 ## Principle
 
@@ -19,6 +23,7 @@ The moddb License field is a coarse default. moddb shows "Proprietary" for anyth
 - Solyanka (NS OGSR). GSC-lineage build.
 - NLC Improved. GSC-lineage build.
 - OLR (sop standalone). GSC-lineage build.
+- Lost Alpha. GSC-lineage build.
 
 ### Public Domain, credit only
 
