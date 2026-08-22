@@ -11,7 +11,7 @@ highest-priority mod that defines the channel.
 
 Presets and the LTX/sound emit into GammaOverrides come in the next steps.
 """
-import sys, json, re, collections, hashlib, struct
+import sys, json, re, collections, hashlib, struct, math
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import soundpool as sp
@@ -307,11 +307,13 @@ FP_LEN = 30
 BASE_SIM = 0.88     # Chromaprint recall threshold: >= this makes a pair a same-sound CANDIDATE
 DEDUP_XCORR = 0.90  # PCM cross-correlation DECIDER: >= this confirms a candidate is the same
                     # recording (a re-encode). Below it the pair is kept as distinct variety.
-# NO loudness leveling. Each file's base_volume and min/max attenuation are the AUTHOR's, written verbatim by
-# _normalize_blobs (or the category-median + base_volume 1.0 for a file that never carried a blob). The only
-# loudness-domain drop is _cull_dead: after the stereo fold, a file whose audio is unmeasurable / true silence
-# (peak -inf) is dropped as DEAD - never a quiet-but-real sound, which ships at its author's loudness (a faint
-# feel is the director's placement, not removed content).
+# base_volume and min/max are the AUTHOR's, verbatim, EXCEPT two declared LIFT-ONLY floors in _normalize_blobs:
+# the min_distance floor (crest-inverted, fixes the OpenAL rolloff) and the base_volume LOUDNESS floor
+# (_loudness_floor: lifts a file whose measured delivered loudness at its felt-far placement is below the
+# faint-audible level, partial + capped, never lowering an author value). NOT corpus leveling - n126's RMS
+# re-level was removed for blowing the tight authored range out; these floors only raise the too-quiet. The
+# only loudness-domain DROP is _cull_dead: after the stereo fold, a file whose audio is unmeasurable / true
+# silence (peak -inf) is dropped as DEAD - never a quiet-but-real sound.
 # astats reads the FLOAT-decoded samples, and a handful of vorbis decode outliers report an IMPOSSIBLE peak
 # (measured +42..+82 dB on files that are actually 0 dBFS). Clamp anything above this ceiling so the dead-file
 # measure is not fooled by a decode artefact (a real inter-sample overshoot stays under ~+6 dB).
@@ -1139,6 +1141,43 @@ CREST_LO       = 6.0    # dB, corpus floor (sustained) -> RATIO_HI
 CREST_HI       = 24.0   # dB, corpus ceiling (sharpest transient) -> RATIO_LO
 FLOOR_MAX_FRAC = 0.8
 
+# --- base_volume loudness floor (proven 2026-08-22) -------------------------------------------------------
+# The min floor above fixes the OpenAL rolloff (distance); it cannot fix QUIET CONTENT - a -40 LUFS recording
+# plays inaudible even at flat full gain (proof: drip, min-floored to 80 = loudest placement, still inaudible
+# at -40 LUFS content). So lift base_volume of files whose DELIVERED loudness at the felt-far, low-dread
+# placement (content_LUFS + 20log10(base_volume*volume_att*al_gain)) falls below the faint-audible level.
+# Lift-only, PARTIAL (close a fraction of each deficit), CAPPED (a base_volume ceiling and a far-gain cap that
+# keeps the sound below the engine's 1.0 clamp so distance falloff survives). Never lowers a file, never
+# overshoots the floor, never flattens, never re-encodes (lossless blob rewrite). GLOBAL: keyed only on each
+# file's own measured loudness + blob + band, no per-category term. Calibrated at the effects slider 0.5.
+LOUD_FLOOR   = -36.0   # content+blob delivered dB (= effective -42 at slider 0.5): the faint-audible target
+LOUD_MAXBV   = 6.0     # absolute base_volume ceiling
+LOUD_FARCAP  = 0.85    # keep far smooth_volume below this (< the engine 1.0 clamp) so falloff is preserved
+LOUD_FRAC    = 0.7     # close only this fraction of each file's deficit (partial lift)
+LOUD_MASTER  = 0.5     # psSoundVEffects*psSoundVFactor at calibration (the tested slider)
+LOUD_ROLLOFF = 0.75    # psSoundRolloff (fixed, SoundRender_Core.cpp:19)
+
+
+def _loudness_floor(bv, mn, mx, felt_far, lufs):
+    """The floored base_volume for one file (lift-only, partial, capped). `mn`/`mx` = the ALREADY min-floored
+    blob range, `felt_far` = ch_max/2 (the System B placement), `lufs` = the deployed content loudness (or None).
+    Model (xray source, sound-source-and-emitter.md): delivered = base_volume * volume_att * al_gain;
+    volume_att = (mx-d)/(mx-mn) clamped; al_gain = mn/(mn+0.75*(d-mn)). No lift when placed past its own max
+    (silent by placement, not loudness) or when loudness is unknown."""
+    if lufs is None or felt_far >= mx:
+        return bv
+    va = max(0.0, min(1.0, (mx - felt_far) / (mx - mn))) if mx > mn else 0.0
+    d = min(max(felt_far, mn), mx)
+    al = mn / (mn + LOUD_ROLLOFF * (d - mn)) if d > mn else 1.0
+    if va * al <= 1e-6 or bv <= 0.0:
+        return bv
+    eff = lufs + 20.0 * math.log10(bv * va * al)
+    if eff >= LOUD_FLOOR:
+        return bv
+    want = bv * (10 ** (LOUD_FRAC * (LOUD_FLOOR - eff) / 20.0))   # close FRAC of the deficit
+    farcap = LOUD_FARCAP / (va * al * LOUD_MASTER)                # keep far gain below the 1.0 clamp
+    return max(bv, min(want, farcap, LOUD_MAXBV))
+
 
 def _crest_ratio(crest):
     """Crest (dB) -> min/felt-far ratio, INVERTED: high crest (transient) -> RATIO_LO, low crest (sustained)
@@ -1151,17 +1190,34 @@ def _crest_ratio(crest):
     return RATIO_HI - (RATIO_HI - RATIO_LO) * t
 
 
-def _normalize_blobs(effects, snd, bands):
+def _measure_corpus_lufs(effects, snd):
+    """Integrated LUFS of every DEPLOYED ogg (what actually plays), for the base_volume loudness floor.
+    Measured in parallel and cached by deployed name (audio-hash-stable, so re-deploys and `add` reuse it and
+    only net-new files are measured). ffmpeg reads the audio pages, so the pending blob rewrite is irrelevant."""
+    cache_path = HERE / "loudness_cache.json"
+    cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
+    todo = [(_deployed_name(e), str(snd / cat / e["bucket"] / f"{_deployed_name(e)}.ogg"))
+            for cat in effects for e in effects[cat] if _deployed_name(e) not in cache]
+    if todo:
+        for n, L in sp.pmap(lambda t: (t[0], _measure_lufs(t[1])), todo, sp.DEF_JOBS):
+            cache[n] = L
+        cache_path.write_text(json.dumps(cache), encoding="utf-8")
+    return cache
+
+
+def _normalize_blobs(effects, snd, bands, lufs_map):
     """Write every kept file's ogg blob from the author's values: min/max attenuation range and base_volume
-    unchanged EXCEPT the min_distance floor (crest-inverted ratio x the sound's felt-far placement, above) - the one
-    uniform, declared transform, correcting the field the pack tooling never authored. NO leveling
-    (base_volume is the author's number, or 1.0 when the source carried none or <=0). A blob-less /
-    re-encoded file (folded stereo, sliced dark_signal) has no authored blob, so it inherits its category's
-    median min/max and base_volume 1.0, then the same floor. Safety: max nudged above min so the engine's
-    (max-min) divide (Emitter_FSM.cpp:361) can't be zero and the loader assert (max>=0.1,
-    Source_loader.cpp:152) holds. Lossless bitstream rewrite, no re-encode. `bands` = id(entry) ->
-    (ch_min, ch_max, indoor), the resolved spawn band per sound."""
-    wrote = skipped = floored = 0
+    unchanged EXCEPT two declared, uniform transforms, correcting fields the pack tooling never authored:
+    (1) the min_distance FLOOR (crest-inverted ratio x felt-far, above) - fixes the OpenAL rolloff; and
+    (2) the base_volume LOUDNESS FLOOR (_loudness_floor, above) - lifts a file whose measured delivered
+    loudness at its felt-far placement is below the faint-audible level, lift-only/partial/capped, fixing
+    quiet CONTENT the min floor cannot. NO leveling otherwise (base_volume is the author's number, or 1.0 when
+    the source carried none or <=0). A blob-less / re-encoded file (folded stereo, sliced dark_signal) has no
+    authored blob, so it inherits its category's median min/max and base_volume 1.0, then the same floors.
+    Safety: max nudged above min so the engine's (max-min) divide (Emitter_FSM.cpp:361) can't be zero and the
+    loader assert (max>=0.1, Source_loader.cpp:152) holds. Lossless bitstream rewrite, no re-encode. `bands` =
+    id(entry) -> (ch_min, ch_max, indoor); `lufs_map` = deployed name -> content LUFS (_measure_corpus_lufs)."""
+    wrote = skipped = floored = lifted = 0
     for cat in sorted(effects):
         names = [_deployed_name(e) for e in effects[cat]]
         blobs = [_read_blob((snd / cat / e["bucket"] / f"{n}.ogg").read_bytes()) for e, n in zip(effects[cat], names)]
@@ -1186,14 +1242,19 @@ def _normalize_blobs(effects, snd, bands):
                 if mn < floor:
                     mn = floor
                     floored += 1
+                nbv = _loudness_floor(bv, mn, mx, band[1] / 2.0, lufs_map.get(n))   # base_volume loudness floor
+                if nbv > bv + 1e-9:
+                    bv = nbv
+                    lifted += 1
             if mx < mn + 0.1:                                          # engine (max-min) divide / loader safety
                 mx = mn + 0.1
             if _write_blob(snd / cat / e["bucket"] / f"{n}.ogg", mn, mx, bv):
                 wrote += 1
             else:
                 skipped += 1
-    print(f"normalize: wrote author blob + crest-inverted min floor (ratio {RATIO_LO}-{RATIO_HI}) for {wrote} "
-          f"files; floored {floored}; skipped {skipped} (non-standard ogg layout)")
+    print(f"normalize: wrote author blob + crest-inverted min floor (ratio {RATIO_LO}-{RATIO_HI}) + base_volume "
+          f"loudness floor ({LOUD_FLOOR} dB, frac {LOUD_FRAC}, cap {LOUD_MAXBV}) for {wrote} files; "
+          f"min-floored {floored}; loudness-lifted {lifted}; skipped {skipped} (non-standard ogg layout)")
 
 
 # Each effect channel keeps its VERBATIM source settings - no median. Channels are grouped
@@ -1398,7 +1459,8 @@ def cmd_deploy(a):
                 review.append((cat, n, e["pool"], e["source_path"], round(bmn, 1), round(bmx, 1)))
             bands[id(e)] = band
 
-    _normalize_blobs(effects, snd, bands)    # author blob + the crest-inverted min floor against each band
+    lufs_map = _measure_corpus_lufs(effects, snd)                     # deployed content loudness for the floor
+    _normalize_blobs(effects, snd, bands, lufs_map)   # author blob + crest-inverted min floor + base_volume loudness floor
 
     # as_sound_config_gen: category -> its sounds, each { path, blob_min, blob_max, height, ch_min, ch_max,
     # indoor }. The director reads THIS instead of sound_channels.ltx. Two distance pairs per sound, never
