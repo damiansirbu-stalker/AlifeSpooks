@@ -14,9 +14,9 @@ below is reproduced by a subcommand of it, not chosen by hand.
 The old model shipped our sounds as engine sound channels (`sound_channels.ltx` sections) and let
 the ambient system play them. That is gone. AlifeSpooks now owns playback end to end:
 
-- Content lives in our own category directories under `gamedata/sounds/zs/<category>/<dread>/`, never in
-  an engine channel, where `<dread>` is the sound's dread bucket - `all`, `low`, `med`, or `high`. The
-  deploy writes no `sound_channels.ltx` definitions for our content.
+- Content lives FLAT in our own category directories under `gamedata/sounds/zs/<category>/<name>.ogg`,
+  never in an engine channel. Dread is NOT a directory - it lives per-sound in `as_static_dread.ltx` (the
+  runtime override, below). The deploy writes no `sound_channels.ltx` definitions for our content.
 - The director (`gamedata/scripts/as_director.script`) plays each sound as a positioned one-shot
   through `xsound.play_at` - the vanilla `play_at_pos` call shape with a RETAINED handle, so every
   playing sound is stoppable (`xsound.stop_shots`, the dev-tab Stop) and never GC-cut. There are no
@@ -27,18 +27,21 @@ the ambient system play them. That is gone. AlifeSpooks now owns playback end to
   owns the vanilla `update_ambient` slot only to replay and log the base ambient.
 
 Because the director is the only playback path, xlibs (`xsound`) is required. Without it the mod is
-inert: no sound plays.
+inert: no sound plays. All config/file reading goes through xlibs too: `xltx` for LTX (the map, positions,
+dread override, and base-ambient channel reads) and `xfs` for on-disk enumeration (the review player's
+sound browser) - no raw `ini_file` / `getFS` in the mod's own scripts.
 
 The category is the unit of organization and of play. It is a directory of sounds plus two attributes -
 an `env` set (which enclosure states it may play in) and a `requires` gate (a live precondition) - with
-no weight and no cooldown. Within a category the sounds are further partitioned by DREAD into
-subdirectories `zs/<category>/<dread>/` (`all`, `low`, `med`, `high`): the folder a sound sits in IS its
-dread, no side table and no per-sound field. `all` is the capture bucket - new content lands there and
-plays at every scene dread (the wildcard); curating a sound to `low`/`med`/`high` is a file MOVE into that
-subdir. The director reads a generated sound config (`as_sound_config_gen.script`) that lists each
-category, then each DREAD BUCKET within it, then that bucket's sounds, each with its attenuation pair (from
-the blob), its source channel's SPAWN band + `indoor` flag (the author's placement), and its height. The
-config replaces the channel definitions the director used to read from `sound_channels.ltx`. Anomaly Lua
+no weight and no cooldown. Dread is a PER-SOUND override, not a directory: `as_static_dread.ltx` (section
+`[dread]`, `deployed-name = low|med|high`) is the single source of a sound's dread. A sound with no
+override plays at EVERY scene dread (the default); an overridden one plays ONLY at its dread. Curating a
+sound is adding one line to that LTX, keyed by the stable deployed name - never a file move, and it
+survives a `rebuild` (which wipes the tree but never the LTX). The director reads a generated sound config
+(`as_sound_config_gen.script`) that lists each category, then that category's flat sound list, each with
+its attenuation pair (from the blob), its source channel's SPAWN band + `indoor` flag (the author's
+placement), and its height; it applies the override at load to build the per-dread pools. The config
+replaces the channel definitions the director used to read from `sound_channels.ltx`. Anomaly Lua
 cannot enumerate a directory at runtime, so the deploy writes the config and the director reads it. See
 "Categories - the rule table" below; the category list is the single source of truth.
 
@@ -46,10 +49,10 @@ cannot enumerate a directory at runtime, so the deploy writes the config and the
 
 `tools/build.py` is a six-stage pipeline. Each stage is a subcommand that reads the previous stage's
 committed artifact and writes the next. The pipeline runs as one of two commands: `rebuild` (the full run,
-wipes `zs/` and re-emits the whole corpus into `<category>/all/`, RARE - it resets dread curation and
-refreshes the ledger + provenance proofs) or `add` (incremental, never wipes, the everyday path - it
-ingests a new source into `<category>/all/` and re-syncs the config from the current tree, so files moved
-into `low`/`med`/`high` are preserved). Adopting a pack is additive; a full re-run is a rewrite.
+wipes `zs/` and re-emits the whole corpus FLAT into `<category>/`, RARE - refreshes the ledger + provenance
+proofs) or `add` (incremental, never wipes, the everyday path - it ingests a new source into `<category>/`
+and re-syncs the config from the current tree). Dread curation is per-sound in `as_static_dread.ltx`, not
+in the tree, so neither command touches it. Adopting a pack is additive; a full re-run is a rewrite.
 
 ```
 plan        source trees, deduped by waveform        -> merged_channels.json
@@ -72,15 +75,14 @@ provenance  every shipped sound -> its origin         -> provenance.tsv
 - loudness (`cmd_loudness`): measure integrated loudness per sound and flag per-group outliers.
 - deploy (`cmd_deploy`): fold every stereo file to mono (`_masterize_channels`, the engine 3D-positions mono
   only) then collapse any that fold to identical mono (`_dedupe_folded`, veto-safe), drop only DEAD files
-  (unmeasurable / silent after the fold, `_cull_dead`), stamp each survivor with the dread bucket it already
-  sits in on the tree (`_stamp_buckets` - a file directly under `zs/<category>/` reads as `all`, a curated
-  file keeps its `low`/`med`/`high`; `rebuild` wipes first so everything is `all`, `add` preserves the moves),
-  copy the survivors to `zs/<category>/<bucket>/<name>.ogg`, write each file's blob with the AUTHOR's
+  (unmeasurable / silent after the fold, `_cull_dead`) and the by-ear rejected (`_apply_rejects`, the REJECT
+  set), copy the survivors FLAT to `zs/<category>/<name>.ogg`, write each file's blob with the AUTHOR's
   attenuation min/max + base_volume, plus two lift-only floors (min_distance floor + base_volume loudness floor,
   `_normalize_blobs`) - no corpus re-level, write the sound
-  config the director reads (`as_sound_config_gen.script` - nested category -> dread bucket -> per sound: the
+  config the director reads (`as_sound_config_gen.script` - category -> its flat sound list, per sound: the
   blob attenuation pair, the source channel's spawn band + `indoor` recovered by `_build_source_band_map`, and
-  the source-channel height), and generate the base-veto DLTX overlay that removes our sounds from the base
+  the source-channel height), report any stale `as_static_dread.ltx` override (`_report_dangling_dread`), and
+  generate the base-veto DLTX overlay that removes our sounds from the base
   ambient channels (`_build_veto_overlay` -> `mod_sound_channels_alifespooks.ltx`).
 - ledger (`cmd_ledger`) and provenance (`cmd_provenance`): the proofs, below.
 
@@ -109,7 +111,7 @@ The old positional `zs/<category>/<N>.ogg` (`N` = enumerate order) was a collisi
 packs ship the same filename), but it RE-INDEXED every file whenever content was added or removed, so a
 build could only run from scratch. The content name fixes that. IMPLEMENTED today:
 
-- Name = original name + audio hash: `zs/<category>/<bucket>/<origname>_<hash>.ogg`, `hash` = `_hash_audio`
+- Name = original name + audio hash: `zs/<category>/<origname>_<hash>.ogg`, `hash` = `_hash_audio`
   (md5 of the audio pages only, blob-agnostic) in short form. Readable (keeps the source name), unique
   (the hash disambiguates two files that share a name), stable (identical audio always maps to the same
   name; adding content never renames an existing file).
@@ -126,15 +128,15 @@ build could only run from scratch. The content name fixes that. IMPLEMENTED toda
   is naming, not a cache. There is no fingerprint cache.
 - Two build modes:
   - full (`rebuild`): whole source pool -> route -> dedup -> name -> write, then ledger + provenance. WIPES
-    `zs/` and re-emits every file into `<category>/all/`, so it resets any dread curation - the canonical
-    corpus, run before a release.
+    `zs/` and re-emits every file FLAT into `<category>/` - the canonical corpus, run before a release. Dread
+    curation lives in `as_static_dread.ltx` (per-sound, never in the tree), so a wipe never resets it.
   - additive (`add <source> <gamedata>`, IMPLEMENTED): the published corpus is FROZEN, keyed on the CORPUS
     OF RECORD (the audio hashes of the existing `merged_channels.json` entries, not the post-cull deployed
     files - keying on the deployed files re-proposed culled sounds every run and never converged). Route the
     new source with the shared capture rule (`_scan_source`), waveform-dedup it against itself, drop anything
     already in the record (audio hash) AND any re-encode of a published sound (fp + PCM xcorr,
-    `_drop_frozen_reencodes`), APPEND only net-new into `<category>/all/` (new names, existing untouched),
-    then regenerate classify + deploy. It NEVER wipes `zs/`, so files curated into `low`/`med`/`high` survive.
+    `_drop_frozen_reencodes`), APPEND only net-new into `<category>/` (new names, existing untouched),
+    then regenerate classify + deploy. It NEVER wipes `zs/`; dread curation is in `as_static_dread.ltx`.
     It SKIPS the slow full plan and the ledger, so an add runs in minutes, not the full ~25. A re-add of an
     already-ingested pack is idempotent (`+0 net-new`). Limit: deploy re-emits the whole corpus from source
     (the packs must be on disk); a full `rebuild` reconciles `merged_channels.json` (gitignored, so a build
@@ -289,14 +291,30 @@ A category is eligible only if all three checks pass, in order (`is_eligible`, r
   needs `anomalies.near`; the rest, none.
 
 The base is NOT a select filter: a friendly base is silenced by APPLY (dread -> 0), not by category gating.
+The base is NOT a select filter: a friendly base is silenced by APPLY (dread -> 0), not by category gating.
 Selection is a **symmetrical two-level shuffle-bag**, no weights: a category-bag cycles every eligible
 category once before repeats (a 2-sound category can never be hammered while others wait), and a per-category
-sound-bag cycles every sound once. The sound-bag's POOL is the category's DREAD BUCKET for the current scene
-plus the always-on `all` wildcard: `_dread_bucket(board.dread)` maps the scene dread to `low` (< 0.40),
-`med` (< 0.70), or `high` (>= 0.70) - `DREAD_CUT_LOW`/`DREAD_CUT_MED` in `as_director` - and `_pick_sound`
-draws from `cat[bucket]` + `cat.all` (`all` = every uncurated sound, so a category with nothing curated
-plays exactly as before). The bag is keyed per category+bucket, so a scene-dread shift rebuilds it against
-the new pool. Rarity emerges from rotation, not from any limiter.
+sound-bag cycles every sound once. The sound-bag's POOL is the category's precomputed DREAD POOL for the
+current scene: `_dread_bucket(board.dread)` maps the scene dread to `low` (< 0.40), `med` (< 0.70), or `high`
+(>= 0.70) - `DREAD_LIMIT_LOW`/`DREAD_LIMIT_MED` in `as_director` - and `_pick_sound` draws from
+`_dread_pools[category][bucket]`. The pools are built once at load (`_build_dread_pools`) from the category's
+flat sound list plus the per-sound override (below): a sound with no override lands in ALL three pools (it
+plays at every dread), an overridden one only in its pool. The bag is keyed per category+bucket, so a
+scene-dread shift draws from that bucket's pool. Rarity emerges from rotation, not from any limiter.
+
+### The dread override - per-sound dread selection
+
+`as_static_dread.ltx` (section `[dread]`, `deployed-name = low|med|high`) is the single source of a sound's
+dread, read once at load (`_load_dread`, via `xltx`). It is the SELECT-stage counterpart to the per-place
+`as_static_position.ltx` and the per-level `as_static_map.ltx`: a default behavior (a sound with no entry
+plays at every dread) that a dedicated entry supersedes (the sound plays ONLY at its dread). The file is
+ABSENT by default - no overrides, so every sound plays everywhere, exactly as before curation. Curating is
+adding a line keyed by the deployed name (the stable `<origname>_<hash>`), never a file move; it survives a
+`rebuild` because the LTX is not the tree. `_report_dangling_dread` at deploy flags any entry whose name
+matches no shipped sound (a stale hash after an upstream re-encode silently reverts that sound to
+play-everywhere). This coexists with the no-repeat shuffle-bag by construction: the pools are precomputed
+and stable, so `_pick_sound` still draws each pool once before repeating - the override only decides pool
+membership, never the rotation.
 
 ### APPLY - dread drives frequency and a placement pull
 
@@ -318,9 +336,9 @@ A `service_near` of "allied" (a safe hub) REPLACES the sum with 0 - fully silent
 base) adds. The base is detected by a live service NPC (trader/medic/mechanic) within 60m, per-NPC relation
 deciding allied vs hostile - warfare-correct, never the over-assigned `is_base` prop. Every term is grounded,
 so there is no "+X just because." Dread never gates the CATEGORY (SELECT stays map & env & presence), and it
-drives three things: **frequency** (a shorter gap between plays as dread rises), the **dread bucket** the
-per-category sound-bag draws from (the scene bucket + the `all` wildcard, above), and a **placement pull**
-(`emit` moves the rolled spawn distance up to 20% closer at peak, `DREAD_PULL`). It never touches the volume table.
+drives three things: **frequency** (a shorter gap between plays as dread rises), the **dread pool** the
+per-category sound-bag draws from (the scene bucket, filtered by the per-sound override, above), and a
+**placement pull** (`emit` moves the rolled spawn distance up to 20% closer at peak, `DREAD_PULL`). It never touches the volume table.
 
 Each emitted sound is placed by the base game's `update_ambient` code - `get_placement` clones its placement
 and volume math (`sound_ambient.script:127-165`), fed with the sound's OWN source-channel
@@ -427,8 +445,8 @@ position and what it forces, when one is in range), and SENSORS (every board fie
 ## Categories - the rule table
 
 A category is atomic: one coherent thing (one dread kind, one zone), never a grab-bag. The category is
-the unit of organization - it is the shipped folder (`zs/<name>/`, itself split into the `all`/`low`/`med`/`high`
-dread subdirs) and the config key. **The pipeline category list carries only the name and the folder routing**
+the unit of organization - it is the shipped folder (`zs/<name>/`, a flat directory of oggs; dread is the
+per-sound `as_static_dread.ltx` override, not a subdir) and the config key. **The pipeline category list carries only the name and the folder routing**
 (`CATEGORIES` + `route` in `build.py`); it holds no play rules. A category's runtime attributes - its `env` set, its `requires` gate, the per-map
 eligibility, the presence checks - live in the director (`as_director`) and the per-map LTX, keyed by the
 category name. The config carries sound paths and per-sound values only; the category NAME is the entire
@@ -540,7 +558,7 @@ not this hook. This slot (`sound_channels`/`update_ambient`) is separate from th
 - Volume and distance sit in the X-Ray blob. A source file that shipped with a blob keeps it exact.
   A blob-less file gets the category-folder median, base_volume 1.0, which is an approximation and is
   booked as one, not counted as preserved.
-- `provenance.tsv` (`cmd_provenance`) maps every shipped sound (its deployed `zs/<category>/<bucket>/<name>`) to its
+- `provenance.tsv` (`cmd_provenance`) maps every shipped sound (its deployed `zs/<category>/<name>`) to its
   origin mod, source directory, and filename, plus the deployed base_volume, and self-verifies each by audio
   hash against the source. Categories are not channels, so there are no channel/period/section columns.
   Nothing loses its origin under the content-hash rename.
@@ -559,8 +577,8 @@ not this hook. This slot (`sound_channels`/`update_ambient`) is separate from th
 - I1 One-shots only. The director fires every sound once through `xsound.play_at` (retained handle,
   stoppable). There is no loop layer and no continuous bed. A long sound plays on a long period,
   tuned to its measured duration.
-- I2 No channels for our content. Sounds live in category/dread directories (`zs/<category>/<dread>/`) and
-  are named by the sound config (`as_sound_config_gen.script`).
+- I2 No channels for our content. Sounds live FLAT in category directories (`zs/<category>/<name>.ogg`) and
+  are named by the sound config (`as_sound_config_gen.script`); dread is the per-sound `as_static_dread.ltx` override.
   The deploy defines no `sound_channels.ltx` channels for our content; the only config it writes is the
   DLTX veto overlay, which REMOVES our sounds from existing base channels and never adds one. The engine
   ambient bed and its asserted channels stay intact, so nothing can cause a missing-channel crash.
@@ -609,7 +627,7 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   `as_director.get_hud_rows`.
 - `ui_as_player.script` is the review/curation tool (gated by the MCM `sound_player` toggle): a standalone
   keyboard-owning 2D `CUIScriptWnd` modal opened by PageDown (NOT a PDA tab), reusing `ui_as_player.xml`. It
-  browses `zs/<category>/<bucket>/` off disk and auditions each sound through the director's own `emit` at
+  browses `zs/<category>/` off disk (via `xfs`) and auditions each sound through the director's own `emit` at
   the director's exact placement (fed the live scene dread), a fixed distance, or at-ear. It curates by
   LOGGING only - it never moves or deletes a file. Five premade one-word buttons (inaudible / faint / loud /
   unfit / good) and a custom free-text field write `[SOUND]` note lines; a separate PROBE NOTE field writes a
@@ -642,11 +660,11 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   pulled), `ledger.tsv` (coverage proof), `provenance.tsv` (origin of every shipped sound).
 - `build.py` is the pipeline; its `MODS` list and `route`/`ROUTE` table are the source of truth. The
   whole run is one command, `build.py rebuild` (plan -> classify -> loudness -> deploy -> ledger ->
-  provenance, in order); `build.py add` is the incremental, curation-safe path. `soundpool.py` is the
+  provenance, in order); `build.py add` is the incremental path. `soundpool.py` is the
   probe and resolver.
 
 Adopting a pack: assess it by hand, add it to `MODS` and its folder rules to `ROUTE`, then `build.py add
-<Source> <gamedata>` to ingest it into `<category>/all/` (curation-safe), or `build.py rebuild` before a
+<Source> <gamedata>` to ingest it into `<category>/` (flat), or `build.py rebuild` before a
 release to refresh the ledger (UNUSED-DARK must stay 0) and the provenance self-verify (0 mismatch).
 
 ## Deploy

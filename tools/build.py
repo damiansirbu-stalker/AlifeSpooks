@@ -34,7 +34,9 @@ CATEGORIES = [
 # touch emission or psi-storm sound"); giant_underground is a monster roar misfiled into an ambient tree;
 # ambience_exp is the Immersive Ambience Expansion weather tree (silent drip, non-dread wind - user-checked).
 EXCLUDE = ("psi_storm", "psistorm", "giant_underground", "ambience_exp",
-           "music", "soundtrack")   # NO MUSIC: music/, soundtrack/, dyn_music/, **/music, radio_music, megafon/music
+           "music", "soundtrack",   # NO MUSIC: music/, soundtrack/, dyn_music/, **/music, radio_music, megafon/music
+           "followers_underground", "scared_stalker_underground",   # OGSE characters_voice NPC speech miscaught by the underground_ labs rule below
+           "spooks_below/bats")   # the fainter re-level of nature/bats (kept); via EXCLUDE not a route drop so the faint 04/05/06 copies book EXCLUDED-scope, not UNUSED-DARK (they don't fp-match their nature twins)
 
 # Zone terrains for the map-selected mutant_ambient_<zone> categories (n117: forest/swamp/urban/field).
 ZONES = ("forest", "swamp", "urban", "field")
@@ -54,7 +56,6 @@ ROUTE = [
     # spooks_below/<sub> (the packs nest this under .../soundscape/underground/, so the sub-tree is the
     # discriminator, NOT the container folder). Specific first, so vermin/water/creaks win over labs.
     ("spooks_below/rats", "rats"),
-    ("spooks_below/bats", "bats"),
     ("spooks_below/water_drip", "drip"), ("spooks_below/drip", "drip"),
     ("spooks_below/creaks", "structural"),
     ("spooks_below/drone", "drone"),
@@ -331,6 +332,21 @@ SILENCE_NOISE_DB = "-30dB"
 SILENCE_MIN_S    = 0.5
 SLICE_DIR        = HERE / "_sliced"
 
+# By-ear rejected sounds: specific files auditioned and cut (dead, or non-dread) that no structural rule
+# (an EXCLUDE folder, a cull) can target because the source names are generic - 27 packs ship a "sound_18".
+# Keyed by DEPLOYED name (slug_audiohash[:10], _deployed_name) - the unique stable id, listed in provenance.tsv.
+# Dropped at deploy (never emitted, configured, or vetoed) and booked REJECTED in the ledger. Append a line
+# when a review cuts a file.
+REJECT = frozenset({
+    "sound_18_3e5457747c",           # spook: dead, peak -67 dB (Amplified spooks_above/spooks)
+    "underground_2_4fa47f2a27",      # labs: dead, peak -64.7 dB (Amplified soundscape/background)
+    "underground_3_f0e884cd10",      # labs: dead, peak -55.8 dB (Amplified soundscape/background/Underground)
+    "fog_ambient_morn_1_363986a866", # spook: morning crickets, non-dread but audible (DeadAir tuman)
+    "sway_1_cade76aeab", "sway_2_dbeec2fddf", "sway_3_bce0262b58", "sway_4_e498f0fa69",  # foliage: near-empty
+    "sway_5_8980eb25f9", "sway_6_4c949b4e14", "sway_7_e1357ee756", "sway_8_5a7cd6d525",  # nature sway, audible
+    "sway_9_d50eaf2ff8",             # (Amplified soundscape/foliage)
+})
+
 
 def _get_active_channels(gd):
     """channels PLAYED in a preset (static sound_channels + dynamic) on this install."""
@@ -401,6 +417,24 @@ def _drop_silent(merged):
         merged[chan]["chosen"] = [c for c in merged[chan]["chosen"] if c["abs"] not in dead]
         n += before - len(merged[chan]["chosen"])
     print(f"silence gate: dropped {n} dead/empty files (true peak -inf, quiet sounds kept)")
+
+
+def _apply_rejects(effects):
+    """Drop by-ear-rejected sounds (REJECT, keyed by deployed name = slug_audiohash - the only stable id for
+    the generic-named files). Books their AUDIO hashes to reject_dropped.json so the ledger marks every copy
+    REJECTED (not UNUSED-DARK), and the emit/config/veto never see them. Mutates effects."""
+    dropped = []
+    for cat in effects:
+        kept = []
+        for e in effects[cat]:
+            if _deployed_name(e) in REJECT:
+                dropped.append(_hash_audio(Path(e["abs"])))
+            else:
+                kept.append(e)
+        effects[cat] = kept
+    (HERE / "reject_dropped.json").write_text(json.dumps(sorted(set(dropped))), encoding="utf-8")
+    if dropped:
+        print(f"by-ear reject: dropped {len(dropped)} sounds (REJECT)")
 
 
 def _cull_dead(effects):
@@ -827,28 +861,10 @@ def _emit_audio(entry, dst):
     sh.copy2(entry["abs"], dst)
 
 
-def _stamp_buckets(effects, snd):
-    """Stamp e['bucket'] = the dread bucket a sound already sits in (its subdir under zs/<cat>/), else 'all'.
-    A file directly under zs/<cat>/ (the pre-bucket flat layout) reads as 'all', so the first bucketed build
-    migrates it. rebuild wipes zs/ before this runs, so the scan is empty and everything is 'all'; add keeps
-    the tree, so curated buckets survive. No side file - the tree IS the record."""
-    here = {}
-    if snd.exists():
-        base = str(snd).replace("\\", "/").rstrip("/")
-        for ogg in snd.rglob("*.ogg"):
-            parts = str(ogg).replace("\\", "/")[len(base) + 1:].split("/")
-            if len(parts) < 2:
-                continue
-            bucket = parts[1] if len(parts) > 2 else "all"
-            here.setdefault(parts[0], {})[parts[-1][:-4]] = bucket
-    for cat in effects:
-        m = here.get(cat, {})
-        for e in effects[cat]:
-            e["bucket"] = m.get(_deployed_name(e), "all")
-
-
 def _remove_stale(snd, effects):
-    """The no-wipe path leaves the tree in place, so drop any deployed ogg no longer in the corpus."""
+    """The no-wipe path leaves the tree in place, so drop any deployed ogg no longer in the corpus. Flat
+    layout zs/<cat>/<name>.ogg; a lingering pre-flat bucketed file (zs/<cat>/<bucket>/<name>.ogg) also drops
+    here (its (cat, name) is not in keep at the flat path), so an add reconciles the old bucket dirs away."""
     keep = set()
     for cat in effects:
         for e in effects[cat]:
@@ -858,7 +874,7 @@ def _remove_stale(snd, effects):
     base = str(snd).replace("\\", "/").rstrip("/")
     for ogg in snd.rglob("*.ogg"):
         parts = str(ogg).replace("\\", "/")[len(base) + 1:].split("/")
-        if (parts[0], parts[-1][:-4]) not in keep:
+        if len(parts) != 2 or (parts[0], parts[-1][:-4]) not in keep:
             ogg.unlink()
 
 
@@ -1196,7 +1212,7 @@ def _measure_corpus_lufs(effects, snd):
     only net-new files are measured). ffmpeg reads the audio pages, so the pending blob rewrite is irrelevant."""
     cache_path = HERE / "loudness_cache.json"
     cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
-    todo = [(_deployed_name(e), str(snd / cat / e["bucket"] / f"{_deployed_name(e)}.ogg"))
+    todo = [(_deployed_name(e), str(snd / cat / f"{_deployed_name(e)}.ogg"))
             for cat in effects for e in effects[cat] if _deployed_name(e) not in cache]
     if todo:
         for n, L in sp.pmap(lambda t: (t[0], _measure_lufs(t[1])), todo, sp.DEF_JOBS):
@@ -1220,7 +1236,7 @@ def _normalize_blobs(effects, snd, bands, lufs_map):
     wrote = skipped = floored = lifted = 0
     for cat in sorted(effects):
         names = [_deployed_name(e) for e in effects[cat]]
-        blobs = [_read_blob((snd / cat / e["bucket"] / f"{n}.ogg").read_bytes()) for e, n in zip(effects[cat], names)]
+        blobs = [_read_blob((snd / cat / f"{n}.ogg").read_bytes()) for e, n in zip(effects[cat], names)]
         carried = [b for b in blobs if b]
         cmin = _median(sorted(c[0] for c in carried)) if carried else 1.0
         cmax = _median(sorted(c[1] for c in carried)) if carried else 100.0
@@ -1248,7 +1264,7 @@ def _normalize_blobs(effects, snd, bands, lufs_map):
                     lifted += 1
             if mx < mn + 0.1:                                          # engine (max-min) divide / loader safety
                 mx = mn + 0.1
-            if _write_blob(snd / cat / e["bucket"] / f"{n}.ogg", mn, mx, bv):
+            if _write_blob(snd / cat / f"{n}.ogg", mn, mx, bv):
                 wrote += 1
             else:
                 skipped += 1
@@ -1387,6 +1403,31 @@ def _name_jitter(name, frac):
     return (h / 0xffffffff * 2.0 - 1.0) * frac
 
 
+def _report_dangling_dread(effects, root):
+    """Report as_static_dread.ltx overrides whose deployed name matches no shipped sound - a stale hash after
+    an upstream re-encode silently no-ops (the sound reverts to play-everywhere). Read-only; the director owns
+    applying the file. The [dread] section lists deployed-name = low|med|high."""
+    path = Path(root) / "scripts" / "as_static_dread.ltx"
+    if not path.exists():
+        return
+    shipped = {_deployed_name(e) for cat in effects for e in effects[cat]}
+    keys, in_sec = [], False
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        s = line.strip()
+        if s.startswith("["):
+            in_sec = (s.lower() == "[dread]")
+        elif in_sec and s and not s.startswith(";"):
+            k = s.split("=", 1)[0].strip()
+            if k:
+                keys.append(k)
+    dangling = sorted(k for k in keys if k not in shipped)
+    if dangling:
+        print(f"  ! DREAD OVERRIDE: {len(dangling)}/{len(keys)} entries match no shipped sound (stale?): "
+              + ", ".join(dangling[:8]) + ("..." if len(dangling) > 8 else ""))
+    else:
+        print(f"  dread overrides: {len(keys)} entries, all match a shipped sound")
+
+
 def cmd_deploy(a):
     root = Path(a.root) if a.root else GDATA
     env = root / "configs/environment"
@@ -1398,20 +1439,22 @@ def cmd_deploy(a):
     _masterize_channels(effects)                # fold stereo -> mono FIRST (engine 3D-positions mono only)
     _dedupe_folded(effects)                      # collapse stereo files that fold to identical mono (veto-safe)
     _cull_dead(effects)                         # drop only DEAD files (unmeasurable / silent after the fold)
+    _apply_rejects(effects)                     # drop by-ear-rejected specific sounds (REJECT), book for the ledger
 
     if getattr(a, "wipe", True):
         _clean(snd)
     _clean(env / "ambients")
-    _stamp_buckets(effects, snd)
     for stale in ("mod_sound_channels_alifespooks.ltx", "as_channel_layers.ltx"):
         (env / stale).unlink(missing_ok=True)      # old channel model, no longer written
     (root / "scripts" / "as_manifest.script").unlink(missing_ok=True)   # renamed to as_sound_config_gen
 
-    # Emit each sound into our OWN category directory: zs\<category>\N.ogg. There is no engine
-    # sound_channels.ltx for our content - the director reads as_sound_config_gen, not channels.
+    # Emit each sound FLAT into its category directory: zs\<category>\<name>.ogg. Dread is NOT a directory -
+    # it lives per-sound in as_static_dread.ltx (the runtime override the director reads), so there are no
+    # low/med/high subdirs. There is no engine sound_channels.ltx for our content either - the director reads
+    # as_sound_config_gen, not channels.
     for cat in sorted(effects):
         for e in effects[cat]:
-            _emit_audio(e, snd / cat / e["bucket"] / f"{_deployed_name(e)}.ogg")
+            _emit_audio(e, snd / cat / f"{_deployed_name(e)}.ogg")
 
     # Resolve every sound's spawn band ONCE, from the AUTHOR blobs (before the floor is written): the
     # blob writer needs the band for the min floor, and the config writer must stamp the same values -
@@ -1427,7 +1470,7 @@ def cmd_deploy(a):
         for e in effects[cat]:
             n = _deployed_name(e)
             names[id(e)] = n
-            ab = _read_blob((snd / cat / e["bucket"] / f"{n}.ogg").read_bytes()) or e.get("src_blob")
+            ab = _read_blob((snd / cat / f"{n}.ogg").read_bytes()) or e.get("src_blob")
             blobs[id(e)] = (round(ab[0], 1), round(ab[1], 1)) if ab else (1.0, 100.0)
             band, how = _resolve_band(bmap, e)
             band_src[how] += 1
@@ -1472,8 +1515,9 @@ def cmd_deploy(a):
     # indoor = the channel's flag for the vanilla volume rule. height = the ORIGINAL source-channel
     # elevation (_build_source_height_map, highest non-zero wins). Anomaly Lua cannot list a directory at
     # runtime, so the sound list ships as data. No play rules here (env/requires/gates live in as_director).
-    man = ["--- as_sound_config_gen: GENERATED by tools/build.py, do not edit. Category -> { dread bucket ->",
-           "--- its sounds } for the director (read instead of sound_channels.ltx). Each row:",
+    man = ["--- as_sound_config_gen: GENERATED by tools/build.py, do not edit. Category -> its flat sound list",
+           "--- for the director (read instead of sound_channels.ltx). Dread is NOT here - it is per-sound in",
+           "--- as_static_dread.ltx (the runtime override). Each row:",
            "--- { path, blob_min, blob_max, height, ch_min, ch_max, indoor } - blob pair = attenuation",
            "--- range (engine fade curve); ch pair = the source channel's SPAWN band vanilla's placement",
            "--- formula transforms; indoor = the channel flag for the vanilla volume rule.",
@@ -1493,22 +1537,18 @@ def cmd_deploy(a):
         return out
 
     for cat in sorted(effects):
-        by_bucket = {}
+        rows = []
         for e in effects[cat]:
             n = _deployed_name(e)
-            bk = e["bucket"]
-            b = _read_blob((snd / cat / bk / f"{n}.ogg").read_bytes())
+            b = _read_blob((snd / cat / f"{n}.ogg").read_bytes())
             mn, mx = (round(b[0], 1), round(b[1], 1)) if b else (1, 100)   # the DEPLOYED (floored) blob pair
             h = hmap.get(e["source_path"], 0)                 # aggregated source height (any pack), else 0
             bmn, bmx, ind = bands[id(e)]
-            by_bucket.setdefault(bk, []).append(
-                '{ "zs\\\\%s\\\\%s\\\\%s", %s, %s, %s, %s, %s, %s }' % (
-                    cat, bk, n, mn, mx, h, round(bmn, 1), round(bmx, 1), "true" if ind else "false"))
+            rows.append(
+                '{ "zs\\\\%s\\\\%s", %s, %s, %s, %s, %s, %s }' % (
+                    cat, n, mn, mx, h, round(bmn, 1), round(bmx, 1), "true" if ind else "false"))
         man.append('\t["%s"] = {' % cat)
-        for bk in sorted(by_bucket):
-            man.append('\t\t["%s"] = {' % bk)
-            man += _pack(by_bucket[bk], "\t\t\t")
-            man.append('\t\t},')
+        man += _pack(rows, "\t\t")
         man.append("\t},")
     man += ["}"]
     (root / "scripts").mkdir(parents=True, exist_ok=True)
@@ -1533,6 +1573,7 @@ def cmd_deploy(a):
 
     if not getattr(a, "wipe", True):
         _remove_stale(snd, effects)
+    _report_dangling_dread(effects, root)
     print(f"deployed to {root}")
     print(f"  categories: {len(effects)}; sounds: {sum(len(v) for v in effects.values())}")
     print(f"  veto DLTX: {veto['removals']} removals across {veto['channels']} channels; "
@@ -1567,6 +1608,7 @@ def cmd_ledger(a):
         p = HERE / fn
         return set(json.loads(p.read_text())) if p.exists() else set()
     silence_dropped = _load_set("silence_dropped.json") # dropped as dead/empty (true peak -inf)
+    reject_dropped  = _load_set("reject_dropped.json")  # by-ear rejected (REJECT), keyed by AUDIO hash
     longfile_culled = _load_set("longfile_culled.json") # dropped: active length > MAX_ACTIVE_S
     sliced_dropped  = _load_set("sliced_dropped.json")  # dark_signal originals replaced by sliced pieces
     rows, counts, pending = [], collections.Counter(), []
@@ -1586,6 +1628,8 @@ def cmd_ledger(a):
             under_root = low.split("/", 1)[0] in INCLUDE_ROOTS
             if _hash_audio(f) in deployed:
                 st = "USED-shipped"
+            elif _hash_audio(f) in reject_dropped:      # by-ear rejected at deploy (winner + its dup copies)
+                st = "REJECTED-by-ear"
             elif h in chosen:                           # a chosen sound whose audio isn't in the tree
                 st = "USED-effect-unshipped"
             elif emission:
@@ -1670,9 +1714,9 @@ def cmd_provenance(a):
     effects = _build_layers(mc, cls, ch_to_cat)
     _masterize_channels(effects)      # SAME fold deploy applies, so the mono-hash names match the tree
     _dedupe_folded(effects)           # SAME collapse deploy applies, so the row set matches the tree
-    _cull_dead(effects)               # SAME drop deploy applies, so the N-numbering matches the tree
+    _cull_dead(effects)               # SAME drop deploy applies, so the row set matches the tree
+    _apply_rejects(effects)           # SAME by-ear reject deploy applies, so the row set matches the tree
     zs = (Path(a.root) if getattr(a, "root", None) else GDATA) / "sounds/zs"   # honor --root like deploy
-    _stamp_buckets(effects, zs)                                                # e['bucket'] from the deployed tree
 
     # Structural capture: a sound's origin is its SOURCE PATH (orig_dir/orig_file from the source path) + the
     # pack it came from. No channel/settings/sections columns - categories are not channels. min/max/
@@ -1682,9 +1726,9 @@ def cmd_provenance(a):
     for cat in sorted(effects):                       # every sound deploys to zs\<category>\<name>
         for e in effects[cat]:
             n = _deployed_name(e)
-            dep = f"zs\\{cat}\\{e['bucket']}\\{n}"
+            dep = f"zs\\{cat}\\{n}"
             source_path = e["source_path"]
-            dfile = zs / cat / e["bucket"] / f"{n}.ogg"
+            dfile = zs / cat / f"{n}.ogg"
             bv = ""
             if dfile.exists():
                 b = _read_blob(dfile.read_bytes())
@@ -1794,17 +1838,17 @@ def _ingest_source(name, gd):
 
 
 def cmd_add(a):
-    """Incremental, NON-WIPING build. `add <Source> <path>` ingests one new source (net-new -> <cat>/all/);
-    `add` with no source just re-syncs the config from the current tree, applying your dread-bucket moves.
-    Never wipes zs/, so curation (files moved into low/med/high) is preserved. Run `rebuild` before a release
-    to refresh the ledger + provenance proofs."""
+    """Incremental, NON-WIPING build. `add <Source> <path>` ingests one new source (net-new -> <cat>/);
+    `add` with no source just re-syncs the config from the current tree. Never wipes zs/. Dread curation is
+    NOT in the tree - it is per-sound in as_static_dread.ltx (never wiped), so it is preserved regardless.
+    Run `rebuild` before a release to refresh the ledger + provenance proofs."""
     name, gd = getattr(a, "name", None), getattr(a, "gd", None)
     n_new = _ingest_source(name, gd) if (name and gd) else 0
     import types
     ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None), wipe=False)
     if n_new:
         print("\n========== classify =========="); cmd_classify(ns)
-    print("\n========== deploy (no wipe - dread buckets preserved) =========="); cmd_deploy(ns)
+    print("\n========== deploy (no wipe) =========="); cmd_deploy(ns)
     print(f"add: +{n_new} net-new deployed; config re-synced from the tree. "
           f"Run `rebuild` before release to refresh ledger + provenance.")
 
@@ -1830,9 +1874,9 @@ def cmd_provision(a):
 
 def cmd_rebuild(a):
     """FULL rebuild from scratch: plan -> classify -> loudness -> deploy -> ledger -> provenance. Wipes zs/
-    and re-emits the whole corpus into <cat>/all/ (resets dread curation - RARE, deliberate). One command so
-    the sequence (and the classify-after-plan rule) can never be got wrong. Use `add` for the curation-safe
-    incremental path."""
+    and re-emits the whole corpus FLAT into <cat>/ (dread lives per-sound in as_static_dread.ltx, not in the
+    tree, so a wipe never touches it). One command so the sequence (and the classify-after-plan rule) can
+    never be got wrong. Use `add` for the incremental path."""
     import types, time
     sources.check_licences()                          # never build with an uncleared source (licence=pending)
     ns = types.SimpleNamespace(out=None, root=getattr(a, "root", None))

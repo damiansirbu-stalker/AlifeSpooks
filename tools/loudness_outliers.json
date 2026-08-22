@@ -192,52 +192,47 @@
  {
   "ch": "labs",
   "source_path": "ambient/soundscape/background/Underground/underground_3",
-  "gain_db": 43.4
+  "gain_db": 43.1
  },
  {
   "ch": "labs",
   "source_path": "ambient/soundscape/background/underground_2",
-  "gain_db": 43.4
+  "gain_db": 43.1
  },
  {
   "ch": "labs",
   "source_path": "ambient/soundscape/underground/under_97",
-  "gain_db": 26.5
+  "gain_db": 26.2
  },
  {
   "ch": "labs",
   "source_path": "ambient/x16/x16_brain_death",
-  "gain_db": 33.0
+  "gain_db": 32.7
  },
  {
   "ch": "labs",
   "source_path": "ambient/soundscape/underground/spooks_below/ambient/sound_02",
-  "gain_db": 31.4
+  "gain_db": 31.1
  },
  {
   "ch": "labs",
   "source_path": "ambient/soundscape/underground/spooks_below/ambient/sound_12",
-  "gain_db": 25.0
- },
- {
-  "ch": "labs",
-  "source_path": "ambient/trx/spooks_below/ambient/sound_07",
   "gain_db": 24.7
  },
  {
   "ch": "labs",
   "source_path": "ambient/trx/spooks_below/machine/sound_08",
-  "gain_db": 26.5
+  "gain_db": 26.2
  },
  {
   "ch": "labs",
   "source_path": "ambient/underground/rnd_drop_4",
-  "gain_db": -36.6
+  "gain_db": -36.9
  },
  {
   "ch": "labs",
   "source_path": "ambient/underground/rnd_drop_5",
-  "gain_db": -36.6
+  "gain_db": -36.9
  },
  {
   "ch": "mutant",

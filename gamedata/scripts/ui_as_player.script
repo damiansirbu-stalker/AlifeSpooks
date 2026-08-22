@@ -1,5 +1,5 @@
 --- ui_as_player: the AlifeSpooks review/curation tool. A standalone keyboard-owning 2D modal (CUIScriptWnd)
---- opened by PageDown when the MCM sound_player toggle is on. It browses zs/<category>/<bucket>/ off disk,
+--- opened by PageDown when the MCM sound_player toggle is on. It browses zs/<category>/ off disk,
 --- auditions each sound through the director's own emit, and logs judgments by ear. It NEVER moves or
 --- deletes a file - it only writes log lines to alifespooks_notes.txt:
 ---   * SOUND NOTE: five premade one-word buttons (inaudible / faint / loud / unfit / good) plus a custom
@@ -9,9 +9,8 @@
 --- are no command shortcuts. While open the director is auto-silenced (restored on close). Replaces the old
 --- PDA tab (ui_as_player_tab / pda_dynamic_tabs) and the note popup (ui_as_note).
 
-local table_sort = table.sort
-local string_format, bit_or = string.format, bit_or
-local pairs, RegisterScriptCallback = pairs, RegisterScriptCallback
+local table_sort, string_format = table.sort, string.format
+local RegisterScriptCallback = RegisterScriptCallback
 
 local SND_ROOT   = "zs"
 -- DIK_NEXT (PageDown) opens the player. PageUp is now free (the note taker merged in).
@@ -36,8 +35,6 @@ local MODES = {
 local DREAD_PULL = 0.20
 local _cats     = nil
 local _files    = {}
--- cat -> { deployed name -> its dread bucket subdir }
-local _bucket_of = {}
 local _cat_i    = 1
 local _at_root  = true
 -- default audition mode: "as heard now" (MODES[1])
@@ -51,57 +48,31 @@ local _built    = false
 local function _current_category()  return _cats and _cats[_cat_i] end
 local function _current_mode()  return MODES[_mode_i] end
 
--- ---- disk enumeration (lazy per category, bucket-aware) -------------------
+-- ---- disk enumeration (lazy per category) ---------------------------------
 
 local function _scan_categories()
-    _cats = {}
-    local fl = getFS():file_list_open("$game_sounds$", SND_ROOT .. "\\", bit_or(FS.FS_ListFolders, FS.FS_RootOnly))
-    for i = 1, (fl and fl:Size() or 0) do
-        local name = fl:GetAt(i - 1):gsub("[\\/]", "")
-        if name ~= "" and name ~= "." and name ~= ".." then _cats[#_cats + 1] = name end
-    end
+    _cats = xfs.folders("$game_sounds$", SND_ROOT .. "\\")
     table_sort(_cats)
 end
 
---- Scan one dread-bucket dir's oggs into out + bucket_of (deployed name -> bucket).
-local function _scan_bucket_files(dir, bucket, out, bucket_of)
-    local fl = getFS():file_list_open("$game_sounds$", dir, bit_or(FS.FS_ListFiles, FS.FS_RootOnly))
-    for i = 1, (fl and fl:Size() or 0) do
-        local fname = fl:GetAt(i - 1)
-        if fname:sub(-4) == ".ogg" then
-            local name = fname:sub(1, -5)
-            out[#out + 1] = name
-            bucket_of[name] = bucket
-        end
-    end
-end
-
+--- Scan a category's oggs (flat: zs\<cat>\<name>.ogg, no dread subdir - dread lives in as_static_dread.ltx).
 local function _scan_files(cat)
     if _files[cat] then return _files[cat] end
-    local out, bucket_of, base = {}, {}, SND_ROOT .. "\\" .. cat .. "\\"
-    local bl = getFS():file_list_open("$game_sounds$", base, bit_or(FS.FS_ListFolders, FS.FS_RootOnly))
-    for b = 1, (bl and bl:Size() or 0) do
-        local bucket = bl:GetAt(b - 1):gsub("[\\/]", "")
-        if bucket ~= "" and bucket ~= "." and bucket ~= ".." then
-            _scan_bucket_files(base .. bucket .. "\\", bucket, out, bucket_of)
-        end
-    end
+    local out = xfs.files("$game_sounds$", SND_ROOT .. "\\" .. cat .. "\\", ".ogg")
     table_sort(out)
-    _files[cat], _bucket_of[cat] = out, bucket_of
+    _files[cat] = out
     return out
 end
 
---- The _cur record for a browsed sound: its path includes the dread bucket subdir it currently lives in.
+--- The _cur record for a browsed sound (flat path zs\<cat>\<name>).
 local function _cur_for(cat, name)
-    local bucket = (_bucket_of[cat] or {})[name] or "all"
-    return { cat = cat, name = name, bucket = bucket,
-             path = SND_ROOT .. "\\" .. cat .. "\\" .. bucket .. "\\" .. name }
+    return { cat = cat, name = name, path = SND_ROOT .. "\\" .. cat .. "\\" .. name }
 end
 
---- Flatten a category's { bucket -> rows } config into one row list, and find the row whose path matches.
-local function _find_row(cats, path)
-    for _, rows in pairs(cats or {}) do
-        for k = 1, #rows do if rows[k][1] == path then return rows[k] end end
+--- Find the config row whose path matches, within one category's flat sound list.
+local function _find_row(rows, path)
+    for k = 1, #(rows or {}) do
+        if rows[k][1] == path then return rows[k] end
     end
 end
 
@@ -228,7 +199,7 @@ function as_player_wnd:Refresh()
         self.lbl_path:SetText(string_format("sounds/%s/    (%d)", cat or "?", cat and #_scan_files(cat) or 0))
         self.status:SetText("click a sound to play    -    click a premade note, or type + add note")
     end
-    self.lbl_now:SetText(_cur and ("loaded:  " .. _cur.cat .. "/" .. _cur.bucket .. "/" .. _cur.name)
+    self.lbl_now:SetText(_cur and ("loaded:  " .. _cur.cat .. "/" .. _cur.name)
         or "loaded:  (none - click a sound)")
     self.lbl_pos:SetText("mode:  " .. self:_mode_label())
     if self.insp_read then self.insp_read:SetText(self:_read_spot()) end
@@ -286,7 +257,7 @@ function as_player_wnd:OnPlay()
     _cur = _cur_for(cat, name)
     self:_play_current()
     self:Refresh()
-    self.status:SetText(string_format("playing:  %s\\%s\\%s", cat, _cur.bucket, name))
+    self.status:SetText(string_format("playing:  %s\\%s", cat, name))
 end
 
 function as_player_wnd:OnReplay() self:_play_current() end
@@ -354,7 +325,7 @@ function as_player_wnd:SaveProbe()
 end
 
 function as_player_wnd:OnRescan()
-    _cats, _files, _bucket_of = nil, {}, {}
+    _cats, _files = nil, {}
     _scan_categories()
     if _cat_i > #_cats then _cat_i = 1 end
     self:FillList(); self:Refresh()

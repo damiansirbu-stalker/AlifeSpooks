@@ -11,7 +11,6 @@ local math_random, math_rad = math.random, math.rad
 local math_cos, math_sin = math.cos, math.sin
 local math_max, math_floor = math.max, math.floor
 local math_sqrt = math.sqrt
-local ini_file, parse_list = ini_file, parse_list
 local time_global, vector, GetEvent = time_global, vector, GetEvent
 local string_format, RegisterScriptCallback = string.format, RegisterScriptCallback
 local table_remove, table_concat = table.remove, table.concat
@@ -20,6 +19,8 @@ local tonumber, next = tonumber, next
 
 local MAP_FILE      = "scripts\\as_static_map.ltx"
 local POSITION_FILE = "scripts\\as_static_position.ltx"
+local DREAD_FILE    = "scripts\\as_static_dread.ltx"
+local SEC_DREAD     = "dread"
 local CHANNELS_FILE = "environment\\sound_channels.ltx"
 local SEC_DEFAULT   = "default"
 local SEC_POSITIONS = "positions"
@@ -114,10 +115,10 @@ local INSANE_DREAD = 0.80
 local PLAY_WINDOW_MS = 6000
 local TYPE_WRAP      = 34
 
--- Dread bucket cut points: board.dread -> the scene bucket the sound-bag draws from. Tunable, centered
--- where dread actually sits in play (~0.5). The "all" bucket plays at every scene (the uncurated wildcard).
-local DREAD_CUT_LOW = 0.40
-local DREAD_CUT_MED = 0.70
+-- Dread bucket limits: board.dread -> the scene bucket (low/med/high) the sound-bag draws from. Tunable,
+-- centered where dread actually sits in play (~0.5). A sound with no override plays at every scene bucket.
+local DREAD_LIMIT_LOW = 0.40
+local DREAD_LIMIT_MED = 0.70
 
 -- Visual layer: at peak dread only, a subtle distortion pulse (dwell-gated, cooldown, >=50% roll).
 local VIS_PPE         = { "blur.ppe", "total_recall.ppe", "steam_mine.ppe" }
@@ -147,14 +148,18 @@ local board = {
     elig_set = {},
 }
 
--- Runtime state. _category_sounds: category -> {dread bucket -> sound list} from as_sound_config_gen. _map/_map_set: the level's category set.
+-- Runtime state. _category_sounds: category -> flat sound list from as_sound_config_gen. _map/_map_set: the level's category set.
 -- _cat_bag/_snd_bag: the two shuffle-bags. _enclosure: the environment raycast cache (by cell). _visual: visual state.
+-- _sound_dread: deployed name -> low|med|high override (as_static_dread.ltx), nil until loaded, absent = every dread.
+-- _dread_pools: category -> {low/med/high -> {row}}, precomputed from the flat category + override at load.
 local _category_sounds      = {}
 local _loaded    = false
 local _map       = nil
 local _map_level = nil
 local _map_set   = {}
 local _positions     = nil
+local _sound_dread   = nil
+local _dread_pools   = {}
 local _cat_bag   = {}
 local _snd_bag   = {}
 local _gap_at    = 0
@@ -204,18 +209,57 @@ end
 
 -- ---- LOAD -----------------------------------------------------------------
 
---- Total sounds across a category's dread buckets (the nested { dread -> { row } } table).
-local function _count_sounds(cat)
-    local total = 0
-    for _, bucket in pairs(cat or {}) do total = total + #bucket end
-    return total
-end
+--- Sound count of a category (its flat row list from as_sound_config_gen).
+local function _count_sounds(cat) return cat and #cat or 0 end
 
---- True if a category has any sound in any dread bucket.
+--- True if a category has any sound.
 local function _has_sounds(cat) return _count_sounds(cat) > 0 end
 
---- Load each category's dread-bucketed sound table from as_sound_config_gen, once. The category value is
---- { dread -> { row, ... } }, each row { path, blob_min, blob_max, height, ch_min, ch_max, indoor }.
+--- Per-sound dread override (as_static_dread.ltx, section [dread]: deployed-name = low|med|high). A sound
+--- with an override plays ONLY at that dread; a sound with none plays at EVERY dread. Absent file = no
+--- overrides = every sound everywhere (the default). This is the single source of a sound's dread; it
+--- supersedes where the file sits on disk. Keyed by the deployed name (the stable slug_audiohash).
+local function _load_dread()
+    _sound_dread = {}
+    for key, val in pairs(xltx.section(DREAD_FILE, SEC_DREAD)) do
+        val = val and val:lower()
+        if val == "low" or val == "med" or val == "high" then _sound_dread[key] = val end
+    end
+end
+
+--- A sound row's override bucket (keyed by its deployed name = the path's last segment), or nil = every bucket.
+local function _dread_of(row)
+    local stem = tostring(row[1]):match("([^\\/]+)$")
+    return stem and _sound_dread[stem]
+end
+
+--- Place one row into the dread pools by its override: an overridden sound only in its own bucket, a
+--- no-override sound in all three (it plays at every dread).
+local function _assign_to_pools(pools, row)
+    local override = _dread_of(row)
+    if not override then
+        pools.low[#pools.low + 1]   = row
+        pools.med[#pools.med + 1]   = row
+        pools.high[#pools.high + 1] = row
+        return
+    end
+    local pool = pools[override]
+    if pool then pool[#pool + 1] = row end
+end
+
+--- Precompute, per category, the sound pool for each dread bucket from the category's flat row list + the
+--- per-sound override. Built once at load so the shuffle-bag draws from a stable pool (never rebuilt per pick).
+local function _build_dread_pools()
+    _dread_pools = {}
+    for name, cat in pairs(_category_sounds) do
+        local pools = { low = {}, med = {}, high = {} }
+        for i = 1, #cat do _assign_to_pools(pools, cat[i]) end
+        _dread_pools[name] = pools
+    end
+end
+
+--- Load each category's flat sound list from as_sound_config_gen, once. The category value is
+--- { row, ... }, each row { path, blob_min, blob_max, height, ch_min, ch_max, indoor }.
 local function _load_channels()
     if _loaded then return end
     _loaded = true
@@ -227,17 +271,18 @@ local function _load_channels()
         _category_sounds[name] = cats[name] or {}
         as_debug.dbg("as_director: category %s = %d sounds", name, _count_sounds(_category_sounds[name]))
     end
+    _load_dread()
+    _build_dread_pools()
 end
 
 --- Build the per-level eligible-category set from as_static_map.ltx ([default] + [level]), once per level.
 local function _load_map(level_name)
     if _map_level == level_name then return end
     _map_level = level_name
-    if not _map then _map = ini_file(MAP_FILE) end
+    if not _map then _map = xltx.open(MAP_FILE) end
     _map_set = {}
     local function add_section(section)
-        if not (_map and _map:section_exist(section)) then return end
-        for _, name in ipairs(parse_list(_map, section, "categories")) do
+        for _, name in ipairs(xltx.list(_map, section, "categories")) do
             if CATEGORY[name] and _has_sounds(_category_sounds[name]) then _map_set[name] = true end
         end
     end
@@ -250,30 +295,29 @@ end
 -- list (a handful of records); the scan checks the current level's few via xmath.in_range. A position ALWAYS
 -- wins where the actor is inside its radius - it overrides the level lore and even a safe hub.
 local function _parse_position(ini, name)
-    if not ini:section_exist(name) then return nil end
-    local pos = ini:r_string_ex(name, "pos")
-    local position_level = ini:r_string_ex(name, "level")
+    if not xltx.has(ini, name) then return nil end
+    local pos = xltx.str(ini, name, "pos")
+    local position_level = xltx.str(ini, name, "level")
     local cx, cz
     if pos then cx, cz = pos:match("(-?[%d.]+)%s*,%s*-?[%d.]+%s*,%s*(-?[%d.]+)") end
     if not (position_level and cx and cz) then return nil end
     local cats = {}
-    for _, cat in ipairs(parse_list(ini, name, "categories")) do cats[cat] = true end
+    for _, cat in ipairs(xltx.list(ini, name, "categories")) do cats[cat] = true end
     return {
         name = name, level = position_level, px = tonumber(cx), pz = tonumber(cz),
-        radius = ini:r_float_ex(name, "radius") or 30,
-        dread = ini:r_float_ex(name, "dread"),
-        add = ini:r_float_ex(name, "add") or 0,
+        radius = xltx.num(ini, name, "radius") or 30,
+        dread = xltx.num(ini, name, "dread"),
+        add = xltx.num(ini, name, "add") or 0,
         cats = next(cats) and cats or nil,
-        only = ini:r_string_ex(name, "select") == "only",
+        only = xltx.str(ini, name, "select") == "only",
     }
 end
 
 local function _load_positions()
     if _positions then return end
     _positions = {}
-    local ini = ini_file(POSITION_FILE)
-    if not (ini and ini:section_exist(SEC_POSITIONS)) then return end
-    for _, name in ipairs(parse_list(ini, SEC_POSITIONS, "list")) do
+    local ini = xltx.open(POSITION_FILE)
+    for _, name in ipairs(xltx.list(ini, SEC_POSITIONS, "list")) do
         local position = _parse_position(ini, name)
         if position then _positions[#_positions + 1] = position end
     end
@@ -418,23 +462,20 @@ local function _pick_category()
     return name
 end
 
---- The scene dread bucket the sound-bag draws from (plus the always-on "all" wildcard).
+--- The scene dread bucket the sound-bag draws from (low/med/high, via the DREAD_LIMIT cut points).
 local function _dread_bucket(dread)
-    if dread >= DREAD_CUT_MED then return "high" end
-    if dread >= DREAD_CUT_LOW then return "med" end
+    if dread >= DREAD_LIMIT_MED then return "high" end
+    if dread >= DREAD_LIMIT_LOW then return "med" end
     return "low"
 end
 
---- Sound shuffle-bag within a category's dread buckets: the pool is the scene bucket plus the always-on
---- "all" wildcard, and every sound in the pool plays once before any repeat. Keyed per category+bucket so a
---- scene-dread shift rebuilds the bag against the new pool.
+--- Sound shuffle-bag for a category at the scene's dread bucket. The pool is _dread_pools[category][bucket]
+--- (no-override sounds are in every bucket, overridden ones only in theirs); every sound in the pool plays
+--- once before any repeat. Keyed per category+bucket so a scene-dread shift draws from that bucket's pool.
 local function _pick_sound(name, scene_bucket)
-    local cat = _category_sounds[name]
-    if not cat then return nil end
-    local pool, matched, all = {}, cat[scene_bucket], cat.all
-    if matched then for i = 1, #matched do pool[#pool + 1] = matched[i] end end
-    if all then for i = 1, #all do pool[#pool + 1] = all[i] end end
-    if #pool == 0 then return nil end
+    local pools = _dread_pools[name]
+    local pool = pools and pools[scene_bucket]
+    if not pool or #pool == 0 then return nil end
     if #pool == 1 then return pool[1] end
     local key = name .. "/" .. scene_bucket
     local bag = _snd_bag[key]
@@ -685,28 +726,28 @@ end
 local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
 
 local function _read_base_channel(ch, ini_snd)
-    local raw = parse_list(ini_snd, ch, "sounds")
+    local raw = xltx.list(ini_snd, ch, "sounds")
     if not raw or #raw == 0 then return nil end
     return { name = ch, sounds = raw,
-        max_dist = ini_snd:r_float_ex(ch, "max_distance") or 100,
-        min_dist = ini_snd:r_float_ex(ch, "min_distance") or 1,
-        height   = ini_snd:r_float_ex(ch, "height") or 0,
-        indoor   = ini_snd:r_bool_ex(ch, "indoor") or false,
-        periods  = { ini_snd:r_float_ex(ch, "period0") or 10, ini_snd:r_float_ex(ch, "period1") or 15,
-                     ini_snd:r_float_ex(ch, "period2") or 20, ini_snd:r_float_ex(ch, "period3") or 25 } }
+        max_dist = xltx.num(ini_snd, ch, "max_distance") or 100,
+        min_dist = xltx.num(ini_snd, ch, "min_distance") or 1,
+        height   = xltx.num(ini_snd, ch, "height") or 0,
+        indoor   = xltx.bool(ini_snd, ch, "indoor") or false,
+        periods  = { xltx.num(ini_snd, ch, "period0") or 10, xltx.num(ini_snd, ch, "period1") or 15,
+                     xltx.num(ini_snd, ch, "period2") or 20, xltx.num(ini_snd, ch, "period3") or 25 } }
 end
 
 local function reset_base(level_name, ambient)
     _base.chan, _base.idx, _base.tot = {}, 0, 0
     if not (level_name and ambient and ambient ~= "") then return end
-    local ini_lvl = ini_file("environment\\ambients\\" .. level_name .. ".ltx")
+    local ini_lvl = xltx.open("environment\\ambients\\" .. level_name .. ".ltx")
     if not ini_lvl then return end
-    local channels = parse_list(ini_lvl, ambient, "sound_channels_dynamic")
+    local channels = xltx.list(ini_lvl, ambient, "sound_channels_dynamic")
     if #channels == 0 then return end
-    local cached, ini_snd = {}, ini_file(CHANNELS_FILE)
+    local cached, ini_snd = {}, xltx.open(CHANNELS_FILE)
     for i = 1, #channels do
         local ch = channels[i]
-        local entry = (not cached[ch]) and ini_snd:section_exist(ch) and _read_base_channel(ch, ini_snd)
+        local entry = (not cached[ch]) and xltx.has(ini_snd, ch) and _read_base_channel(ch, ini_snd)
         cached[ch] = true
         if entry then
             _base.tot = _base.tot + 1

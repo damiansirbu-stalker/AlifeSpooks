@@ -2,8 +2,8 @@ AlifeSpooks: dark horror ambience for STALKER Anomaly, by Damian
 Version: next (xlibs required)
 GitHub: https://github.com/damiansirbu-stalker/AlifeSpooks
 Changelog: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/changelog
-Russian / Na russkom: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/readme_ru.txt
-Bugs, suggestions: https://github.com/damiansirbu-stalker/AlifeSpooks/issues
+Read it in Russian / Na russkom: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/readme_ru.txt
+Report bugs and suggestions: https://github.com/damiansirbu-stalker/AlifeSpooks/issues
 
 Alife Collection:
 AlifeBalance: https://www.moddb.com/mods/stalker-anomaly/addons/alifebalance
@@ -15,90 +15,127 @@ AlifeTactics: https://www.moddb.com/mods/stalker-anomaly/addons/alifetactics
 
 Reset MCM settings to defaults after updating.
 
-The Zone used to be frightening. Modern soundscape mods sharpened its realism and stripped the horror out in the trade. AlifeSpooks puts it back.
+The Zone used to be frightening.
+Modern soundscape mods traded that dread for realism.
+AlifeSpooks is my attempt to put the fear back without giving up the fidelity.
 
-It is a dread director. It reads where you stand and who is near, scores the dread of the place, and plays curated horror one-shots to match.
-Nothing is a random timer and nothing is scripted.
-The soundscape follows the real state of the game around you, the way the rest of the Alife Collection reads state and decides rather than rolls dice.
-Part of its horror is unreleased Dark Signal audio, interior sound Shrike made and never released, given straight to this mod.
+It is a dread director, driven by where you stand and who is near. It answers the dread of the place with curated horror one-shots.
+No random timers, no scripts. The soundscape follows the real state of the game around you.
+Some of its horror is interior audio Shrike made for Dark Signal and never released, given straight to this mod.
 
-The mod is three things. A director reads the Zone and plays to it. A veto keeps it from ever doubling the base ambience. A measured pipeline builds its sound library.
-It needs xlibs, the library that plays its sounds. Without xlibs the mod is inert.
+AlifeAmbience is its companion.
+AlifeSpooks plays the horror and vetoes it from the base channels. AlifeAmbience owns the living nature-and-weather bed it leaves alone.
+Run both and the Zone is real and frightening at once.
+
+Three parts.
+A director reads the Zone and plays to it.
+A veto keeps it from doubling the base ambience.
+A measured pipeline builds the sound library.
+It needs xlibs to play the sounds. Without xlibs it is inert.
 
 
 1. The director
 
-The director is the core. It reads where you are and plays to it. Two things drive it: WHERE you stand decides which sounds can play, and how much DREAD the place carries decides how close and how often they play.
-A base in daylight is silent. A lab with a mutant near at night is loud and close. Most of the Zone sits in between.
+Two things drive it.
+WHERE you stand decides which sounds can play.
+How much DREAD the place carries decides how close, how often, and which of them play.
+A base in daylight is silent. A lab with a mutant near at night is loud and close. Most of the Zone sits between.
 
-Where you are. Selection is geography, checked in order.
-The map you are on has a curated list of what belongs there, traced from the source packs, so a lab level plays facility and machine sound, a swamp plays its own mutant atmosphere, and a wild forest never plays the radio signal.
-A base near, spotted by a live trader, medic, or mechanic, cancels everything: a base is a safe hub and goes silent, whatever faction owns it.
-Outdoor, indoor, underground, or a lab then filters the rest, so the open never plays doors or machinery and an interior never plays leaves or wind.
+Where you are, checked in order.
+Each level has a curated list of what belongs on it, traced from the source packs.
+A lab plays facility and machine sound. A swamp plays its own mutant atmosphere. A wild forest never plays the radio signal.
+A base near, marked by a live service NPC, cancels everything and goes silent, whatever faction owns it.
+The enclosure filters the rest. Outdoor never plays doors or machinery. An interior never plays leaves or wind.
 
-How much dread. Dread is one plain sum, with no multiplier and no floor: the level's own baseline, plus how enclosed you are, plus the hour, plus the single scariest thing near, minus your own people around.
-The level baseline is the dread a place carries on its own, grim in the psi north and the labs, mundane in the fields.
-The scariest thing near is one reading and never a body count, and a man is weighed like a monster by its strength: the strongest one near weighs most, a weaker one less, and being truly alone weighs a little on its own.
-Allies near are the only thing that calms you, so a place with your people falls quiet while a grim empty place still carries its dread.
-Dread drives how close a sound is placed and how often it fires. A calm place puts them far and faint, a scary one brings them close and loud. It never changes the sound's own level, only how near it plays, and never so far that it falls silent.
+Dread itself is one plain sum, no multiplier and no floor.
+It adds the level's baseline, how enclosed you are, the hour, and the single scariest thing near, then subtracts your own people around.
+The baseline is the dread a place carries alone, grim in the psi north and the labs, mundane in the fields.
+The scariest thing near is one reading, never a body count. A man and a monster of the same strength weigh the same.
+True isolation weighs a little on its own.
+Allies near are the only thing that calms you, so a place with your people falls quiet while a grim empty one still carries its dread.
+Dread places a sound closer and fires it more often as it rises.
+It never changes the sound's own level, only how near it plays, and never so far that it falls silent.
 
-The palette. The sounds are grouped into categories, each playing only where it fits and only when its condition is met.
-Spooks, screams, and dark drones play wherever the map allows. A mutant category needs a real mutant present, gunfire needs a person present, and the radio signal plays only where a signal source makes sense.
-Wind, foliage, and eerie wildlife are outdoor texture, while doors, machinery, drips, and facility sound belong indoors and underground.
-Every category rotates so a scare stays rare against the texture, and no call plays twice in a row.
+The palette.
+Sounds fall into categories, each playing only where it fits and only when its condition holds.
+Spooks, screams, and dark drones play wherever the map allows.
+Mutant calls need a mutant present. Gunfire needs a person. The radio signal needs a signal source nearby.
+Wind, foliage, and eerie wildlife are outdoor texture. Doors, machinery, drips, and facility sound belong indoors and underground.
+Each category rotates so a scare stays rare against the texture and no call plays twice in a row.
+Dread also chooses within a category.
+By default a sound plays at every dread level.
+You can hold a calm sound to quiet scenes and a scare to tense ones, so the palette shifts as the dread climbs.
+That tuning is per-sound, hand-set, and separate from the audio, so it survives every rebuild of the library.
 
-Each one-shot is placed in 3D around and above you at the distance its own author chose, through the same placement the game's ambient system uses, so it sounds exactly as it did in the mod it came from. A sound the author meant to come from overhead still comes from overhead. Every sound is mono, the only form the engine places in 3D, so nothing is a flat sound stuck at your ear.
-A long horror drone or the radio signal plays as a spaced one-shot, never a continuous loop.
+The director places each one-shot in 3D around and above you, at the distance its own author chose.
+It uses the same placement the game's ambient system uses, so a sound plays as it did in the mod it came from.
+A sound meant to come from overhead still does.
+Every sound is mono, the only form the engine places in 3D, so nothing sticks flat at your ear.
+A long drone or the radio signal plays as a spaced one-shot, never a loop.
 
 
 2. The veto
 
-The mod never doubles the base ambience. If you also run a soundscape pack it drew from, that pack's ambient plays the same sounds.
+If you also run a soundscape pack it drew from, that pack's ambient plays the same sounds.
 AlifeSpooks removes its own sounds from the base's ambient channels, so only its curated version plays, under its director.
-
-It does this statically, at config load, with a generated overlay.
-The overlay strips each of the mod's sounds out of every base channel that lists it, at the path each source pack files it under.
-When the same sound sits in more than one pack it drew from, an exact copy or a re-encode, it removes each pack's copy, so whichever of those packs you run, the base's version is the one taken out and only the director's plays.
-It leaves every other base sound untouched. It is a config change applied once at load, not a runtime loop, so it costs nothing while you play and cannot be lost to another script.
-It can never over-reach. It removes only the exact sounds the mod plays, never a folder, never a channel, never a wind bed or a creature call it does not carry.
-No collision and no doubled density over any base: it removes its own sounds at the packs it draws from, so GAMMA, vanilla, and the Dark Signal packs each keep their own atmosphere exactly as before.
+It does this statically at config load, with a generated overlay that strips each of the mod's sounds out of every base channel that lists it, at the path each source pack files it under.
+A sound can ship in more than one pack. The copies include exact reships and re-encodes. It removes every one. Whichever pack you run, the base loses its version.
+The base keeps everything else it plays.
+It removes exact sounds, never a folder, never a channel, never a wind bed or creature call the mod does not carry.
+It is one config change at load, not a runtime loop, so it costs nothing while you play and no other script can strip it.
+GAMMA, vanilla, and the Dark Signal packs each keep their own atmosphere.
 
 
 3. The source and the measured pipeline
 
-The audio is built by a reproducible, measured pipeline, one command end to end, not dumped in. Every sound is analyzed before it goes in.
-ffmpeg reads its spectral centroid and flatness, its crest factor, and its integrated loudness in EBU R128 LUFS. ffprobe reads its duration, sample rate, and codec.
-Each pack's folders are mapped to horror categories by hand, and every file in them is pulled, so nothing the pack buries goes missed.
-A sound too long for a one-shot is dropped, and the long radio-signal bed is sliced into short pieces, so nothing overlaps itself.
-Each file keeps its own author's loudness, the X-Ray gain the source author set in the ogg comment, written back unchanged, with no leveling. The authored levels are tight and field-tested in the source mods, so the corpus already plays at one even level, and dread comes from where a sound is placed, never from re-leveling one file against the next. It is a number in the header, not the audio, so nothing is re-encoded.
+Measurement drives every choice here, not taste.
+The build is a reproducible pipeline, one command end to end.
+It measures every sound before it goes in.
+ffmpeg reads its spectral centroid, flatness, crest factor, integrated loudness in EBU R128 LUFS. ffprobe reads its duration, sample rate, codec.
+Each pack's folders map to horror categories by hand, and the build pulls every file in them, so it misses nothing the pack buries.
+The build drops a sound too long for a one-shot. It slices the long radio-signal bed into short pieces.
+Each file keeps its author's own loudness, the X-Ray gain set in the ogg comment, written back unchanged. No leveling.
+The authored levels are tight and field-tested in the source mods, so the corpus already plays even.
+Dread comes from where the director places a sound, not from re-leveling one file against the next.
+The gain is a number in the header, not the audio, so nothing is re-encoded.
 
-Identity is decided by the waveform, in three stages, cheapest first, so the expensive test runs only on the pairs the cheap ones flag. An exact md5 hash collapses byte-identical reships.
-A Chromaprint acoustic fingerprint proposes the re-encoded copies the hash misses, but its same-versus-distinct ranges overlap, so it only proposes and never decides.
-A PCM cross-correlation decides. It decodes both files, aligns them by envelope, and correlates over the overlap, where a re-encode scores near 1.0 and a different sound near 0.
-Files merge only under complete linkage, so a similarity chain never collapses two distinct recordings, and variety is never lost. This runs among the source packs only.
-The mod never drops a sound because your install already plays it. It carries the full curated dark corpus and removes the base copy at load instead.
+Identity is the waveform, decided in three stages, cheapest first.
+An md5 hash collapses byte-identical reships.
+A Chromaprint fingerprint proposes the re-encoded copies the hash misses, but its ranges overlap, so it only proposes.
+A PCM cross-correlation decides. It decodes both files, aligns them by envelope, then correlates over the overlap. A re-encode scores near 1.0, a different sound near 0.
+Files merge only under complete linkage, so a similarity chain never collapses two real recordings and variety holds.
+This runs among the source packs only.
+The mod never drops a sound because your install already plays it. It carries the full corpus and removes the base copy at load instead.
 
-Every mono sound is redistributed byte for byte, its audio untouched, carrying its author's own X-Ray volume and distance band in its ogg comment. A stereo sound is the one exception: the engine cannot place a stereo sound in 3D, it plays flat at your ear, so the build folds it to mono and then writes the comment, its author's values captured before the fold so they are not lost.
-A source that lacks that metadata is given it losslessly, the median of its category band, so only the comment header changes and the audio bytes stay identical.
-Most of this corpus was never actually heard where it came from. Two thirds of the files were carried by their packs but wired into no channel, so their own schedulers never played them once, and most of the rest carry an unset engine distance field that silences a sound placed more than a few meters away. The build corrects that one field to the game's own far-ambience standard, so thousands of sounds that existed only as files on disk now play in the world, at their author's loudness, for the first time.
-A fitness gate keeps 44.1 kHz vorbis, the X-Ray standard, and accounts anything dropped. A ledger proves no net-new dark sound is missed.
-A provenance record maps every carried sound back to its origin mod, folder, and name, and self-verifies by audio hash.
-Nothing loses its origin, even though the files are organized into the mod's own categories.
-
-It reads cheap signals every few seconds, never per frame, and caches them, so the cost is a slow timer whatever plays on screen.
+Mono ships byte for byte, audio untouched, carrying its author's volume and distance band in the ogg comment.
+Stereo is the one exception. The engine cannot place it in 3D, so the build folds it to mono and then writes the comment, the author's values captured before the fold.
+A file that lacks that metadata gets it losslessly, the median of its category band, so only the header changes.
+Most of this corpus never played where it came from.
+Their packs carried two thirds of the files but wired them into no channel, so their own schedulers never played them.
+Most of the rest carry an unset engine distance field that silences a sound more than a few meters away.
+The build corrects that one field to the game's own far-ambience standard.
+Thousands of sounds that existed only as files on disk now play in the world, at their author's loudness, for the first time.
+A fitness gate keeps 44.1 kHz vorbis, the X-Ray standard, and accounts anything dropped.
+A ledger proves the build misses no dark sound.
+A provenance record maps every shipped sound back to its origin mod, folder, and name, self-verified by audio hash. Nothing loses its origin.
+The director reads cheap signals every few seconds, never per frame, then caches them. The cost stays a slow timer whatever is on screen.
 
 
 MCM:
-The MCM has three tabs. Atmosphere holds one master volume for the mod's sounds, plus rarity.
-The master volume is also the balance control between the horror and your base ambience. The mod plays each sound at its author's own loudness, already even across the corpus, but never touches the base, so if your soundscape mod sits louder or quieter, this one slider sets the dread against it.
-There are no per-category sliders: the director mixes every kind of sound off the single master.
-Visuals toggles the screen distortion at peak dread. Development holds the trace level, a log flush, the debug HUD, and a reset-to-defaults button.
-The in-game HUD reads out the current dread, each term that fed it, what is playing, and what the base ambience is playing, so you can see exactly why a place sounds the way it does.
+Three tabs.
+Atmosphere holds one master volume for the mod's sounds plus rarity.
+That volume also balances the horror against your base ambience.
+The mod plays each sound at its author's loudness and never touches the base.
+So if your soundscape mod sits louder or quieter, this slider sets the dread against it.
+There are no per-category sliders.
+Visuals toggles the screen distortion at peak dread.
+Development holds the trace level, a log flush, the debug HUD, and a reset button.
+The in-game HUD reads out the current dread, each term that fed it, what is playing, and what the base ambience is playing, so you can see why a place sounds the way it does.
 
 Requirements:
 Anomaly 1.5.3
 xlibs (plays the sounds, https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001)
-MCM (for the settings and the trace)
+MCM (shows the settings and the trace)
 
 Install (MO2):
 1. Install xlibs
@@ -110,29 +147,40 @@ Uninstall (MO2):
 Disable or remove in MO2.
 
 Performance:
-Performance comes first, ahead of any feature. AlifeSpooks reads its signals every few seconds and caches them, never per frame, and its audio is byte for byte with no engine-bed cost.
-When a feature cannot fit that budget it is reworked, replaced, or removed with an X-Ray engine modification rather than allowed to slow the game.
+Performance comes first, ahead of any feature.
+AlifeSpooks reads its signals every few seconds and caches them, never per frame. Its audio is byte for byte with no engine-bed cost.
+A feature that cannot fit that budget changes, or moves into an X-Ray engine modification, before it slows the game.
 
 Compatibility:
-Built for GAMMA and the Dark Signal soundscape base, and it runs on vanilla Anomaly and any soundscape mod.
-Because it removes only its own sounds from the base channels and adds nothing, it never doubles or collides with the base ambience, on GAMMA, vanilla, or any soundscape pack.
-It runs as a self-contained layer over any of them. It plays its own sounds through its own director, so it never fights a soundscape mod; its removal only takes sounds out, so it can never empty or break a base channel; and it replays whatever base ambience wins, so those beds keep sounding. Its own sounds play at their authors' own loudness and from their authors' own distances, so the horror sits within the base mix, not over it, and the master volume balances the two when a base runs unusually loud or quiet.
-Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and with the soundscape and ambient packs it draws from: Dark Signal Amplified Soundscape, the Dark Signal Audio, Mutants, and Blowout and Anomalies packs, RETUNE Ambient Sounds, myRETUNE Antares 2.1, Audio Expansion, Ambient Extended Reworked, Immersive Ambience Expansion, and Real Distant Mutants Sounds. Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
-You can install or remove it mid-save. Weather sound stays the base ambience's job, AlifeSpooks adds no storm or rain.
+It runs on vanilla Anomaly, on GAMMA, and alongside any soundscape mod.
+It removes only its own sounds from the base channels and adds nothing. It never doubles or collides with the base ambience.
+It runs as a self-contained layer. It plays its own sounds through its own director, so it never fights a soundscape mod.
+Its removal only takes sounds out, so it can never empty or break a base channel. It replays whatever base ambience wins, so those beds keep sounding.
+Its own sounds play at their authors' loudness and distances, so the horror sits within the base mix rather than over it.
+The master volume balances the two when a base runs unusually loud or quiet.
+Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active).
+Tested with every source pack listed under Credits below.
+Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
+You can install or remove it mid-save. Weather sound stays the base ambience's job. AlifeSpooks adds no storm or rain.
 
 Credits:
-Most of the sounds come from the original S.T.A.L.K.E.R. games and from the standalone builds that carry and rework their audio: Solyanka (NS OGSR), Dead Air, OGSE, Prosector, NLC, OLR, and Lost Alpha.
-The rest is dark ambience from community soundscape packs, with thanks to their authors: the Dark Signal family and Amplified Soundscape by Shrike, Soundscape Overhaul by Solarint, RETUNE by Aphrodite_child and myRETUNE Antares, Audio Expansion by AniHVX, Ambient Extended by Txiku, Immersive Ambience Expansion by Kutee, and Real Distant Mutants Sounds.
+Most of the sounds come from the original S.T.A.L.K.E.R. games and the standalone builds that carry and rework that audio.
+Those builds: Solyanka (NS OGSR), Dead Air, OGSE, Prosector, NLC, OLR, Lost Alpha.
+The rest is dark ambience from community soundscape packs, with thanks to their authors.
+Shrike made the Dark Signal family and Amplified Soundscape. Solarint made Soundscape Overhaul.
+Aphrodite_child and myRETUNE Antares made RETUNE. AniHVX made Audio Expansion.
+Txiku made Ambient Extended. Kutee made Immersive Ambience Expansion. Real Distant Mutants Sounds rounds out the set.
 Shrike also gave unreleased interior audio he made for Dark Signal and never released, exclusive to this mod.
-Every source is either freely licensed or used with the author's permission, granted for my mods, not tied to any one mod. Every author is credited above; only selected audio is included, and if an author does not want their work included it is removed.
-Each source's license and the granting author's permission are recorded in licensing.md; nothing is included without a free license or the author's consent.
+Each source carries a free license, or its author gave permission for my mods, not tied to any one mod.
+I credit every author above. I include only selected audio. If an author does not want their work included, I remove it.
+licensing.md records each source's license and the granting author's permission. I include nothing without a free license or the author's consent.
 
 Usage and License:
-Modpacks are allowed and encouraged. Keep the readme and license files.
-Addons, patches, and integrations are allowed. Credit "AlifeSpooks by Damian Sirbu" visibly on your mod page.
+Modpacks are welcome. Keep the readme and license files.
+Addons, patches, and integrations are fine. Credit "AlifeSpooks by Damian Sirbu" visibly on your mod page.
 You may not reproduce the implementation in other software, even with credit.
 The full license is in the LICENSE file and on GitHub.
 
 Issues and suggestions:
 Open a report at https://github.com/damiansirbu-stalker/AlifeSpooks/issues/new/choose, or ask on the GAMMA, EFP, Anomaly, and Zona Discord servers.
-Read this readme and the MCM options first. Set the MCM log level to DEBUG, reproduce, then back to WARN, and include the debug log with your report.
+Read this readme and the MCM options first. Set the MCM log level to DEBUG. Reproduce the issue. Set it back to WARN. Include the debug log with your report.

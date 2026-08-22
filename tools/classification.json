@@ -21,41 +21,11 @@
  },
  {
   "ch": "bats",
-  "source_path": "ambient/trx/spooks_below/bats/sound_01",
-  "dur": 4.0,
-  "cen": 9000,
-  "flat": 0.218,
-  "crest": 18.4,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "bats",
-  "source_path": "ambient/trx/spooks_below/bats/sound_02",
-  "dur": 4.2,
-  "cen": 8352,
-  "flat": 0.266,
-  "crest": 20.5,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "bats",
   "source_path": "ambient/trx/nature/bats/sound_03",
   "dur": 5.1,
   "cen": 8775,
   "flat": 0.35,
   "crest": 15.4,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "bats",
-  "source_path": "ambient/trx/spooks_below/bats/sound_03",
-  "dur": 5.1,
-  "cen": 7711,
-  "flat": 0.362,
-  "crest": 15.5,
   "bright": "bright",
   "tone": "mixed"
  },
@@ -86,36 +56,6 @@
   "cen": 8843,
   "flat": 0.337,
   "crest": 6.6,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "bats",
-  "source_path": "ambient/trx/spooks_below/bats/sound_04",
-  "dur": 2.3,
-  "cen": 7583,
-  "flat": 0.394,
-  "crest": 10.4,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "bats",
-  "source_path": "ambient/trx/spooks_below/bats/sound_05",
-  "dur": 2.9,
-  "cen": 7979,
-  "flat": 0.354,
-  "crest": 9.3,
-  "bright": "bright",
-  "tone": "mixed"
- },
- {
-  "ch": "bats",
-  "source_path": "ambient/trx/spooks_below/bats/sound_06",
-  "dur": 2.1,
-  "cen": 7798,
-  "flat": 0.378,
-  "crest": 6.4,
   "bright": "bright",
   "tone": "mixed"
  },
@@ -11127,86 +11067,6 @@
   "flat": 0.044,
   "crest": 27.2,
   "bright": "bright",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "characters_voice/scenario/pri/followers_underground_phrase1",
-  "dur": 9.4,
-  "cen": 3607,
-  "flat": 0.125,
-  "crest": 9.9,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "characters_voice/scenario/pri/followers_underground_phrase2",
-  "dur": 1.9,
-  "cen": 2842,
-  "flat": 0.04,
-  "crest": 5.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "characters_voice/scenario/pri/followers_underground_phrase3",
-  "dur": 3.5,
-  "cen": 2664,
-  "flat": 0.035,
-  "crest": 4.6,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "characters_voice/scenario/scared_stalker_underground/scared_stalker_underground_1",
-  "dur": 2.6,
-  "cen": 3451,
-  "flat": 0.069,
-  "crest": 4.0,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "characters_voice/scenario/scared_stalker_underground/scared_stalker_underground_2",
-  "dur": 2.0,
-  "cen": 2892,
-  "flat": 0.057,
-  "crest": 3.1,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "characters_voice/scenario/scared_stalker_underground/scared_stalker_underground_3",
-  "dur": 2.7,
-  "cen": 2636,
-  "flat": 0.051,
-  "crest": 3.9,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "characters_voice/scenario/scared_stalker_underground/scared_stalker_underground_4",
-  "dur": 1.3,
-  "cen": 2527,
-  "flat": 0.045,
-  "crest": 3.2,
-  "bright": "mid",
-  "tone": "tonal"
- },
- {
-  "ch": "labs",
-  "source_path": "characters_voice/scenario/scared_stalker_underground/scared_stalker_underground_5",
-  "dur": 1.7,
-  "cen": 2415,
-  "flat": 0.047,
-  "crest": 4.1,
-  "bright": "mid",
   "tone": "tonal"
  },
  {
