@@ -1,7 +1,7 @@
---- as_test: AlifeSpooks dev harness. Console helpers plus the atmosphere probe collector.
---- Console helpers are inert until called (run_string as_test.dev_setup()). as_test.snapshot() is
---- the coordinate/atmosphere probe, invoked from the PDA tab inspector (ui_as_player_tab's Snapshot
---- button); it never fires for players. INSERT opens the note taker (ui_as_note), gated by its MCM toggle.
+--- as_test: AlifeSpooks dev harness. Console helpers, the atmosphere probe collector, and the writer for
+--- the shared notes file (alifespooks_notes.txt). Console helpers are inert until called
+--- (run_string as_test.dev_setup()). as_test.note_sound / note_probe are the review player's notes writers
+--- (ui_as_player, PageDown); as_test.snapshot() logs the diagnostic atmosphere probe to alifespooks_probe.log.
 
 as_test = as_test or {}
 
@@ -283,7 +283,7 @@ end
 local function _snap_level_species(log, level_id)
     local species = {}
     for smart in xsmart.smart_iter() do _add_smart_species(smart, level_id, species) end
-    log.info("LEVEL-SPECIES {%s}", _fmt(species))
+    log.info("LEVEL-SPECIES {%s}", _format_pairs(species))
 end
 
 -- ---- crystallization probes (raw numbers to fit the director thresholds) ----
@@ -402,11 +402,78 @@ function as_test.snapshot(note)
         tostring(note or "?"), tostring(level.name()), apos.x, apos.y, apos.z), nil, nil, 20000)
 end
 
+-- ---- the shared notes file (alifespooks_notes.txt) ------------------------
+-- One clean, human-readable notes file the review player appends to: [SOUND] note lines and [PROBE]
+-- atmosphere dumps. Distinct from the diagnostic alifespooks_probe.log (xlog, machine-prefixed lines) -
+-- written raw (io.open append, no prefix) so it stays shareable and diff-able. Human-read only; nothing
+-- parses it. The player is the caller; the writer lives here (the note/snapshot home).
+
+local NOTES_FILE = "alifespooks_notes.txt"
+
+local function _notes_append(lines)
+    local base = getFS and getFS():update_path("$logs$", "")
+    if not base then return false end
+    local fh = io.open(base .. NOTES_FILE, "a")
+    if not fh then return false end
+    for i = 1, #lines do fh:write(lines[i]); fh:write("\n") end
+    fh:flush(); fh:close()
+    return true
+end
+
+--- Append one [SOUND] note line: the deployed path (-> provenance origin), the live dread, level +
+--- coordinate, and the note text (a premade or a typed custom note). One line, comparable.
+function as_test.note_sound(path, text)
+    local actor = db.actor
+    if not (actor and level.present()) then return false end
+    local board = as_director and as_director.get_board and as_director.get_board()
+    local apos = actor:position()
+    return _notes_append({ string_format(
+        "[SOUND] %s  dread=%.2f  level=%s  pos=%.1f,%.1f,%.1f  :: %s",
+        tostring(path), board and board.dread or 0, tostring(level.name()),
+        apos.x, apos.y, apos.z, tostring(text)) })
+end
+
+--- Format the active position override line, or nil when there is none.
+local function _override_line(o)
+    if not o then return nil end
+    local dread = o.dread and string_format("%.2f", o.dread) or "-"
+    local sel = o.cats and (o.only and "only" or "add") or "-"
+    return string_format("  OVERRIDE position=%s dread=%s add=%+.2f select=%s", tostring(o.name), dread, o.add or 0, sel)
+end
+
+--- Append a [PROBE] block: a header line then the full SENSOR BOARD - every field the director actually
+--- reads (environment, time, stalkers, monsters, anomalies), the dread with its APPLY term breakdown, and
+--- any active position override. Ordered so two probe notes line up field-for-field. Only the real sensors;
+--- no diagnostic gatherers.
+function as_test.note_probe(text)
+    local actor = db.actor
+    if not (actor and level.present()) then return false end
+    local board = as_director and as_director.get_board and as_director.get_board()
+    local apos = actor:position()
+    local note = (text and text ~= "") and text or "-"
+    local lines = { string_format("[PROBE] note=[%s]  level=%s  pos=%.1f,%.1f,%.1f",
+        note, tostring(level.name()), apos.x, apos.y, apos.z) }
+    if board then
+        local stalkers, monsters = board.stalkers or {}, board.monsters or {}
+        local anomalies, terms = board.anomalies or {}, board.terms or {}
+        lines[#lines + 1] = string_format("  SENSORS environment=%s time=%s", tostring(board.environment), tostring(board.time))
+        lines[#lines + 1] = string_format("  stalkers online=%s enemy_near=%s ally_near=%s service_near=%s",
+            tostring(stalkers.online), tostring(stalkers.enemy_near), tostring(stalkers.ally_near), tostring(stalkers.service_near))
+        lines[#lines + 1] = string_format("  monsters online=%s enemy_near=%s", tostring(monsters.online), tostring(monsters.enemy_near))
+        lines[#lines + 1] = string_format("  anomalies near=%s", tostring(anomalies.near))
+        lines[#lines + 1] = string_format("  DREAD %.2f = lore %+.2f env %+.2f time %+.2f threat %+.2f company %+.2f anomaly %+.2f service %+.2f",
+            board.dread or 0, terms.lore or 0, terms.env or 0, terms.time or 0, terms.threat or 0, terms.company or 0, terms.anomaly or 0, terms.service or 0)
+        local override = _override_line(board.position)
+        if override then lines[#lines + 1] = override end
+    end
+    return _notes_append(lines)
+end
+
 -- ---- probe stepper keys (smoke audit; debug-gated) ------------------------
 
 local PGUP_KEY, PGDN_KEY, DELETE_KEY = 201, 209, 211
 local function _on_key(key)
-    if _smoke.list then                              -- INSERT is now the AlifeSpooks PDA-tab shortcut
+    if _smoke.list then
         if key == PGDN_KEY then as_test.next()
         elseif key == PGUP_KEY then as_test.prev()
         elseif key == DELETE_KEY then as_test.mark() end

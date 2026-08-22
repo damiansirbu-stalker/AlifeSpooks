@@ -9,14 +9,14 @@
 	<lbl_path x="44" y="88" width="372" height="20">
 		<text font="letterica16" align="l" r="200" g="170" b="120"/>
 	</lbl_path>
-	<list_frame x="44" y="112" width="372" height="574">
+	<list_frame x="44" y="112" width="372" height="528">
 		<texture>ui_inGame2_servers_list_frame</texture>
 	</list_frame>
-	<list x="47" y="115" width="366" height="568" item_height="22" can_select="1">
+	<list x="47" y="115" width="366" height="522" item_height="22" can_select="1">
 		<font font="letterica18"/>
 	</list>
 
-	<!-- RIGHT / PLAYER: a media-player widget - a display screen and a glyph transport. -->
+	<!-- RIGHT / PLAYER: a display screen and a glyph transport. -->
 	<hdr_player x="444" y="88" width="332" height="22">
 		<text font="letterica18" align="l" r="200" g="170" b="120">PLAYER</text>
 	</hdr_player>
@@ -24,77 +24,98 @@
 		<texture>ui_inGame2_pda_line_horizontal</texture>
 	</line_player>
 
-	<chk_mute x="444" y="124" width="24" height="24" stretch="1">
-		<texture>ui_inGame2_checkbox</texture>
-	</chk_mute>
-	<cap_mute x="476" y="126" width="290" height="20">
-		<text font="letterica16" align="l" vert_align="c" r="200" g="200" b="200">silence the running soundscape</text>
-	</cap_mute>
-
-	<screen x="444" y="160" width="332" height="60" stretch="1">
+	<screen x="444" y="124" width="332" height="56" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_plyer_interface_off</texture>
 	</screen>
-	<lbl_now x="460" y="168" width="300" height="20">
+	<lbl_now x="460" y="130" width="300" height="20">
 		<text font="letterica16" align="l" vert_align="c" r="66" g="157" b="195"/>
 	</lbl_now>
-	<lbl_pos x="460" y="192" width="300" height="20">
+	<lbl_pos x="460" y="152" width="300" height="20">
 		<text font="letterica16" align="l" vert_align="c" r="66" g="157" b="195"/>
 	</lbl_pos>
 
 	<!-- transport: [ mode - ] [ mode + ]   [ prev ] [ play ] [ stop ] [ next ] -->
-	<btn_pos_down x="470" y="232" width="48" height="30" stretch="1">
+	<btn_pos_down x="470" y="188" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_down</texture>
 	</btn_pos_down>
-	<btn_pos_up x="520" y="232" width="48" height="30" stretch="1">
+	<btn_pos_up x="520" y="188" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_v_up</texture>
 	</btn_pos_up>
-	<btn_prior x="584" y="232" width="48" height="30" stretch="1">
+	<btn_prior x="584" y="188" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_prev</texture>
 	</btn_prior>
-	<btn_play x="632" y="232" width="48" height="30" stretch="1">
+	<btn_play x="632" y="188" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_start2</texture>
 	</btn_play>
-	<btn_stop x="680" y="232" width="48" height="30" stretch="1">
-		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_stop2</texture>
-	</btn_stop>
-	<btn_next x="728" y="232" width="48" height="30" stretch="1">
+	<btn_next x="680" y="188" width="48" height="30" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_next</texture>
 	</btn_next>
+	<btn_stop x="728" y="188" width="48" height="30" stretch="1">
+		<texture>ui_inGame2_pda_Filtr_radio_plyr_btn_stop2</texture>
+	</btn_stop>
 
-	<btn_flag x="444" y="278" width="160" height="28" stretch="1">
+	<!-- SOUND NOTE / premade: each button writes a [SOUND] note with its one-word preset (plus the typed
+	     custom note, if any). Color-coded. -->
+	<hdr_verdict x="444" y="230" width="332" height="20">
+		<text font="letterica16" align="l" r="200" g="170" b="120">SOUND NOTE - premade  (click -&gt; log)</text>
+	</hdr_verdict>
+	<btn_v1 x="444" y="252" width="62" height="28" stretch="1">
 		<texture>ui_inGame2_pda_button</texture>
-		<text font="letterica16" align="c">flag suspect</text>
-	</btn_flag>
-	<btn_rescan x="616" y="278" width="160" height="28" stretch="1">
+		<text font="letterica16" align="c" r="210" g="90" b="90">inaudible</text>
+	</btn_v1>
+	<btn_v2 x="510" y="252" width="62" height="28" stretch="1">
+		<texture>ui_inGame2_pda_button</texture>
+		<text font="letterica16" align="c" r="210" g="150" b="80">faint</text>
+	</btn_v2>
+	<btn_v3 x="576" y="252" width="62" height="28" stretch="1">
+		<texture>ui_inGame2_pda_button</texture>
+		<text font="letterica16" align="c" r="210" g="200" b="90">loud</text>
+	</btn_v3>
+	<btn_v4 x="642" y="252" width="62" height="28" stretch="1">
+		<texture>ui_inGame2_pda_button</texture>
+		<text font="letterica16" align="c" r="200" g="120" b="120">unfit</text>
+	</btn_v4>
+	<btn_v5 x="708" y="252" width="62" height="28" stretch="1">
+		<texture>ui_inGame2_pda_button</texture>
+		<text font="letterica16" align="c" r="120" g="200" b="120">good</text>
+	</btn_v5>
+
+	<!-- SOUND NOTE / custom: type free text, then "add note" writes it (a premade button also carries it). -->
+	<hdr_snote x="444" y="290" width="332" height="20">
+		<text font="letterica16" align="l" r="200" g="170" b="120">SOUND NOTE - custom</text>
+	</hdr_snote>
+	<snote x="444" y="312" width="250" height="26" stretch="1">
+		<text x="5" font="letterica16" vert_align="c" align="l"/>
+		<texture>ui_inGame2_edit_box_2</texture>
+	</snote>
+	<btn_note x="700" y="312" width="76" height="26" stretch="1">
+		<texture>ui_inGame2_pda_button</texture>
+		<text font="letterica16" align="c">add note</text>
+	</btn_note>
+
+	<!-- INSPECTOR: live spot readout + rescan. -->
+	<insp_read x="444" y="350" width="332" height="20">
+		<text font="letterica16" align="l" vert_align="c" r="180" g="200" b="180"/>
+	</insp_read>
+	<btn_rescan x="444" y="378" width="160" height="28" stretch="1">
 		<texture>ui_inGame2_pda_button</texture>
 		<text font="letterica16" align="c">rescan disk</text>
 	</btn_rescan>
 
-	<!-- RIGHT / INSPECTOR: a data panel - a framed readout, a note field, command buttons. -->
-	<hdr_insp x="444" y="336" width="332" height="22">
-		<text font="letterica18" align="l" r="200" g="170" b="120">INSPECTOR</text>
-	</hdr_insp>
-	<line_insp x="444" y="360" width="332" height="6" stretch="1">
-		<texture>ui_inGame2_pda_line_horizontal</texture>
-	</line_insp>
-
-	<insp_frame x="444" y="372" width="332" height="44">
-		<texture>ui_inGame2_servers_list_frame</texture>
-	</insp_frame>
-	<insp_read x="456" y="384" width="308" height="20">
-		<text font="letterica16" align="l" vert_align="c" r="180" g="200" b="180"/>
-	</insp_read>
-
-	<btn_beacon x="444" y="468" width="160" height="28" stretch="1">
+	<!-- BOTTOM / PROBE NOTE (-> a [PROBE] line + the full ordered sensor dump). Own button. -->
+	<hdr_probe x="44" y="652" width="110" height="24">
+		<text font="letterica16" align="l" vert_align="c" r="200" g="170" b="120">PROBE NOTE</text>
+	</hdr_probe>
+	<probe x="150" y="650" width="440" height="26" stretch="1">
+		<text x="5" font="letterica16" vert_align="c" align="l"/>
+		<texture>ui_inGame2_edit_box_2</texture>
+	</probe>
+	<btn_probe x="600" y="650" width="176" height="28" stretch="1">
 		<texture>ui_inGame2_pda_button</texture>
-		<text font="letterica16" align="c">drop beacon</text>
-	</btn_beacon>
-	<btn_snapshot x="616" y="468" width="160" height="28" stretch="1">
-		<texture>ui_inGame2_pda_button</texture>
-		<text font="letterica16" align="c">full snapshot</text>
-	</btn_snapshot>
+		<text font="letterica16" align="c">save probe note</text>
+	</btn_probe>
 
-	<status x="44" y="690" width="720" height="22">
+	<status x="44" y="686" width="720" height="20">
 		<text font="letterica16" align="l" r="160" g="160" b="160"/>
 	</status>
 </w>

@@ -14,14 +14,13 @@ local defaults = {
     hud_position = "off",
     log_level    = "WARN", log_flush = false,
     sound_player = false,
-    note_taker   = false,
 }
 
 local _key_to_tab = {
     vol_global = "spooks", rarity = "spooks",
     visuals = "visuals",
     hud_position = "development", log_level = "development", log_flush = "development",
-    sound_player = "development", note_taker = "development", btn_reset_all = "development",
+    sound_player = "development", btn_reset_all = "development",
 }
 
 local function _build_mcm_path(key)
@@ -118,7 +117,6 @@ local function development_page()
                 {"bottom_left", "bottomleft"}, {"bottom_right", "bottomright"},
               } },
             { id = "sound_player", type = "check", val = 1, def = false, hint = "as_sound_player" },
-            { id = "note_taker",   type = "check", val = 1, def = false, hint = "as_note_taker" },
 
             { id = "div_reset", type = "line" },
             { id = "warn_reset", type = "desc", text = "ui_mcm_as_development_reset_warning", clr = {255, 240, 200, 80} },

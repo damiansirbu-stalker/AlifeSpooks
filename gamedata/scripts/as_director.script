@@ -836,12 +836,12 @@ function get_board()
     return board
 end
 
---- Dev tab master silence. When on, the director emits no one-shots and the base-ambient observer replays
---- nothing (both schedules keep advancing, so unmute resumes cleanly). The tab's own emit/play is unaffected.
+--- Master silence for the review player. When on, the director emits no one-shots and the base-ambient
+--- observer replays nothing (both schedules keep advancing, so unmute resumes cleanly). The player auto-sets
+--- this while its window is open; the player's own audition emit/play is unaffected.
 function set_muted(value)
     _muted = value and true or false
 end
-function is_muted()   return _muted end
 
 function on_game_start()
     RegisterScriptCallback("actor_on_first_update",      _on_first_update)
