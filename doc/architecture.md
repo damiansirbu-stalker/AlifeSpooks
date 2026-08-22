@@ -14,8 +14,9 @@ below is reproduced by a subcommand of it, not chosen by hand.
 The old model shipped our sounds as engine sound channels (`sound_channels.ltx` sections) and let
 the ambient system play them. That is gone. AlifeSpooks now owns playback end to end:
 
-- Content lives in our own category directories under `gamedata/sounds/zs/<category>/`, never in an
-  engine channel. The deploy writes no `sound_channels.ltx` definitions for our content.
+- Content lives in our own category directories under `gamedata/sounds/zs/<category>/<dread>/`, never in
+  an engine channel, where `<dread>` is the sound's dread bucket - `all`, `low`, `med`, or `high`. The
+  deploy writes no `sound_channels.ltx` definitions for our content.
 - The director (`gamedata/scripts/as_director.script`) plays each sound as a positioned one-shot
   through `xsound.play_at` - the vanilla `play_at_pos` call shape with a RETAINED handle, so every
   playing sound is stoppable (`xsound.stop_shots`, the dev-tab Stop) and never GC-cut. There are no
@@ -30,17 +31,25 @@ inert: no sound plays.
 
 The category is the unit of organization and of play. It is a directory of sounds plus two attributes -
 an `env` set (which enclosure states it may play in) and a `requires` gate (a live precondition) - with
-no weight and no cooldown. The director reads a generated sound config (`as_sound_config_gen.script`)
-that lists each category, its sounds, and each sound's attenuation pair (from the blob), its source
-channel's SPAWN band + `indoor` flag (the author's placement), and its height. The config replaces the
-channel definitions the director used to read from `sound_channels.ltx`. Anomaly Lua cannot enumerate a
-directory at runtime, so the deploy writes the config and the director reads it. See "Categories - the
-rule table" below; the category list is the single source of truth.
+no weight and no cooldown. Within a category the sounds are further partitioned by DREAD into
+subdirectories `zs/<category>/<dread>/` (`all`, `low`, `med`, `high`): the folder a sound sits in IS its
+dread, no side table and no per-sound field. `all` is the capture bucket - new content lands there and
+plays at every scene dread (the wildcard); curating a sound to `low`/`med`/`high` is a file MOVE into that
+subdir. The director reads a generated sound config (`as_sound_config_gen.script`) that lists each
+category, then each DREAD BUCKET within it, then that bucket's sounds, each with its attenuation pair (from
+the blob), its source channel's SPAWN band + `indoor` flag (the author's placement), and its height. The
+config replaces the channel definitions the director used to read from `sound_channels.ltx`. Anomaly Lua
+cannot enumerate a directory at runtime, so the deploy writes the config and the director reads it. See
+"Categories - the rule table" below; the category list is the single source of truth.
 
 ## Content pipeline (reproducible)
 
 `tools/build.py` is a six-stage pipeline. Each stage is a subcommand that reads the previous stage's
-committed artifact and writes the next. Adopting a pack is additive (`add`) or a full re-run, never a rewrite.
+committed artifact and writes the next. The pipeline runs as one of two commands: `rebuild` (the full run,
+wipes `zs/` and re-emits the whole corpus into `<category>/all/`, RARE - it resets dread curation and
+refreshes the ledger + provenance proofs) or `add` (incremental, never wipes, the everyday path - it
+ingests a new source into `<category>/all/` and re-syncs the config from the current tree, so files moved
+into `low`/`med`/`high` are preserved). Adopting a pack is additive; a full re-run is a rewrite.
 
 ```
 plan        source trees, deduped by waveform        -> merged_channels.json
@@ -63,12 +72,16 @@ provenance  every shipped sound -> its origin         -> provenance.tsv
 - loudness (`cmd_loudness`): measure integrated loudness per sound and flag per-group outliers.
 - deploy (`cmd_deploy`): fold every stereo file to mono (`_masterize_channels`, the engine 3D-positions mono
   only) then collapse any that fold to identical mono (`_dedupe_folded`, veto-safe), drop only DEAD files
-  (unmeasurable / silent after the fold, `_cull_dead`), copy the survivors to `zs/<category>/<n>.ogg`, write
-  each file's blob with the AUTHOR's attenuation min/max and base_volume VERBATIM - no clamp, no leveling
-  (`_normalize_blobs`), write the sound config the director reads (`as_sound_config_gen.script` - per sound:
-  the blob attenuation pair, the source channel's spawn band + `indoor` recovered by `_build_source_band_map`,
-  and the source-channel height), and generate the base-veto DLTX overlay that removes our sounds from the
-  base ambient channels (`_build_veto_overlay` -> `mod_sound_channels_alifespooks.ltx`).
+  (unmeasurable / silent after the fold, `_cull_dead`), stamp each survivor with the dread bucket it already
+  sits in on the tree (`_stamp_buckets` - a file directly under `zs/<category>/` reads as `all`, a curated
+  file keeps its `low`/`med`/`high`; `rebuild` wipes first so everything is `all`, `add` preserves the moves),
+  copy the survivors to `zs/<category>/<bucket>/<name>.ogg`, write each file's blob with the AUTHOR's
+  attenuation min/max + base_volume, plus two lift-only floors (min_distance floor + base_volume loudness floor,
+  `_normalize_blobs`) - no corpus re-level, write the sound
+  config the director reads (`as_sound_config_gen.script` - nested category -> dread bucket -> per sound: the
+  blob attenuation pair, the source channel's spawn band + `indoor` recovered by `_build_source_band_map`, and
+  the source-channel height), and generate the base-veto DLTX overlay that removes our sounds from the base
+  ambient channels (`_build_veto_overlay` -> `mod_sound_channels_alifespooks.ltx`).
 - ledger (`cmd_ledger`) and provenance (`cmd_provenance`): the proofs, below.
 
 ### Selection is manual, pulling is mechanical
@@ -96,7 +109,7 @@ The old positional `zs/<category>/<N>.ogg` (`N` = enumerate order) was a collisi
 packs ship the same filename), but it RE-INDEXED every file whenever content was added or removed, so a
 build could only run from scratch. The content name fixes that. IMPLEMENTED today:
 
-- Name = original name + audio hash: `zs/<category>/<origname>_<hash>.ogg`, `hash` = `_hash_audio`
+- Name = original name + audio hash: `zs/<category>/<bucket>/<origname>_<hash>.ogg`, `hash` = `_hash_audio`
   (md5 of the audio pages only, blob-agnostic) in short form. Readable (keeps the source name), unique
   (the hash disambiguates two files that share a name), stable (identical audio always maps to the same
   name; adding content never renames an existing file).
@@ -112,22 +125,24 @@ build could only run from scratch. The content name fixes that. IMPLEMENTED toda
   hash rides in the name, because the name itself needs a unique stable id with no side registry - that
   is naming, not a cache. There is no fingerprint cache.
 - Two build modes:
-  - full (`all`): whole source pool -> route -> dedup -> name -> write, then ledger + provenance. The
-    canonical corpus.
+  - full (`rebuild`): whole source pool -> route -> dedup -> name -> write, then ledger + provenance. WIPES
+    `zs/` and re-emits every file into `<category>/all/`, so it resets any dread curation - the canonical
+    corpus, run before a release.
   - additive (`add <source> <gamedata>`, IMPLEMENTED): the published corpus is FROZEN, keyed on the CORPUS
     OF RECORD (the audio hashes of the existing `merged_channels.json` entries, not the post-cull deployed
     files - keying on the deployed files re-proposed culled sounds every run and never converged). Route the
     new source with the shared capture rule (`_scan_source`), waveform-dedup it against itself, drop anything
     already in the record (audio hash) AND any re-encode of a published sound (fp + PCM xcorr,
-    `_drop_frozen_reencodes`), APPEND only net-new (new names, existing untouched), then regenerate classify +
-    deploy. It SKIPS the slow full plan and the ledger, so an add runs in minutes, not the full ~25. A re-add
-    of an already-ingested pack is idempotent (`+0 net-new`). Limit: deploy re-emits the whole corpus from
-    source (the packs must be on disk); a full `all` reconciles `merged_channels.json` (gitignored, so a
-    build rebuilds it from scratch) and refreshes the ledger + provenance proofs.
+    `_drop_frozen_reencodes`), APPEND only net-new into `<category>/all/` (new names, existing untouched),
+    then regenerate classify + deploy. It NEVER wipes `zs/`, so files curated into `low`/`med`/`high` survive.
+    It SKIPS the slow full plan and the ledger, so an add runs in minutes, not the full ~25. A re-add of an
+    already-ingested pack is idempotent (`+0 net-new`). Limit: deploy re-emits the whole corpus from source
+    (the packs must be on disk); a full `rebuild` reconciles `merged_channels.json` (gitignored, so a build
+    rebuilds it from scratch) and refreshes the ledger + provenance proofs.
 - Limits: re-encode detection is heuristic (fp >= 0.88 candidate, xcorr >= 0.90 decide), not exact;
   additive freezes existing NAMES and AUDIO and does NOT re-level (each file keeps its author's base_volume),
   so an add never shifts an existing file's loudness; it can still diverge from a fresh full build at the
-  margins - `build` is canonical, and a full rebuild reconciles.
+  margins - `rebuild` is canonical, and a full rebuild reconciles.
 
 ## Deduplication: waveform identity, source side only
 
@@ -174,13 +189,19 @@ fold does not lose the author's values.
     spread, so scares and beds separate without anything dropping to silence. This restores the near/far
     loudness depth a single flat ratio had removed. A blob-less file gets its category-folder median min/max,
     then the same crest floor.
-- **Loudness is the AUTHOR's base_volume, verbatim** (`_normalize_blobs`). base_volume is a linear multiplier
-  the engine applies on every play (see `sound-source-and-emitter.md`). The deploy writes each file's OWN
-  authored base_volume, unchanged - NO leveling of any kind (no corpus median, no peak-cap, no floor). The
-  authored values are tight (median ~1.0, range ~0.5-2.0) and field-tested in the source mods, so the corpus
-  is naturally even without imposing a target. A file with no authored value (or <=0) gets base_volume 1.0.
-  The earlier corpus-median RMS leveling (n126) is REMOVED: it blew the tight authored 0.5-2.0 out to 0.1-28
-  and deafened the transient scares; the author's own value is correct.
+- **Loudness is the AUTHOR's base_volume with ONE lift-only correction: the loudness FLOOR** (`_loudness_floor`).
+  base_volume is a linear multiplier the engine applies on every play (see `sound-source-and-emitter.md`). The
+  deploy writes each file's authored base_volume UNCHANGED, except where its measured DELIVERED loudness at the
+  felt-far placement - `content_LUFS + 20log10(base_volume x volume_att x al_gain)`, LUFS from
+  `_measure_corpus_lufs` (ffmpeg ebur128 on the deployed ogg, cached) - falls below the faint-audible level
+  (`LOUD_FLOOR` -36 dB). Then base_volume is lifted toward the floor, PARTIAL (`LOUD_FRAC` 0.7 of the deficit)
+  and CAPPED (`LOUD_MAXBV` 6 + a far-gain cap `LOUD_FARCAP` that keeps the sound below the engine's 1.0 clamp so
+  distance falloff survives). LIFT-ONLY: never lowers an author value, so loud files and their dynamics are
+  untouched; it fixes quiet CONTENT the min floor cannot (a -40 LUFS recording plays inaudible even at flat full
+  gain - e.g. drip, min-floored to 80 = the loudest placement, still inaudible). NOT the corpus-median RMS
+  leveling (n126, REMOVED for blowing the tight 0.5-2.0 out to 0.1-28 and deafening the transient scares) - a
+  floor raises only the too-quiet toward faint-audible and stops. ~37% of the corpus is lifted; the loud /
+  reference sounds are untouched. A file with no authored value (or <=0) starts at base_volume 1.0, then the floor.
 - **Dead-file cull** (`_cull_dead`): after the fold, a file whose audio is unmeasurable / true silence (peak
   -inf) is DROPPED - the fold can cancel an anti-phase pair to silence that `_drop_silent` (pre-fold) could
   not see. There is NO quiet-cull: a quiet-but-real sound ships at its author's loudness, and a faint feel
@@ -203,7 +224,8 @@ single heaviest scan, never the sum; the whole board refreshes over the producer
     tick   -> run one producer (a scan), writing its sensor into the board
     sense  -> the board: environment, time, stalkers{}, monsters{}, anomalies{}
     select -> eligible = map (as_static_map.ltx) & environment & presence -> two-level shuffle-bag
-    apply  -> dread (grounded, additive) -> emission frequency -> vanilla-band position + play
+    apply  -> dread (grounded, additive) -> emission frequency + the dread bucket the sound-bag draws from
+              -> vanilla-band position + play
 
 Smart terrains are deliberately NOT an input - they proved unreliable for filtering (the trader/base
 cases); place identity comes from the level, the environment, and a live seller check, never smart config.
@@ -269,7 +291,12 @@ A category is eligible only if all three checks pass, in order (`is_eligible`, r
 The base is NOT a select filter: a friendly base is silenced by APPLY (dread -> 0), not by category gating.
 Selection is a **symmetrical two-level shuffle-bag**, no weights: a category-bag cycles every eligible
 category once before repeats (a 2-sound category can never be hammered while others wait), and a per-category
-sound-bag cycles every sound once. Rarity emerges from rotation, not from any limiter.
+sound-bag cycles every sound once. The sound-bag's POOL is the category's DREAD BUCKET for the current scene
+plus the always-on `all` wildcard: `_dread_bucket(board.dread)` maps the scene dread to `low` (< 0.40),
+`med` (< 0.70), or `high` (>= 0.70) - `DREAD_CUT_LOW`/`DREAD_CUT_MED` in `as_director` - and `_pick_sound`
+draws from `cat[bucket]` + `cat.all` (`all` = every uncurated sound, so a category with nothing curated
+plays exactly as before). The bag is keyed per category+bucket, so a scene-dread shift rebuilds it against
+the new pool. Rarity emerges from rotation, not from any limiter.
 
 ### APPLY - dread drives frequency and a placement pull
 
@@ -290,9 +317,10 @@ Dread is a scalar 0..1, additive, **no baseline constant** - the sum of whatever
 A `service_near` of "allied" (a safe hub) REPLACES the sum with 0 - fully silent; "hostile" (an enemy-held
 base) adds. The base is detected by a live service NPC (trader/medic/mechanic) within 60m, per-NPC relation
 deciding allied vs hostile - warfare-correct, never the over-assigned `is_base` prop. Every term is grounded,
-so there is no "+X just because." Dread feeds APPLY only, never SELECT, and it drives two things:
-**frequency** (a shorter gap between plays as dread rises) and a **placement pull** (`emit` moves the rolled
-spawn distance up to 20% closer at peak, `DREAD_PULL`). It never touches the volume table.
+so there is no "+X just because." Dread never gates the CATEGORY (SELECT stays map & env & presence), and it
+drives three things: **frequency** (a shorter gap between plays as dread rises), the **dread bucket** the
+per-category sound-bag draws from (the scene bucket + the `all` wildcard, above), and a **placement pull**
+(`emit` moves the rolled spawn distance up to 20% closer at peak, `DREAD_PULL`). It never touches the volume table.
 
 Each emitted sound is placed by the base game's `update_ambient` code - `get_placement` clones its placement
 and volume math (`sound_ambient.script:127-165`), fed with the sound's OWN source-channel
@@ -349,8 +377,9 @@ The engine computes the audible gain per play (`SoundRender_Emitter_FSM.cpp:383`
     gain = base_volume x volume_att x effect_volume x occlusion x fade
 
 - **base_volume** - the per-file value in the ogg comment blob (X-Ray native, `SoundRender_Source_loader.cpp:129-136`).
-  A direct linear multiplier, applied to mono AND stereo alike. The deploy writes the AUTHOR's own base_volume
-  VERBATIM (`_normalize_blobs`) - NO leveling (see "Byte-for-byte audio"). The authored values are tight
+  A direct linear multiplier, applied to mono AND stereo alike. The deploy writes the AUTHOR's base_volume,
+  lifted only by the loudness floor for the too-quiet (`_loudness_floor`, see "Byte-for-byte audio") - never a
+  corpus re-level. The authored values are tight
   (~0.5-2.0) and field-tested, so the corpus is even without imposing a target; a blob-less file gets 1.0.
 - **volume_att** - LINEAR distance attenuation `(max_dist - dist)/(max_dist - min_dist)` (`:361-362`): full at
   `min_distance`, silent at `max_distance`, NOT inverse-square. On top of it OpenAL applies its OWN
@@ -366,18 +395,18 @@ The engine computes the audible gain per play (`SoundRender_Emitter_FSM.cpp:383`
 
 ### Coexistence with a base soundscape - the loudness balance
 
-AlifeSpooks does NOT level its corpus - each sound keeps its author's own base_volume (~0.5-2.0), and the
-director plays each one-shot from its author's own channel spawn band through the vanilla placement code,
-so its PLAYED loudness is exactly what the source mod produced. The authored levels are field-tested in the
-source mods and sit in the range a typical base bed occupies, so the horror sits IN the mix, not on top of
-it, with no work from the player. The one control that balances the two is the MCM master `vol_global` (multiplied into
-the play volume in `emit` alongside the game ambient slider), for a base that runs unusually loud or quiet.
-Nothing about the mix depends on the player leveling anything - AlifeSpooks is self-sufficient over any base,
-and each sound plays at the loudness its author intended.
+AlifeSpooks does NOT RE-LEVEL its corpus - each sound keeps its author's own base_volume (~0.5-2.0), except
+where the loudness floor lifts a too-quiet file toward faint-audible (lift-only, above). The director plays
+each one-shot from its author's own channel spawn band through the vanilla placement code, so its PLAYED
+loudness is the source mod's, minus the floor's correction for the un-audibly quiet. The authored levels are
+field-tested and sit in the range a typical base bed occupies, so the horror sits IN the mix, not on top of
+it. The one runtime control that balances the two is the MCM master `vol_global` (multiplied into the play
+volume in `emit` alongside the game ambient slider), for a base that runs unusually loud or quiet. Nothing
+about the mix depends on the player leveling anything.
 
-So everything per-file is the AUTHOR's - `base_volume` verbatim, `max` verbatim, the spawn band, `indoor`
-flag, and `height` from the source channel - with one corrected field: the min_distance floor (above), the
-field the pack tooling never authored.
+So everything per-file is the AUTHOR's - `base_volume` (lifted only by the loudness floor for the too-quiet),
+`max` verbatim, the spawn band, `indoor` flag, and `height` from the source channel - with two corrected
+fields the pack tooling never authored: the min_distance floor and the base_volume loudness floor (above).
 
 ### Visual layer
 
@@ -398,9 +427,9 @@ position and what it forces, when one is in range), and SENSORS (every board fie
 ## Categories - the rule table
 
 A category is atomic: one coherent thing (one dread kind, one zone), never a grab-bag. The category is
-the unit of organization - it is the shipped folder (`zs/<name>/`) and the config key. **The pipeline
-category list carries only the name and the folder routing** (`CATEGORIES` + `route` in `build.py`); it
-holds no play rules. A category's runtime attributes - its `env` set, its `requires` gate, the per-map
+the unit of organization - it is the shipped folder (`zs/<name>/`, itself split into the `all`/`low`/`med`/`high`
+dread subdirs) and the config key. **The pipeline category list carries only the name and the folder routing**
+(`CATEGORIES` + `route` in `build.py`); it holds no play rules. A category's runtime attributes - its `env` set, its `requires` gate, the per-map
 eligibility, the presence checks - live in the director (`as_director`) and the per-map LTX, keyed by the
 category name. The config carries sound paths and per-sound values only; the category NAME is the entire
 contract between the pipeline and the runtime.
@@ -449,7 +478,7 @@ survives anything at runtime - there is no slot to lose.
   path we drew it from. A user running one of our source packs has that pack's identical channels, so our
   removal applies; a pack we never sourced holds none of our audio, so there is nothing of ours to double
   there. Coverage does not depend on the build machine's modlist and never needs re-running after one - it
-  is regenerated from the registry on every `build.py all`, like every other artifact (I11).
+  is regenerated from the registry on every `build.py rebuild`, like every other artifact (I11).
 - Identity is the SOURCE PATH, not a runtime file hash. The generator matches each chosen sound's recorded
   path against its origin pack's channel entries. It never scans an install or hashes a played file. The
   same recording often ships in several source packs, byte-identical or a re-encode, and dedup collapses
@@ -511,7 +540,7 @@ not this hook. This slot (`sound_channels`/`update_ambient`) is separate from th
 - Volume and distance sit in the X-Ray blob. A source file that shipped with a blob keeps it exact.
   A blob-less file gets the category-folder median, base_volume 1.0, which is an approximation and is
   booked as one, not counted as preserved.
-- `provenance.tsv` (`cmd_provenance`) maps every shipped sound (its deployed `zs/<category>/<name>`) to its
+- `provenance.tsv` (`cmd_provenance`) maps every shipped sound (its deployed `zs/<category>/<bucket>/<name>`) to its
   origin mod, source directory, and filename, plus the deployed base_volume, and self-verifies each by audio
   hash against the source. Categories are not channels, so there are no channel/period/section columns.
   Nothing loses its origin under the content-hash rename.
@@ -530,8 +559,8 @@ not this hook. This slot (`sound_channels`/`update_ambient`) is separate from th
 - I1 One-shots only. The director fires every sound once through `xsound.play_at` (retained handle,
   stoppable). There is no loop layer and no continuous bed. A long sound plays on a long period,
   tuned to its measured duration.
-- I2 No channels for our content. Sounds live in category directories and are named by the sound config
-  (`as_sound_config_gen.script`).
+- I2 No channels for our content. Sounds live in category/dread directories (`zs/<category>/<dread>/`) and
+  are named by the sound config (`as_sound_config_gen.script`).
   The deploy defines no `sound_channels.ltx` channels for our content; the only config it writes is the
   DLTX veto overlay, which REMOVES our sounds from existing base channels and never adds one. The engine
   ambient bed and its asserted channels stay intact, so nothing can cause a missing-channel crash.
@@ -541,9 +570,10 @@ not this hook. This slot (`sound_channels`/`update_ambient`) is separate from th
 - I4 Fitness is codec plus sample rate: 44100 Hz vorbis. Off-spec files are dropped and accounted.
 - I5 Ship byte for byte where nothing must change; transform where the engine forces it, and book it. A MONO
   file's audio pages are its own, untouched - only the X-Ray blob is rewritten losslessly, carrying the
-  AUTHOR's own base_volume and max verbatim (`_normalize_blobs`) - no leveling - plus the ONE declared
-  correction: the min_distance floor (see "Byte-for-byte audio"), fixing the field the pack tooling left at
-  the unset default. A file that never carried a blob gets its category-folder median, then the same floor.
+  AUTHOR's own base_volume and max (`_normalize_blobs`) - no corpus re-level - plus TWO declared LIFT-ONLY
+  corrections: the min_distance floor (fixing the field the pack tooling left at the unset default) and the
+  base_volume loudness floor (lifting content too quiet to be audible); see "Byte-for-byte audio". A file that
+  never carried a blob gets its category-folder median, then the same floors.
   Two transforms re-encode and are booked "cut": a
   `dark_signal` bed too long for the emission tick is sliced into desilenced pieces, and every STEREO file is
   folded to mono (`_masterize_channels`) because the engine 3D-positions mono only (its author's blob is
@@ -577,19 +607,19 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   itself is the static DLTX overlay the deploy generates).
 - `as_hud.script` is the debug HUD (off by default), a three-column readout built from
   `as_director.get_hud_rows`.
-- `ui_as_player_tab.script` + `pda_dynamic_tabs.script` are the dev PDA tab (gated by the MCM `sound_player`
-  toggle): a runtime-injected tab (the demonized `build_extra_tabs` + `pda.set_active_subdialog` hook, no
-  `pda_16.xml` override) that browses `zs/<category>/` off disk and auditions each sound through the
-  director's own `emit` at at-ear / a set distance / the exact director curve, plus an inspector (spot
-  readout, the n114 Beacon, and a Snapshot that calls `as_test.snapshot`). INSERT no longer opens the PDA;
-  the tab is reached through the PDA when `sound_player` is on, and its list is built deferred through a
-  shown-gated game TimeEvent so it fills only once the PDA is on screen - filling it during the 3D-PDA draw
-  hits a detached list box and CTDs in `CUIScrollView::Clear`. The tab window is NOT `SetAutoDelete` (the
-  vanilla radio/taskboard pattern): `get_ui` caches it in a singleton, so letting the engine free it would
-  feed the PDA a dangling window and CTD in `CUIStatic::Update`.
-- `ui_as_note.script` is the INSERT note-taker (gated by the MCM `note_taker` toggle): a standalone 2D popup
-  (CaptureFocus, the vanilla backpack-window pattern) that owns the keyboard, since a PDA-subdialog editbox
-  never captured input. The note box lives here, not in the inspector.
+- `ui_as_player.script` is the review/curation tool (gated by the MCM `sound_player` toggle): a standalone
+  keyboard-owning 2D `CUIScriptWnd` modal opened by PageDown (NOT a PDA tab), reusing `ui_as_player.xml`. It
+  browses `zs/<category>/<bucket>/` off disk and auditions each sound through the director's own `emit` at
+  the director's exact placement (fed the live scene dread), a fixed distance, or at-ear. It curates by
+  LOGGING only - it never moves or deletes a file. Five premade one-word buttons (inaudible / faint / loud /
+  unfit / good) and a custom free-text field write `[SOUND]` note lines; a separate PROBE NOTE field writes a
+  `[PROBE]` block with the full ordered sensor dump. Both go to `alifespooks_notes.txt` (a clean, human-read
+  notes file, distinct from the diagnostic `alifespooks_probe.log`), written by `as_test.note_sound` /
+  `as_test.note_probe`. The window owns the keyboard only so its text fields capture typing (a PDA-subdialog
+  editbox never could); there are no command shortcuts, and a focused edit box is detected by the parent
+  `OnKeyboard` return so it never doubles as a command. While the window is open the director is auto-silenced
+  (`as_director.set_muted`), restored on close. It replaces the old PDA tab (`ui_as_player_tab` /
+  `pda_dynamic_tabs`) and the INSERT note popup (`ui_as_note`), all retired to `.deleted/`.
 - `as_debug.script` is the trace facade. At DEBUG it records every sound played and every term of the
   dread score to `alifespooks.log`, so the soundscape is checked by observation. Below DEBUG the off
   path marshals nothing and crosses no luabind bridge.
@@ -597,7 +627,7 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   per-category sliders) - also the balance control between the horror and the player's base ambience, since
   the mod levels its own corpus but not the base (see "Coexistence with a base soundscape"). Visuals toggles
   the peak-dread screen distortion. Development holds the trace
-  level, a log flush, the debug HUD position, the sound-player and note-taker dev toggles, and a
+  level, a log flush, the debug HUD position, the sound-player dev toggle (the review player), and a
   reset-to-defaults button. Every control is neutral at its default. Labels in English and Russian.
 
 ## Tools and data artifacts
@@ -611,11 +641,13 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   (measured features), `loudness_outliers.json`, `folder_audit.tsv` (which source folders each category
   pulled), `ledger.tsv` (coverage proof), `provenance.tsv` (origin of every shipped sound).
 - `build.py` is the pipeline; its `MODS` list and `route`/`ROUTE` table are the source of truth. The
-  whole run is one command, `build.py all` (plan -> classify -> loudness -> deploy -> ledger ->
-  provenance, in order). `soundpool.py` is the probe and resolver.
+  whole run is one command, `build.py rebuild` (plan -> classify -> loudness -> deploy -> ledger ->
+  provenance, in order); `build.py add` is the incremental, curation-safe path. `soundpool.py` is the
+  probe and resolver.
 
-Adopting a pack: assess it by hand, add it to `MODS` and its folder rules to `ROUTE`, re-run
-`build.py all`, read the ledger (UNUSED-DARK must stay 0) and the provenance self-verify (0 mismatch).
+Adopting a pack: assess it by hand, add it to `MODS` and its folder rules to `ROUTE`, then `build.py add
+<Source> <gamedata>` to ingest it into `<category>/all/` (curation-safe), or `build.py rebuild` before a
+release to refresh the ledger (UNUSED-DARK must stay 0) and the provenance self-verify (0 mismatch).
 
 ## Deploy
 
