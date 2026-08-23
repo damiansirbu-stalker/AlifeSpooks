@@ -20,3 +20,4 @@ tools/_sliced/
 tools/_mono/
 tools/longfile_culled.json
 tools/sliced_dropped.json
+tools/reject_dropped.json
