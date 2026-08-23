@@ -527,7 +527,7 @@ survives anything at runtime - there is no slot to lose.
   removals add no runtime cost however many there are. An absent channel or path on the player's install is
   warn-and-discard at load, never a crash.
 - An absent channel is safely ignored by DLTX (warn-and-discard, no CTD, `Xr_ini.cpp:1393`). The standalone
-  builds under `stalker_versions_for_sound` ship no Anomaly channel config, so a sound sourced only from them
+  builds under `stalker_anomaly_mods/game_builds_for_sound` ship no Anomaly channel config, so a sound sourced only from them
   has no wiring to remove; if the same audio also came from an Anomaly pack, that pack's sibling path carries
   the removal.
 

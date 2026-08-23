@@ -20,7 +20,7 @@ Per entry:
 SOURCES = [
     {"name": "Amplified", "licence": "free",
      "url": "https://www.moddb.com/mods/stalker-anomaly/addons/dark-signal-amplified-soundscape",
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/Dark Signal Amplified Soundscape/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/Dark Signal Amplified Soundscape/gamedata"},
     # AmplifiedVanilla EXCLUDED: it is the same amplified audio as Amplified in a vanilla-WEATHER config
     # (weathers/ vs bck/). PROVEN redundant 2026-08-18: all 4988 oggs share the same path+md5 as Amplified
     # (full diff, 0 differences), so it adds ZERO net-new (every file md5-dedups at stage 1). We ingest
@@ -36,43 +36,43 @@ SOURCES = [
      "url": "https://www.moddb.com/mods/stalker-anomaly/addons/dark-signal-audioscape-weather-and-ambiance",
      "path": "D:/Games/GAMMA/GAMMA/mods/304- Dark Signal Weather and Ambiance Audio - Shrike/gamedata"},
     {"name": "myRETUNE", "licence": "free", "url": None,   # ref (add if known): myRETUNE AntaresWolverine 2.1 download page
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/myRETUNE_AntaresWolverine_2.1/myRETUNE ambience sounds ver2.1/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/myRETUNE_AntaresWolverine_2.1/myRETUNE ambience sounds ver2.1/gamedata"},
     {"name": "RealDistantMutants", "licence": "free",
      "url": "https://www.moddb.com/mods/stalker-anomaly/addons/anomaly-real-distant-mutants-sounds-v10",
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/Real Distant Mutants Sounds/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/Real Distant Mutants Sounds/gamedata"},
     {"name": "DSMutants", "licence": "free",
      "url": "https://www.moddb.com/mods/stalker-anomaly/addons/dark-signal-audioscape-mutants",
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/276- Dark Signal Mutants Audio - Shrike/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/276- Dark Signal Mutants Audio - Shrike/gamedata"},
     {"name": "AudioExpansion", "licence": "free",
      "url": "https://www.moddb.com/mods/stalker-anomaly/addons/audio-expansion",
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/Audio Expansion/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/Audio Expansion/gamedata"},
     # Standalone STALKER builds (not moddb): pulled locally; ref links are origin/credit only.
     {"name": "DeadAir", "licence": "game", "url": None,        # ref (add if known): Dead Air build download
-     "path": "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/DeadAir"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/game_builds_for_sound/_unpacked/DeadAir"},
     {"name": "OGSE", "licence": "game",
      "url": "https://www.moddb.com/mods/old-good-stalker-evolution",
-     "path": "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/OGSE"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/game_builds_for_sound/_unpacked/OGSE"},
     {"name": "Prosector", "licence": "game", "url": None,      # ref (add if known): Prosector build download
-     "path": "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/Prosector"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/game_builds_for_sound/_unpacked/Prosector"},
     {"name": "Solyanka", "licence": "game", "url": None,       # ref (add if known): Solyanka build download
-     "path": "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/solyanka"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/game_builds_for_sound/_unpacked/solyanka"},
     {"name": "NLC", "licence": "game", "url": None,            # ref (add if known): NLC build download
-     "path": "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/NLC"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/game_builds_for_sound/_unpacked/NLC"},
     {"name": "SoP", "licence": "game", "url": None,            # ref (add if known): SoP build download
-     "path": "C:/Users/damian/Downloads/stalker_versions_for_sound/_unpacked/sop"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/game_builds_for_sound/_unpacked/sop"},
     {"name": "DarkSignal274", "licence": "free", "url": None,  # ref (add if known): 274- Dark Signal Audio Pack page
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/274- Dark Signal Audio Pack - Shrike/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/274- Dark Signal Audio Pack - Shrike/gamedata"},
     {"name": "DarkSignal285", "licence": "free", "url": None,  # ref (add if known): 285- Dark Signal Blowout and Anomalies page
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/285- Dark Signal Blowout and Anomalies Audio - Shrike/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/285- Dark Signal Blowout and Anomalies Audio - Shrike/gamedata"},
     {"name": "AmbientExtended", "licence": "free",
      "url": "https://www.moddb.com/mods/stalker-anomaly/addons/ambient-extended-reworked",
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/Ambient Extended Reworked/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/Ambient Extended Reworked/gamedata"},
     {"name": "ImmersiveAmbience", "licence": "free",
      "url": "https://www.moddb.com/mods/stalker-anomaly/addons/immersive-ambience-expansion",
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/Immersive Ambience Expansion/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/Immersive Ambience Expansion/gamedata"},
     # Original, granted directly by Shrike 2026-08-15, unreleased - there is NO public link (doc/licensing.md).
     {"name": "ShrikeInterior", "licence": "permission", "url": None,
-     "path": "C:/Users/damian/Downloads/anomaly_audio_mods/Dark Signal Unused Interior - Shrike/gamedata"},
+     "path": "C:/Users/damian/Downloads/stalker_anomaly_mods/audio/Dark Signal Unused Interior - Shrike/gamedata"},
     # The base game (Anomaly 1.5.3 unpacked).
     {"name": "vanilla", "licence": "game", "url": None,
      "path": "D:/Games/GAMMA/Anomaly/tools/_unpacked"},
