@@ -1,42 +1,32 @@
-# AlifeSpooks: a dark-mood ambient overlay for STALKER Anomaly
+# AlifeSpooks: dark horror ambience for STALKER Anomaly
 
-Gathers the dreadful, horror, and mournful sounds from several soundscape packs, keeps the best-quality copy of each, and layers them over your existing ambience: mutant growls, distant screams, underground dread, ominous drones, creeping wind, eerie animals, and oppressive weather.
-It overrides no ambient files, composing through DLTX, so it layers onto GAMMA, vanilla, or any other soundscape.
+A dread director. It scores the place you are standing in, how enclosed you are, the hour, the nearest threat and the allies around you, then decides how close and how often a horror one-shot plays.
+The sounds are curated from several soundscape packs, placed in 3D, and removed from the base ambient channels so nothing doubles.
 
-[ModDB](TBD) | [Releases](https://github.com/damiansirbu-stalker/AlifeSpooks/releases) | [Bugs, suggestions](https://github.com/damiansirbu-stalker/AlifeSpooks/issues)
+[Releases](https://github.com/damiansirbu-stalker/AlifeSpooks/releases) | [Bugs, suggestions](https://github.com/damiansirbu-stalker/AlifeSpooks/issues)
 
-Requires: Anomaly 1.5.3, a DLTX-capable engine (the modded exes / GAMMA). xlibs is optional: it adds the MCM and the in-game trace; without it the content runs on its own.
-
-## What it adds
-
-Over your base ambience, switched on per map and time:
-
-- Dread: distant mutant growls, far-off screams, spooks, dark ambience, the dark-signal cue.
-- Underground: the full tunnel and lab set - whispers, rats, banging, metal groans, drips.
-- Tension: distant gunfire, ominous drones, creeping wind, branch creaks.
-- Eerie atmosphere: owls, distant dogs, crows, fog.
-- Oppressive weather: storms, rain, howling wind.
-
-It leaves generic daytime life (birdsong, insects, plain wind) to your base ambience, and does not touch emission or psi-storm sound.
-
-## How it is built
-
-A pipeline (`tools/`) merges each pack's channels by their own curation, keeps the dark set, dedups by exact content, picks the softest and rarest settings any pack uses, harmonizes how many layers play at once, and emits a DLTX overlay. See [architecture.md](doc/architecture.md).
+Requires: Anomaly 1.5.3, a DLTX-capable engine (the modded exes or GAMMA), [xlibs](https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001), MCM. Exact versions in [readme.txt](doc/readme.txt).
 
 ## Alife Collection
 
+- [AlifeAmbience](https://github.com/damiansirbu-stalker/AlifeAmbience)
 - [AlifeBalance](https://www.moddb.com/mods/stalker-anomaly/addons/alifebalance)
+- [AlifeCompanions](https://github.com/damiansirbu-stalker/AlifeCompanions)
 - [AlifeDiegetic](https://www.moddb.com/mods/stalker-anomaly/addons/diegetic-audio-control-100)
 - [AlifeGuard](https://www.moddb.com/mods/stalker-anomaly/addons/alifeguard-1001)
 - [AlifePlus](https://www.moddb.com/mods/stalker-anomaly/addons/alifeplus-v1-0-01)
 - [AlifeSpooks](https://github.com/damiansirbu-stalker/AlifeSpooks)
 - [AlifeTactics](https://www.moddb.com/mods/stalker-anomaly/addons/alifetactics)
+- [FurnitureFuel](https://github.com/damiansirbu-stalker/FurnitureFuel)
+- [JitProfiler](https://github.com/damiansirbu-stalker/JitProfiler)
+- [TestZone](https://github.com/damiansirbu-stalker/TestZone)
+- [xlibs](https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001)
 
 ## Documentation
 
-- [readme.txt](doc/readme.txt): full description, what it adds, credits
-- [architecture.md](doc/architecture.md): method, invariants, build pipeline
-- [changelog](doc/changelog): version history
+- [readme.txt](doc/readme.txt) - full description, the director, the veto, credits
+- [architecture.md](doc/architecture.md) - method, invariants, build pipeline
+- [licensing.md](doc/licensing.md) - per-addon licence and permission
 
 ## License
 
