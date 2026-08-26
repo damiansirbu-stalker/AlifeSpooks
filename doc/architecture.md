@@ -163,6 +163,13 @@ so the expensive test runs only on the pairs the cheap ones flag (`dedupe`, `pcm
   complete linkage, so a similarity chain never collapses two distinct recordings and variety is
   never lost.
 
+The survivor of every collapsed group is the HIGHEST-BITRATE copy (`dedupe`: `max(group, key=bitrate)`
+at the md5, audio-hash, and cross-correlation stages), and a sub-`LOWQ_BITRATE` (32 kbps) file is dropped
+only when its category keeps something better (`good if good else chosen`). So a low-bitrate survivor is
+the best - or the only - copy of that sound across every source we pull: the low-bitrate tail is old
+SoC-lineage source recordings (SoP, NLC, OGSE, Solyanka, DeadAir) that were never released higher, kept
+verbatim because re-encoding cannot restore detail the source never captured. Modern packs contribute none.
+
 This runs among the source packs only, within a pack and between the packs we pull from. AlifeSpooks
 does not deduplicate against the target modpack. It never drops a sound because the install already
 plays it. Doubling with the base is handled by the static DLTX veto overlay at config load.
@@ -214,7 +221,12 @@ deployed ogg, trace readout only), the source channel's spawn band + `indoor` fl
 which `emit` feeds to the vanilla formula), and the source-channel height.
 
 Fitness gate: 44100 Hz vorbis only, the X-Ray standard. Off-rate and junk-bitrate files are dropped
-and accounted, never silently.
+and accounted, never silently. The 44100 rule is the engine's own, not a preference:
+`CSoundRender_Source::LoadWave` hard-rejects any other rate (`SoundRender_Source_loader.cpp:79`, returns
+false) and `xrSound` has NO resampler - it decodes to PCM and plays the file verbatim, never downsampling
+or re-compressing at runtime. Shipped audio is therefore exactly its source quality; a low-bitrate
+survivor is an old low-bitrate source kept because it is the best copy available (see Deduplication),
+never anything the engine or the build degraded.
 
 ## The director
 

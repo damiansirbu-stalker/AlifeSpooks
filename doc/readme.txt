@@ -89,7 +89,7 @@ A sound can ship in more than one pack. The copies include exact reships and re-
 The base keeps everything else it plays.
 It removes exact sounds, never a folder, never a channel, never a wind bed or creature call the mod does not carry.
 It is one config change at load, not a runtime loop, so it costs nothing while you play and no other script can strip it.
-GAMMA, vanilla, and the Dark Signal packs each keep their own atmosphere.
+Whichever base you run, it keeps its own atmosphere.
 
 
 3. The source and the measured pipeline
@@ -158,7 +158,7 @@ AlifeSpooks reads its signals every few seconds and caches them, never per frame
 A feature that cannot fit that budget changes, or moves into an X-Ray engine modification, before it slows the game.
 
 Compatibility:
-It runs on vanilla Anomaly, on GAMMA, and alongside any soundscape mod.
+It runs on vanilla Anomaly and alongside any soundscape mod.
 It removes only its own sounds from the base channels and adds nothing. It never doubles or collides with the base ambience.
 It runs as a self-contained layer. It plays its own sounds through its own director, so it never fights a soundscape mod.
 Its removal only takes sounds out, so it can never empty or break a base channel. It replays whatever base ambience wins, so those beds keep sounding.
@@ -188,5 +188,5 @@ You may not reproduce the implementation in other software, even with credit.
 The full license is in the LICENSE file and on GitHub.
 
 Issues and suggestions:
-Open a report at https://github.com/damiansirbu-stalker/AlifeSpooks/issues/new/choose, or ask on the GAMMA, EFP, Anomaly, and Zona Discord servers.
+Open a report at https://github.com/damiansirbu-stalker/AlifeSpooks/issues/new/choose, or ask on the EFP, Anomaly, and Zona Discord servers.
 Read this readme and the MCM options first. Set the MCM log level to DEBUG. Reproduce the issue. Set it back to WARN. Include the debug log with your report.

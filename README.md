@@ -5,7 +5,7 @@ The sounds are curated from several soundscape packs, placed in 3D, and removed 
 
 [Releases](https://github.com/damiansirbu-stalker/AlifeSpooks/releases) | [Bugs, suggestions](https://github.com/damiansirbu-stalker/AlifeSpooks/issues)
 
-Requires: Anomaly 1.5.3, a DLTX-capable engine (the modded exes or GAMMA), [xlibs](https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001), MCM. Exact versions in [readme.txt](doc/readme.txt).
+Requires: Anomaly 1.5.3, the modded exes (for DLTX), [xlibs](https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001), MCM. Exact versions in [readme.txt](doc/readme.txt).
 
 ## Alife Collection
 
