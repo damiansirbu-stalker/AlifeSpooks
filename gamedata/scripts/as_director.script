@@ -207,7 +207,7 @@ local function _is_service(npc)
     return (roles.trader or roles.medic or roles.mechanic) and true or false
 end
 
--- ---- LOAD -----------------------------------------------------------------
+-- LOAD
 
 --- Sound count of a category (its flat row list from as_sound_config_gen).
 local function _count_sounds(cat) return cat and #cat or 0 end
@@ -335,7 +335,7 @@ local function _scan_position(actor)
     return nil
 end
 
--- ---- SCANS (producers -> the board) ---------------------------------------
+-- SCANS (producers -> the board)
 
 --- Environment token at the actor: labs / underground (engine underground flag, split by LAB_LEVELS),
 --- else indoor (is_indoor raycast, cached by cell) else outdoor.
@@ -418,7 +418,7 @@ local function _get_time_band(hour)
     return "night"
 end
 
--- ---- SELECT (eligibility + two-level shuffle-bag) --------------------------
+-- SELECT (eligibility + two-level shuffle-bag)
 
 --- True if a category is eligible now: the level's map list names it, its env allows the environment,
 --- and its live need (level-wide presence / anomaly-near) is met. Reads the board.
@@ -491,7 +491,7 @@ local function _pick_sound(name, scene_bucket)
     return pool[idx]
 end
 
--- ---- APPLY (dread + positioned play) --------------------------------------
+-- APPLY (dread + positioned play)
 
 --- The threat dread term: the scariest near thing (man or monster, one power), or loneliness if none near.
 local function _get_threat_term(stalkers, monsters)
@@ -588,7 +588,7 @@ function emit(path, opts)
     return dist
 end
 
--- ---- derive (board -> eligible set, built on demand) -----------------------
+-- derive (board -> eligible set, built on demand)
 
 --- Rebuild the eligible category list + fast lookup from the current board. Called at emission and by the
 --- HUD only, never on the tick - the set is consumed only there, so a per-tick rebuild was pure garbage.
@@ -652,7 +652,7 @@ function _build_hud()
     _rows[#_rows + 1] = { "anomalies.near", board.anomalies.near and "yes" or "no", "" }
 end
 
--- ---- visual layer ---------------------------------------------------------
+-- visual layer
 
 --- Fire one subtle distortion pulse: acquire a cyclic effector, drive its factor up, release after a hold.
 function fire_visual_pulse()
@@ -683,7 +683,7 @@ function try_visual_pulse(tg)
     if math_random() < VIS_CHANCE then fire_visual_pulse() end
 end
 
--- ---- emission (jittered self-schedule) ------------------------------------
+-- emission (jittered self-schedule)
 
 --- Emit one one-shot when the dread-scaled gap has elapsed. The gap tracks CURRENT dread every tick, so a
 --- rising dread tightens it at once. Nothing plays only at dread 0 (a safe hub / fully-calmed place); any
@@ -715,7 +715,7 @@ local function try_emit(tg)
     end
 end
 
--- ---- base ambient observer (owns the base update_ambient slot) --------
+-- base ambient observer (owns the base update_ambient slot)
 -- This REPLACES the base sound_ambient.update_ambient (RemoveTimeEvent + our clone, in install_base_observer), so it
 -- runs for EVERY player, not only at DEBUG. It is a faithful clone of the base channel rotation, timing,
 -- and volume rule, with two deltas: it plays through xsound.play (an engine-owned one-shot, so a base sound
@@ -797,7 +797,7 @@ local function install_base_observer()
     CreateTimeEvent("sound_channels", "update_ambient", 1, update_base_ambient)
 end
 
--- ---- director loop (one tick, round-robin one producer per tick) -----------
+-- director loop (one tick, round-robin one producer per tick)
 
 -- Each producer writes one sensor into the board. The tick runs ONE per tick, so the per-tick cost is
 -- the single heaviest scan, never the sum; the full board refreshes over #producers ticks (~0.6s).
@@ -839,7 +839,7 @@ local function _on_tick()
     return false
 end
 
--- ---- lifecycle ------------------------------------------------------------
+-- lifecycle
 
 local function refresh()
     rarity             = as_mcm.get_config("rarity") or 1

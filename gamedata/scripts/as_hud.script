@@ -65,9 +65,7 @@ local function _get_position(key)
     return presets[key] or presets.top_left
 end
 
--- =========================================================================
 -- UISpookHUD: a three-column grid (factor | state | spook) built once; refresh only rewrites text.
--- =========================================================================
 
 class "UISpookHUD" (CUIScriptWnd)
 
@@ -117,9 +115,7 @@ end
 
 function UISpookHUD:__finalize() end
 
--- =========================================================================
 -- Lifecycle: visibility-gated refresh (REFRESH_SEC) via a self-rearming event
--- =========================================================================
 
 local _hud, _shown, _active = nil, false, false
 

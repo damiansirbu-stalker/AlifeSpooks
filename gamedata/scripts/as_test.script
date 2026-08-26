@@ -15,7 +15,7 @@ local function _tip(msg)
     if actor then news_manager.send_tip(actor, msg, nil, nil, 4000) end
 end
 
--- ---- dev helpers ----------------------------------------------------------
+-- dev helpers
 
 --- Unlock all fast-travel waypoints
 function as_test.unlock_travel()
@@ -48,7 +48,7 @@ function as_test.dev_setup()
     as_test.open_north()
 end
 
--- ---- sound playback probe (empirical: which call actually makes sound?) ----
+-- sound playback probe (empirical: which call actually makes sound?)
 -- A confirmed MONO sound. Run each from the console and report what you HEAR:
 --   run_string as_test.snd(1)       -- play_no_feedback 2D, full volume: does the FILE play at all?
 --   run_string as_test.snd(2)       -- play_no_feedback 3D at 5m: the director's CURRENT path
@@ -85,7 +85,7 @@ function as_test.snd(method, dist)
     _tip("m" .. tostring(method) .. " fires in 3s - CLOSE the console now")
 end
 
--- ---- corpus smoke test (audition every shipped sound, spaced by its own length) ----
+-- corpus smoke test (audition every shipped sound, spaced by its own length)
 -- Plays every sound in as_sound_config_gen one after another at-ear (2D, full volume), each spaced by its
 -- measured duration + a gap so a long drone never overlaps the next. Play and length both go through
 -- xsound (wrapped), never a raw sound_object. Run/stop from the console (close it after):
@@ -202,7 +202,7 @@ function as_test.mark(note)
     _tip(string_format("SUSPECT %d  %s", cur.i, cur.path))
 end
 
--- ---- atmosphere probe collector -------------------------------------------
+-- atmosphere probe collector
 
 local _log = nil
 local function _logger()
@@ -286,7 +286,7 @@ local function _snap_level_species(log, level_id)
     log.info("LEVEL-SPECIES {%s}", _format_pairs(species))
 end
 
--- ---- crystallization probes (raw numbers to fit the director thresholds) ----
+-- crystallization probes (raw numbers to fit the director thresholds)
 
 -- Raw roof/wall hit-distances from xcombat.get_enclosure PLUS the is_indoor decision breakdown, so a
 -- snapshot in a real room names WHICH check fails: roof ray missing (roof=-1) or too high (>4m), or the
@@ -402,7 +402,7 @@ function as_test.snapshot(note)
         tostring(note or "?"), tostring(level.name()), apos.x, apos.y, apos.z), nil, nil, 20000)
 end
 
--- ---- the shared notes file (alifespooks_notes.txt) ------------------------
+-- the shared notes file (alifespooks_notes.txt)
 -- One clean, human-readable notes file the review player appends to: [SOUND] note lines and [PROBE]
 -- atmosphere dumps. Distinct from the diagnostic alifespooks_probe.log (xlog, machine-prefixed lines) -
 -- written raw (io.open append, no prefix) so it stays shareable and diff-able. Human-read only; nothing
@@ -469,7 +469,7 @@ function as_test.note_probe(text)
     return _notes_append(lines)
 end
 
--- ---- probe stepper keys (smoke audit; debug-gated) ------------------------
+-- probe stepper keys (smoke audit; debug-gated)
 
 local PGUP_KEY, PGDN_KEY, DELETE_KEY = 201, 209, 211
 local function _on_key(key)
@@ -480,7 +480,7 @@ local function _on_key(key)
     end
 end
 
--- ---- monster rank probe (does se:rank() tier cleanly at runtime?) ----------
+-- monster rank probe (does se:rank() tier cleanly at runtime?)
 -- Spawn one of each variant at the actor and log its server rank. sim:create on a MISSING section
 -- CTDs in C++ (pcall cannot catch that), so section_exist GUARDS every create - guard-first, no pcall.
 -- Run in god mode:  run_string as_test.probe_zoo()  -> alifespooks_probe.log
