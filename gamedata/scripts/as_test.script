@@ -79,10 +79,10 @@ function as_test.snd(method, dist)
             snd:play_at_pos(actor, vec); snd.volume = 1.0
             if method ~= 3 then as_test._kept = snd end
         end
-        _tip("PLAYED m" .. tostring(method) .. "  " .. path)
+        _tip(string_format("PLAYED m%s  %s", tostring(method), path))
         return true
     end)
-    _tip("m" .. tostring(method) .. " fires in 3s - CLOSE the console now")
+    _tip(string_format("m%s fires in 3s - CLOSE the console now", tostring(method)))
 end
 
 -- corpus smoke test (audition every shipped sound, spaced by its own length)
@@ -326,11 +326,15 @@ local function _snap_smart(log, apos)
         tostring(owner or "-"), owner and string_format("%.0f", sd) or "-")
 end
 
+-- The two distance bands the triple counts, in metres.
+local BAND_NEAR_M = 25
+local BAND_FAR_M = 50
+
 -- Bump a { b25, b50, all } triple by one for a distance.
 local function _bump(triple, dist)
     triple.all = triple.all + 1
-    if dist < 50 then triple.b50 = triple.b50 + 1 end
-    if dist < 25 then triple.b25 = triple.b25 + 1 end
+    if dist < BAND_FAR_M then triple.b50 = triple.b50 + 1 end
+    if dist < BAND_NEAR_M then triple.b25 = triple.b25 + 1 end
 end
 
 -- Classify one online object into the human or mutant band triple.

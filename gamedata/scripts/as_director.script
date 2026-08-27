@@ -53,6 +53,13 @@ local CATEGORY = {
 
 -- Shared power scale; man (character_rank) and monster (se:rank) both map to one of these tokens.
 local POWER = { none = 0, low = 1, med = 2, high = 3 }
+
+-- Day runs from first light to dusk; everything outside is night.
+local DAY_START_HOUR = 7
+local DAY_END_HOUR = 19
+local DUSK_END_HOUR = 21
+local DAWN_START_HOUR = 5
+local DEEP_NIGHT_END_HOUR = 4
 -- Rank cut points (see doc/library/modding/npc-strength-evaluation.md; probe-verified cross-install).
 local STALKER_MED, STALKER_HIGH = 9000, 14500
 local MONSTER_MED, MONSTER_HIGH = 6, 17
@@ -411,10 +418,10 @@ end
 --- Time band for the current hour.
 local function _get_time_band(hour)
     if not hour then return "day" end
-    if hour >= 7 and hour < 19 then return "day" end
-    if hour >= 19 and hour < 21 then return "dusk" end
-    if hour >= 5 and hour < 7  then return "dawn" end
-    if hour >= 0 and hour < 4  then return "deep_night" end
+    if hour >= DAY_START_HOUR and hour < DAY_END_HOUR then return "day" end
+    if hour >= DAY_END_HOUR and hour < DUSK_END_HOUR then return "dusk" end
+    if hour >= DAWN_START_HOUR and hour < DAY_START_HOUR then return "dawn" end
+    if hour >= 0 and hour < DEEP_NIGHT_END_HOUR then return "deep_night" end
     return "night"
 end
 
