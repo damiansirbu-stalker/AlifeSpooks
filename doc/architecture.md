@@ -583,7 +583,7 @@ not this hook. This slot (`sound_channels`/`update_ambient`) is separate from th
 - Performance first. Performance is the top priority and outranks features. A feature that cannot
   meet the budget is reworked, replaced, or removed with an X-Ray engine modification, never kept at
   the cost of the budget. Only correctness and never breaking base gameplay rank above it. See
-  `doc/standards/code-standards.md`.
+  `doc/standards/stalker-code.md`.
 - Use the engine, don't work around it. Every capability comes from the engine and the Anomaly layer
   first, always through xlibs. Our own code enters only where stock behavior falls short.
 - I1 One-shots only. The director fires every sound once through `xsound.play_at` (retained handle,
