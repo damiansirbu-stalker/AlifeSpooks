@@ -6,6 +6,7 @@ meta.ini
 *.tmp
 *.bak
 *~
+tmp/
 
 # build intermediates (reproducible via tools/build.py)
 tools/__pycache__/
