@@ -11,6 +11,9 @@ local RegisterScriptCallback, GetEvent, alife_object = RegisterScriptCallback, G
 local news_manager, ui_options, game_fast_travel = news_manager, ui_options, game_fast_travel
 
 local function _tip(msg)
+
+-- Metres from the actor a test spawn lands.
+local DEFAULT_TEST_DIST_M = 5
     local actor = db.actor
     if actor then news_manager.send_tip(actor, msg, nil, nil, 4000) end
 end
@@ -61,7 +64,7 @@ local SND_VANILLA = "anomaly\\emi_blowout"
 -- Fire the play 3s AFTER the call, so it happens during live gameplay, not while the console is open
 -- (an open console pauses the game and paused sounds never sound). Close the console after running it.
 function as_test.snd(method, dist)
-    dist = dist or 5
+    dist = dist or DEFAULT_TEST_DIST_M
     local path = (method == 5) and SND_VANILLA or SND_OURS
     RemoveTimeEvent("as_snd", "play")
     CreateTimeEvent("as_snd", "play", 3, function()
