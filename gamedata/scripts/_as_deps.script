@@ -21,10 +21,7 @@ function get_version()
     return _VERSION
 end
 
--- The demonized build this release is built and tested against - set to the LATEST demonized at every
--- release (stalker-compatibility.md "The target build"). The platform footer shows fully compatible
--- only at or above it; older demonized builds and AOEngine (judged as its 2025.9.8 fork base) show
--- partially compatible.
+-- Build this release is tested against, raised every release (stalker-compatibility.md).
 local TARGET_DEMONIZED = 20260809
 
 -- xray-monolith build (YYYYMMDD) as the themrdemonized tag style, no zero padding (20260722 -> "2026.7.22").
@@ -36,8 +33,7 @@ end
 -- at this build: any newer target reads partially compatible on AOE.
 local AOE_BASELINE_BUILD = 20250908
 
--- Platform status line + verdict for the boot log and the MCM footer. Self-contained here (not in xlibs)
--- so it renders even when xlibs is missing or too old - the case the deps asserts exist to report.
+-- Platform status line and verdict for the boot log and the MCM footer.
 function platform_status()
     local xver = (xlibs and xlibs.get_version and xlibs.get_version()) or "?"
     local line = MOD_NAME .. " " .. _VERSION .. ", xlibs " .. xver
