@@ -10,10 +10,10 @@ local table_concat, table_sort, string_format = table.concat, table.sort, string
 local RegisterScriptCallback, GetEvent, alife_object = RegisterScriptCallback, GetEvent, alife_object
 local news_manager, ui_options, game_fast_travel = news_manager, ui_options, game_fast_travel
 
-local function _tip(msg)
-
 -- Metres from the actor a test spawn lands.
 local DEFAULT_TEST_DIST_M = 5
+
+local function _tip(msg)
     local actor = db.actor
     if actor then news_manager.send_tip(actor, msg, nil, nil, 4000) end
 end
