@@ -51,14 +51,14 @@ local function _current_mode()  return MODES[_mode_i] end
 -- disk enumeration (lazy per category)
 
 local function _scan_categories()
-    _cats = xfs.folders("$game_sounds$", SND_ROOT .. "\\")
+    _cats = xfs.read_folders("$game_sounds$", SND_ROOT .. "\\")
     table_sort(_cats)
 end
 
 --- Scan a category's oggs (flat: zs\<cat>\<name>.ogg, no dread subdir - dread lives in as_static_dread.ltx).
 local function _scan_files(cat)
     if _files[cat] then return _files[cat] end
-    local out = xfs.files("$game_sounds$", SND_ROOT .. "\\" .. cat .. "\\", ".ogg")
+    local out = xfs.read_files("$game_sounds$", SND_ROOT .. "\\" .. cat .. "\\", ".ogg")
     table_sort(out)
     _files[cat] = out
     return out

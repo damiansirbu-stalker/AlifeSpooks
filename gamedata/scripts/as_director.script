@@ -228,7 +228,7 @@ local function _has_sounds(cat) return _count_sounds(cat) > 0 end
 --- supersedes where the file sits on disk. Keyed by the deployed name (the stable slug_audiohash).
 local function _load_dread()
     _sound_dread = {}
-    for key, val in pairs(xltx.section(DREAD_FILE, SEC_DREAD)) do
+    for key, val in pairs(xltx.read_section(DREAD_FILE, SEC_DREAD)) do
         val = val and val:lower()
         if val == "low" or val == "med" or val == "high" then _sound_dread[key] = val end
     end
@@ -289,7 +289,7 @@ local function _load_map(level_name)
     if not _map then _map = xltx.open(MAP_FILE) end
     _map_set = {}
     local function add_section(section)
-        for _, name in ipairs(xltx.list(_map, section, "categories")) do
+        for _, name in ipairs(xltx.read_list(_map, section, "categories")) do
             if CATEGORY[name] and _has_sounds(_category_sounds[name]) then _map_set[name] = true end
         end
     end
@@ -303,20 +303,20 @@ end
 -- wins where the actor is inside its radius - it overrides the level lore and even a safe hub.
 local function _parse_position(ini, name)
     if not xltx.has(ini, name) then return nil end
-    local pos = xltx.str(ini, name, "pos")
-    local position_level = xltx.str(ini, name, "level")
+    local pos = xltx.read_str(ini, name, "pos")
+    local position_level = xltx.read_str(ini, name, "level")
     local cx, cz
     if pos then cx, cz = pos:match("(-?[%d.]+)%s*,%s*-?[%d.]+%s*,%s*(-?[%d.]+)") end
     if not (position_level and cx and cz) then return nil end
     local cats = {}
-    for _, cat in ipairs(xltx.list(ini, name, "categories")) do cats[cat] = true end
+    for _, cat in ipairs(xltx.read_list(ini, name, "categories")) do cats[cat] = true end
     return {
         name = name, level = position_level, px = tonumber(cx), pz = tonumber(cz),
-        radius = xltx.num(ini, name, "radius") or 30,
-        dread = xltx.num(ini, name, "dread"),
-        add = xltx.num(ini, name, "add") or 0,
+        radius = xltx.read_num(ini, name, "radius") or 30,
+        dread = xltx.read_num(ini, name, "dread"),
+        add = xltx.read_num(ini, name, "add") or 0,
         cats = next(cats) and cats or nil,
-        only = xltx.str(ini, name, "select") == "only",
+        only = xltx.read_str(ini, name, "select") == "only",
     }
 end
 
@@ -324,7 +324,7 @@ local function _load_positions()
     if _positions then return end
     _positions = {}
     local ini = xltx.open(POSITION_FILE)
-    for _, name in ipairs(xltx.list(ini, SEC_POSITIONS, "list")) do
+    for _, name in ipairs(xltx.read_list(ini, SEC_POSITIONS, "list")) do
         local position = _parse_position(ini, name)
         if position then _positions[#_positions + 1] = position end
     end
@@ -394,7 +394,7 @@ local function scan_monster(id, obj, apos, out)
     if not obj then return end
     out.online = true
     if apos:distance_to_sqr(obj:position()) > NEAR_R2 then return end
-    local se = xobject.se(id)
+    local se = xobject.get_se(id)
     if not se then return end
     local tier = get_power_tier(se:rank(), MONSTER_MED, MONSTER_HIGH)
     if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
@@ -733,15 +733,15 @@ end
 local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
 
 local function _read_base_channel(ch, ini_snd)
-    local raw = xltx.list(ini_snd, ch, "sounds")
+    local raw = xltx.read_list(ini_snd, ch, "sounds")
     if not raw or #raw == 0 then return nil end
     return { name = ch, sounds = raw,
-        max_dist = xltx.num(ini_snd, ch, "max_distance") or 100,
-        min_dist = xltx.num(ini_snd, ch, "min_distance") or 1,
-        height   = xltx.num(ini_snd, ch, "height") or 0,
-        indoor   = xltx.bool(ini_snd, ch, "indoor") or false,
-        periods  = { xltx.num(ini_snd, ch, "period0") or 10, xltx.num(ini_snd, ch, "period1") or 15,
-                     xltx.num(ini_snd, ch, "period2") or 20, xltx.num(ini_snd, ch, "period3") or 25 } }
+        max_dist = xltx.read_num(ini_snd, ch, "max_distance") or 100,
+        min_dist = xltx.read_num(ini_snd, ch, "min_distance") or 1,
+        height   = xltx.read_num(ini_snd, ch, "height") or 0,
+        indoor   = xltx.read_bool(ini_snd, ch, "indoor") or false,
+        periods  = { xltx.read_num(ini_snd, ch, "period0") or 10, xltx.read_num(ini_snd, ch, "period1") or 15,
+                     xltx.read_num(ini_snd, ch, "period2") or 20, xltx.read_num(ini_snd, ch, "period3") or 25 } }
 end
 
 local function reset_base(level_name, ambient)
@@ -749,7 +749,7 @@ local function reset_base(level_name, ambient)
     if not (level_name and ambient and ambient ~= "") then return end
     local ini_lvl = xltx.open("environment\\ambients\\" .. level_name .. ".ltx")
     if not ini_lvl then return end
-    local channels = xltx.list(ini_lvl, ambient, "sound_channels_dynamic")
+    local channels = xltx.read_list(ini_lvl, ambient, "sound_channels_dynamic")
     if #channels == 0 then return end
     local cached, ini_snd = {}, xltx.open(CHANNELS_FILE)
     for i = 1, #channels do
