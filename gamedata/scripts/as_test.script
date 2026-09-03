@@ -285,7 +285,7 @@ end
 
 local function _snap_level_species(log, level_id)
     local species = {}
-    for smart in xsmart.smart_iter() do _add_smart_species(smart, level_id, species) end
+    for smart in xsmart.iterate_smarts() do _add_smart_species(smart, level_id, species) end
     log.info("LEVEL-SPECIES {%s}", _format_pairs(species))
 end
 

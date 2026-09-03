@@ -299,7 +299,7 @@ local function _load_map(level_name)
 end
 
 -- Coordinate overrides ("positions"): a per-place base dread + flat add + selection. Read ONCE into a flat
--- list (a handful of records); the scan checks the current level's few via xmath.in_range. A position ALWAYS
+-- list (a handful of records); the scan checks the current level's few via xmath.is_in_range. A position ALWAYS
 -- wins where the actor is inside its radius - it overrides the level lore and even a safe hub.
 local function _parse_position(ini, name)
     if not xltx.has(ini, name) then return nil end
@@ -330,14 +330,14 @@ local function _load_positions()
     end
 end
 
---- The active override where the actor stands, or nil. Checks this level's positions via xmath.in_range
+--- The active override where the actor stands, or nil. Checks this level's positions via xmath.is_in_range
 --- (flat XZ). Loaded once on first call.
 local function _scan_position(actor)
     _load_positions()
     local apos, here = actor:position(), level.name()
     for i = 1, #_positions do
         local position = _positions[i]
-        if position.level == here and xmath.in_range(apos, position.px, position.pz, position.radius) then return position end
+        if position.level == here and xmath.is_in_range(apos, position.px, position.pz, position.radius) then return position end
     end
     return nil
 end
