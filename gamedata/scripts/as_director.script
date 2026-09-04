@@ -286,7 +286,7 @@ end
 local function _load_map(level_name)
     if _map_level == level_name then return end
     _map_level = level_name
-    if not _map then _map = xltx.open(MAP_FILE) end
+    if not _map then _map = xltx.resolve_handle(MAP_FILE) end
     _map_set = {}
     local function add_section(section)
         for _, name in ipairs(xltx.read_list(_map, section, "categories")) do
@@ -323,7 +323,7 @@ end
 local function _load_positions()
     if _positions then return end
     _positions = {}
-    local ini = xltx.open(POSITION_FILE)
+    local ini = xltx.resolve_handle(POSITION_FILE)
     for _, name in ipairs(xltx.read_list(ini, SEC_POSITIONS, "list")) do
         local position = _parse_position(ini, name)
         if position then _positions[#_positions + 1] = position end
@@ -747,11 +747,11 @@ end
 local function reset_base(level_name, ambient)
     _base.chan, _base.idx, _base.tot = {}, 0, 0
     if not (level_name and ambient and ambient ~= "") then return end
-    local ini_lvl = xltx.open("environment\\ambients\\" .. level_name .. ".ltx")
+    local ini_lvl = xltx.resolve_handle("environment\\ambients\\" .. level_name .. ".ltx")
     if not ini_lvl then return end
     local channels = xltx.read_list(ini_lvl, ambient, "sound_channels_dynamic")
     if #channels == 0 then return end
-    local cached, ini_snd = {}, xltx.open(CHANNELS_FILE)
+    local cached, ini_snd = {}, xltx.resolve_handle(CHANNELS_FILE)
     for i = 1, #channels do
         local ch = channels[i]
         local entry = (not cached[ch]) and xltx.has(ini_snd, ch) and _read_base_channel(ch, ini_snd)
