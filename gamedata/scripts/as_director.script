@@ -661,12 +661,12 @@ end
 
 -- visual layer
 
---- Fire one subtle distortion pulse: acquire a cyclic effector, drive its factor up, release after a hold.
+--- Fire one subtle distortion pulse: create a cyclic effector, drive its factor up, release after a hold.
 function fire_visual_pulse()
     if not xpp then return end
     local ppe = VIS_PPE[math_random(#VIS_PPE)]
     if _visual.handle and xpp.is_active(_visual.handle) then xpp.release(_visual.handle) end
-    local handle = xpp.acquire(ppe, { cyclic = true, smoothing = VIS_SMOOTH })
+    local handle = xpp.create_effector(ppe, { cyclic = true, smoothing = VIS_SMOOTH })
     _visual.handle = handle
     if handle then
         xpp.set_target(handle, VIS_FACTOR, VIS_SMOOTH)
