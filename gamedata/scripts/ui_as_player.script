@@ -146,7 +146,7 @@ end
 -- list + readout
 
 function as_player_wnd:FillList()
-    if xslice then xslice.cancel("as_player_fill") end
+    if xslice then xslice.stop_queue("as_player_fill") end
     if _built then self.list:RemoveAll() end
     _built = true
     if _at_root then
@@ -344,7 +344,7 @@ function as_player_wnd:OnKeyboard(dik, action)
 end
 
 function as_player_wnd:Close()
-    if xslice then xslice.cancel("as_player_fill") end
+    if xslice then xslice.stop_queue("as_player_fill") end
     if xsound then xsound.stop_shots() end
     self:HideDialog()
     Unregister_UI("as_player_wnd")
