@@ -404,15 +404,15 @@ end
 --- best-effort is_mutant walk - the demonized registry PR is the parity fix, n119).
 local function _scan_monsters(actor)
     local out = { online = false, enemy_near = "none" }
-    if not (xcreature and xcreature.online_monster_iter) then return out end
+    if not (xcreature and xcreature.iterate_online_monsters) then return out end
     local apos = actor:position()
-    for id, obj in xcreature.online_monster_iter() do scan_monster(id, obj, apos, out) end
+    for id, obj in xcreature.iterate_online_monsters() do scan_monster(id, obj, apos, out) end
     return out
 end
 
 --- Anomaly within range of the actor (proven scan over db.anomaly_by_name).
 local function _read_anomalies(actor)
-    return (xsmart and xsmart.anomaly_near and xsmart.anomaly_near(actor:position(), NEAR_R)) or false
+    return (xsmart and xsmart.is_anomaly_near and xsmart.is_anomaly_near(actor:position(), NEAR_R)) or false
 end
 
 --- Time band for the current hour.

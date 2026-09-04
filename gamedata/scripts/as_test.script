@@ -324,7 +324,7 @@ local function _snap_smart(log, apos)
         log.info("SMART none")
     end
     -- base detection: distance to the nearest SELLER NPC (not the smart center), within 80m
-    local owner, sd = xsmart.base_owner_near(apos, 80)
+    local owner, sd = xsmart.find_base_owner(apos, 80)
     log.info("BASE seller_near owner=%s dist=%s (nearest trader/medic/mechanic NPC <=80m)",
         tostring(owner or "-"), owner and string_format("%.0f", sd) or "-")
 end
