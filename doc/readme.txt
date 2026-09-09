@@ -25,7 +25,7 @@ The Zone used to be frightening.
 Modern soundscape mods traded that dread for realism.
 AlifeSpooks is my attempt to put the fear back without giving up the fidelity.
 
-It is a dread director, driven by where you stand and who is near. It answers the dread of the place with curated horror one-shots.
+It is a dread director, driven by where you stand and who is near. It answers the dread of the place with curated horror sounds.
 No random timers, no scripts. The soundscape follows the real state of the game around you.
 Some of its horror is interior audio Shrike made for Dark Signal and never released, given straight to this mod.
 
@@ -73,11 +73,11 @@ By default a sound plays at every dread level.
 You can hold a calm sound to quiet scenes and a scare to tense ones, so the palette shifts as the dread climbs.
 That tuning is per-sound, hand-set, and separate from the audio, so it survives every rebuild of the library.
 
-The director places each one-shot in 3D around and above you, at the distance its own author chose.
+The director places each sound in 3D around and above you, at the distance its own author chose.
 It uses the same placement the game's ambient system uses, so a sound plays as it did in the mod it came from.
 A sound meant to come from overhead still does.
 Every sound is mono, the only form the engine places in 3D, so nothing sticks flat at your ear.
-A long drone or the radio signal plays as a spaced one-shot, never a loop.
+A long drone or the radio signal plays as a spaced sound, never a loop.
 
 
 2. The veto
@@ -99,7 +99,7 @@ The build is a reproducible pipeline, one command end to end.
 It measures every sound before it goes in.
 ffmpeg reads its spectral centroid, flatness, crest factor, integrated loudness in EBU R128 LUFS. ffprobe reads its duration, sample rate, codec.
 Each pack's folders map to horror categories by hand, and the build pulls every file in them, so it misses nothing the pack buries.
-The build drops a sound too long for a one-shot. It slices the long radio-signal bed into short pieces.
+The build drops a sound too long to play whole. It slices the long radio-signal bed into short pieces.
 Each file keeps its author's own loudness, the X-Ray gain set in the ogg comment, written back unchanged. No leveling.
 The authored levels are tight and field-tested in the source mods, so the corpus already plays even.
 Dread comes from where the director places a sound, not from re-leveling one file against the next.
