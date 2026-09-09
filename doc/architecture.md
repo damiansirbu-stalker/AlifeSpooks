@@ -86,6 +86,10 @@ provenance  every shipped sound -> its origin         -> provenance.tsv
   ambient channels (`_build_veto_overlay` -> `mod_sound_channels_alifespooks.ltx`).
 - ledger (`cmd_ledger`) and provenance (`cmd_provenance`): the proofs, below.
 
+### No audible sound drops before audition (shared invariant with AlifeAmbience)
+
+No audible sound is dropped before the user auditions it. Measurement only FLAGS a drop candidate (too long, off-character, past a spectral or loudness bound); it never excludes an audible file on its own. The flagged list is loaded into `ui_as_player` as a playlist, the user auditions it, and only then does a file get excluded. The sole mechanical removals are files that cannot be auditioned: dead-silent (below the LUFS floor), off sample rate, corrupt, or an anti-phase pair that folds to silence. This invariant is shared verbatim with AlifeAmbience.
+
 ### Selection is manual, pulling is mechanical
 
 Which packs and which folders contribute is a per-pack judgment, made by hand before any pull. Each
