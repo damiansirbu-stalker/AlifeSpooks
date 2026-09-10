@@ -192,10 +192,10 @@ local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
 local _cursor = 1
 
 -- Forward declarations for helpers referenced before their definition line (kept local, never global).
-local _build_hud, fire_visual_pulse, try_visual_pulse
+local _build_hud, play_visual_pulse, try_visual_pulse
 
 --- Comma-join short strings into lines each <= width chars (the wrapped HUD available list).
-local function wrap_list(items, width)
+local function build_lines(items, width)
     local lines, buf, len = {}, {}, 0
     for i = 1, #items do
         local sep = (i < #items) and ", " or ""
@@ -227,10 +227,10 @@ end
 -- LOAD
 
 --- Sound count of a category (its flat row list from as_sound_config_gen).
-local function _count_sounds(cat) return cat and #cat or 0 end
+local function _get_sound_count(cat) return cat and #cat or 0 end
 
 --- True if a category has any sound.
-local function _has_sounds(cat) return _count_sounds(cat) > 0 end
+local function _has_sounds(cat) return _get_sound_count(cat) > 0 end
 
 --- Per-sound dread override (as_static_dread.ltx, section [dread]: deployed-name = low|med|high). A sound
 --- with an override plays ONLY at that dread; a sound with none plays at EVERY dread. Absent file = no
@@ -245,15 +245,15 @@ local function _load_dread()
 end
 
 --- A sound row's override bucket (keyed by its deployed name = the path's last segment), or nil = every bucket.
-local function _dread_of(row)
+local function _get_dread_override(row)
     local stem = tostring(row[1]):match("([^\\/]+)$")
     return stem and _sound_dread[stem]
 end
 
 --- Place one row into the dread pools by its override: an overridden sound only in its own bucket, a
 --- no-override sound in all three (it plays at every dread).
-local function _assign_to_pools(pools, row)
-    local override = _dread_of(row)
+local function _add_pool_row(pools, row)
+    local override = _get_dread_override(row)
     if not override then
         pools.low[#pools.low + 1]   = row
         pools.med[#pools.med + 1]   = row
@@ -270,7 +270,7 @@ local function _build_dread_pools()
     _dread_pools = {}
     for name, cat in pairs(_category_sounds) do
         local pools = { low = {}, med = {}, high = {} }
-        for i = 1, #cat do _assign_to_pools(pools, cat[i]) end
+        for i = 1, #cat do _add_pool_row(pools, cat[i]) end
         _dread_pools[name] = pools
     end
 end
@@ -286,7 +286,7 @@ local function _load_channels()
     local cats = as_sound_config_gen and as_sound_config_gen.categories or {}
     for name in pairs(CATEGORY) do
         _category_sounds[name] = cats[name] or {}
-        as_debug.debug("as_director: category %s = %d sounds", name, _count_sounds(_category_sounds[name]))
+        as_debug.debug("as_director: category %s = %d sounds", name, _get_sound_count(_category_sounds[name]))
     end
     _load_dread()
     _build_dread_pools()
@@ -342,7 +342,7 @@ end
 
 --- The active override where the actor stands, or nil. Checks this level's positions via xmath.is_in_range
 --- (flat XZ). Loaded once on first call.
-local function _scan_position(actor)
+local function _find_position(actor)
     _load_positions()
     local apos, here = actor:position(), level.name()
     for i = 1, #_positions do
@@ -369,7 +369,7 @@ local function _read_environment(actor)
 end
 
 --- Fold one online stalker id into the stalkers sensor (guard-clause; near-only past the distance test).
-local function scan_stalker(id, actor_id, apos, out)
+local function _add_stalker(id, actor_id, apos, out)
     if id == actor_id then return end
     local st = db.storage[id]
     local npc = st and st.object
@@ -390,17 +390,17 @@ local function scan_stalker(id, actor_id, apos, out)
 end
 
 --- Scan the dedicated online-stalker array (db.OnlineStalkers) in one pass.
-local function _scan_stalkers(actor)
+local function _collect_stalkers(actor)
     local out = { online = false, enemy_near = "none", ally_near = "none", service_near = "none" }
     local online = db.OnlineStalkers
     if not online then return out end
     local actor_id, apos = actor:id(), actor:position()
-    for i = 1, #online do scan_stalker(online[i], actor_id, apos, out) end
+    for i = 1, #online do _add_stalker(online[i], actor_id, apos, out) end
     return out
 end
 
 --- Fold one online monster into the monsters sensor (the iterator yields monsters; near-only tiering).
-local function scan_monster(id, obj, apos, out)
+local function _add_monster(id, obj, apos, out)
     if not obj then return end
     out.online = true
     if apos:distance_to_sqr(obj:position()) > NEAR_R2 then return end
@@ -412,11 +412,11 @@ end
 
 --- Scan online monsters via the xlibs monster iterator (db.OnlineMonsters when present, else a capped
 --- best-effort is_mutant walk - the demonized registry PR is the parity fix, n119).
-local function _scan_monsters(actor)
+local function _collect_monsters(actor)
     local out = { online = false, enemy_near = "none" }
     if not (xcreature and xcreature.iterate_online_monsters) then return out end
     local apos = actor:position()
-    for id, obj in xcreature.iterate_online_monsters() do scan_monster(id, obj, apos, out) end
+    for id, obj in xcreature.iterate_online_monsters() do _add_monster(id, obj, apos, out) end
     return out
 end
 
@@ -463,7 +463,7 @@ end
 
 --- Category shuffle-bag: cycle every eligible category once before any repeat. Stale names (no longer
 --- eligible after the set changed) are dropped; the bag refills from the current eligible list when empty.
-local function _pick_category()
+local function _select_category()
     local live = {}
     for i = 1, #_cat_bag do
         if board.elig_set[_cat_bag[i]] then live[#live + 1] = _cat_bag[i] end
@@ -480,7 +480,7 @@ local function _pick_category()
 end
 
 --- The scene dread bucket the sound-bag draws from (low/med/high, via the DREAD_LIMIT cut points).
-local function _dread_bucket(dread)
+local function _get_dread_bucket(dread)
     if dread >= DREAD_LIMIT_MED then return BUCKET.HIGH end
     if dread >= DREAD_LIMIT_LOW then return BUCKET.MED end
     return BUCKET.LOW
@@ -489,7 +489,7 @@ end
 --- Sound shuffle-bag for a category at the scene's dread bucket. The pool is _dread_pools[category][bucket]
 --- (no-override sounds are in every bucket, overridden ones only in theirs); every sound in the pool plays
 --- once before any repeat. Keyed per category+bucket so a scene-dread shift draws from that bucket's pool.
-local function _pick_sound(name, scene_bucket)
+local function _select_sound(name, scene_bucket)
     local pools = _dread_pools[name]
     local pool = pools and pools[scene_bucket]
     if not pool or #pool == 0 then return nil end
@@ -518,12 +518,6 @@ local function _get_threat_term(stalkers, monsters)
     return 0
 end
 
-local function _clamp01(value)
-    if value < 0 then return 0 end
-    if value > 1 then return 1 end
-    return value
-end
-
 --- Grounded additive dread from the board, clamped 0..1. An allied service near (a safe hub) forces 0;
 --- a hostile service adds. Writes board.dread + board.terms (the HUD breakdown, one persistent table).
 --- Sum the terms into the 0..1 dread, applying the active position: its dread replaces lore, add stacks,
@@ -532,7 +526,10 @@ local function _resolve_dread(terms, position, allied)
     if position and position.dread then terms.lore = position.dread end
     if allied and not (position and position.dread) then return 0 end
     local add = (position and position.add) or 0
-    return _clamp01(terms.lore + terms.env + terms.time + terms.threat + terms.company + terms.anomaly + terms.service + add)
+    local sum = terms.lore + terms.env + terms.time + terms.threat + terms.company + terms.anomaly + terms.service + add
+    if sum < 0 then return 0 end
+    if sum > 1 then return 1 end
+    return sum
 end
 
 local function _compute_dread()
@@ -552,20 +549,20 @@ end
 --- band midpoint outdoors, random(min, max)/2. The spawn_min>ch_max clamp guards the base observer's
 --- third-party LTX (math_random errors on an empty interval; our generated bands cannot invert). emit pulls
 --- this by dread; the base observer uses it raw.
-local function _roll_spawn_dist(ch_min, ch_max)
+local function _compute_spawn_dist(ch_min, ch_max)
     local spawn_min = GetEvent("underground") and ch_min or ((ch_max + ch_min) / 2)
     if spawn_min > ch_max then spawn_min = ch_max end
     return math_random(spawn_min, ch_max) / 2
 end
 
 --- Base-game update_ambient placement + volume for one spawn band (sound_ambient.script:127-165): rolls the
---- spawn distance (_roll_spawn_dist) unless fixed_dist is given (the audition player, or emit's dread-pulled
+--- spawn distance (_compute_spawn_dist) unless fixed_dist is given (the audition player, or emit's dread-pulled
 --- distance), a random bearing, pos.y + height, and the indoor/outdoor/underground volume table. Returns
 --- dist, position, and the raw table volume (caller applies sliders).
 local function get_placement(actor, ch_min, ch_max, height, indoor, fixed_dist)
     local underground = GetEvent("underground")
     local inside = GetEvent("current_safe_cover")
-    local dist = fixed_dist or _roll_spawn_dist(ch_min, ch_max)
+    local dist = fixed_dist or _compute_spawn_dist(ch_min, ch_max)
     local pos = actor:position()
     local angle = math_rad(math_random(0, 359))
     local vec = vector():set(pos.x + math_cos(angle) * dist, pos.y + height, pos.z + math_sin(angle) * dist)
@@ -577,8 +574,8 @@ end
 
 --- The director's spawn distance: the base-game roll pulled up to DREAD_PULL closer by dread (0 or nil dread
 --- = no pull). A caller-provided fixed distance bypasses this, so the audition player's set distance is exact.
-local function _pulled_spawn_dist(ch_min, ch_max, dread)
-    local dist = _roll_spawn_dist(ch_min, ch_max)
+local function _compute_pull_dist(ch_min, ch_max, dread)
+    local dist = _compute_spawn_dist(ch_min, ch_max)
     if dread and dread > 0 then dist = dist * (1 - DREAD_PULL * dread) end
     return dist
 end
@@ -587,7 +584,7 @@ end
 
 --- Rebuild the eligible category list + fast lookup from the current board. Called at emission and by the
 --- HUD only, never on the tick - the set is consumed only there, so a per-tick rebuild was pure garbage.
-local function _rebuild_eligible()
+local function _build_eligible()
     local position = board.position
     local elig = {}
     for name in pairs(CATEGORY) do
@@ -617,12 +614,12 @@ local function try_emit(tg)
     _gap_at = tg
     _jitter = 1 + (math_random() * 2 - 1) * SPACE_JITTER
     if dread <= 0 then return end
-    _rebuild_eligible()
-    local name = _pick_category()
+    _build_eligible()
+    local name = _select_category()
     if not name then return end
-    local snd = _pick_sound(name, _dread_bucket(dread))
+    local snd = _select_sound(name, _get_dread_bucket(dread))
     if snd then
-        emit(snd[1], { min = snd[2], max = snd[3], height = snd[4],
+        play_sound(snd[1], { min = snd[2], max = snd[3], height = snd[4],
                        ch_min = snd[5], ch_max = snd[6], indoor = snd[7], dread = dread })
         _last_play = snd[1]
         _play_at = tg
@@ -631,7 +628,7 @@ local function try_emit(tg)
 end
 
 -- base ambient observer (owns the base update_ambient slot)
--- This REPLACES the base sound_ambient.update_ambient (RemoveTimeEvent + our clone, in install_base_observer), so it
+-- This REPLACES the base sound_ambient.update_ambient (RemoveTimeEvent + our clone, in register_base_observer), so it
 -- runs for EVERY player, not only at DEBUG. It is a faithful clone of the base channel rotation, timing,
 -- and volume rule, with two deltas: it plays through xsound.play (an engine-owned one-shot, so a base sound
 -- is not GC-cut on channel re-fire the way the base retained handle cut it), and it LOGS each base fire at
@@ -705,7 +702,7 @@ local function update_base_ambient()
     return false
 end
 
-local function install_base_observer()
+local function register_base_observer()
     _base.hour, _base.idx = nil, 0
     RemoveTimeEvent("sound_channels", "update_ambient")
     CreateTimeEvent("sound_channels", "update_ambient", 1, update_base_ambient)
@@ -714,11 +711,11 @@ end
 -- director loop (one tick, round-robin one producer per tick)
 
 -- Each producer writes one sensor into the board. The tick runs ONE per tick, so the per-tick cost is
--- the single heaviest scan, never the sum; the full board refreshes over #producers ticks (~0.6s).
+-- the single heaviest scan, never the sum; the full board update_configes over #producers ticks (~0.6s).
 -- Position producer: resolve the active override, edge-logging enter/leave at DEBUG (not every scan).
 local _last_pos_name = nil
-local function sense_position(actor)
-    local position = _scan_position(actor)
+local function update_position(actor)
+    local position = _find_position(actor)
     local name = position and position.name
     if name ~= _last_pos_name then
         _last_pos_name = name
@@ -728,11 +725,11 @@ local function sense_position(actor)
 end
 
 local _producers = {
-    { "stalkers",    function(actor) board.stalkers = _scan_stalkers(actor) end },
-    { "monsters",    function(actor) board.monsters = _scan_monsters(actor) end },
+    { "stalkers",    function(actor) board.stalkers = _collect_stalkers(actor) end },
+    { "monsters",    function(actor) board.monsters = _collect_monsters(actor) end },
     { "environment", function(actor) board.environment = _read_environment(actor) end },
     { "anomalies",   function(actor) board.anomalies.near = _read_anomalies(actor) end },
-    { "position",    sense_position },
+    { "position",    update_position },
     { "time",        function()      if level.present() then board.time = _get_time_band(level.get_time_hours()) end end },
 }
 
@@ -747,14 +744,14 @@ local function _on_tick()
     tmr:stop()
     _cursor = _cursor % #_producers + 1
     _compute_dread()
-    if dbg then _rebuild_eligible(); as_debug.debug("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
+    if dbg then _build_eligible(); as_debug.debug("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
     try_emit(tg)
     return false
 end
 
 -- lifecycle
 
-local function refresh()
+local function update_config()
     rarity             = as_mcm.get_config("rarity") or 1
     vol_global         = as_mcm.get_config("vol_global") or 1
     opt_ambient_volume = (ui_options and ui_options.get("sound/environment/ambient_volume")) or 1
@@ -765,14 +762,14 @@ end
 --- Load banks, arm the ticks. Runs on every actor_on_first_update, so a save load re-arms the timers.
 --- Inert without xlibs (xsound). The veto still holds - it is the static DLTX overlay.
 local function _on_first_update()
-    refresh()
+    update_config()
     if not xsound then as_debug.warn("as_director: xlibs (xsound) absent - director inert"); return end
     _load_channels()
     _load_map(level.name())
     _gap_at, _jitter, _cursor = 0, 1, 1
     _map_level, _cat_bag, _snd_bag = nil, {}, {}
     _visual.insane_since, _visual.next_ok, _visual.handle = nil, 0, nil
-    install_base_observer()
+    register_base_observer()
     RemoveTimeEvent("as_director", "tick")
     CreateTimeEvent("as_director", "tick", TICK_S, _on_tick)
     as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient; source-band placement")
@@ -783,11 +780,11 @@ end
 --- opts.dread (DREAD_PULL), then place it via get_placement - the base volume table times the game ambient
 --- slider (vol_global on top, 1 = untouched base loudness). The blob pair (opts.min/max) is the ATTENUATION
 --- range - trace readout only, never placement. Returns the distance.
-function emit(path, opts)
+function play_sound(path, opts)
     local actor = db.actor
     if not (actor and path and xsound) then return end
     local height = opts.height or 0
-    local place_dist = opts.dist or _pulled_spawn_dist(opts.ch_min, opts.ch_max, opts.dread)
+    local place_dist = opts.dist or _compute_pull_dist(opts.ch_min, opts.ch_max, opts.dread)
     local dist, vec, vol = get_placement(actor, opts.ch_min, opts.ch_max, height, opts.indoor, place_dist)
     vol = vol * opt_ambient_volume * vol_global
     xsound.play_at(path, { position = vec, volume = vol })
@@ -803,7 +800,7 @@ end
 -- visual layer
 
 --- Fire one subtle distortion pulse: create a cyclic effector, drive its factor up, release after a hold.
-function fire_visual_pulse()
+function play_visual_pulse()
     if not xpp then return end
     local ppe = VIS_PPE[math_random(#VIS_PPE)]
     if _visual.handle and xpp.is_active(_visual.handle) then xpp.release(_visual.handle) end
@@ -828,12 +825,12 @@ function try_visual_pulse(tg)
     if not _visual.insane_since then _visual.insane_since = tg; return end
     if tg < _visual.next_ok or tg - _visual.insane_since < VIS_DWELL_MS then return end
     _visual.next_ok = tg + VIS_COOLDOWN_MS
-    if math_random() < VIS_CHANCE then fire_visual_pulse() end
+    if math_random() < VIS_CHANCE then play_visual_pulse() end
 end
 
 --- Build the debug HUD rows (PLAYING / SELECT / SENSORS) from the board.
 function _build_hud()
-    _rebuild_eligible()
+    _build_eligible()
     local playing = _play_at > 0 and (time_global() - _play_at) < PLAY_WINDOW_MS
     local base_playing = _base_at > 0 and (time_global() - _base_at) < PLAY_WINDOW_MS
     local dread = board.dread
@@ -846,7 +843,7 @@ function _build_hud()
         { "", "", "" },
         { "SELECT", "", "", "hdr" },
     }
-    local avail = wrap_list(board.eligible, TYPE_WRAP)
+    local avail = build_lines(board.eligible, TYPE_WRAP)
     if #avail == 0 then avail = { "-" } end
     for i = 1, #avail do _rows[#_rows + 1] = { i == 1 and "available" or "", avail[i], "" } end
     _rows[#_rows + 1] = { "dread", string_format("%.2f", dread), "", grade }
@@ -901,6 +898,6 @@ end
 
 function on_game_start()
     RegisterScriptCallback("actor_on_first_update",      _on_first_update)
-    RegisterScriptCallback("on_option_change",           refresh)
-    RegisterScriptCallback("mcm_option_restore_default", refresh)
+    RegisterScriptCallback("on_option_change",           update_config)
+    RegisterScriptCallback("mcm_option_restore_default", update_config)
 end
