@@ -276,7 +276,7 @@ local function _load_channels()
     local cats = as_sound_config_gen and as_sound_config_gen.categories or {}
     for name in pairs(CATEGORY) do
         _category_sounds[name] = cats[name] or {}
-        as_debug.dbg("as_director: category %s = %d sounds", name, _count_sounds(_category_sounds[name]))
+        as_debug.debug("as_director: category %s = %d sounds", name, _count_sounds(_category_sounds[name]))
     end
     _load_dread()
     _build_dread_pools()
@@ -590,7 +590,7 @@ function emit(path, opts)
     local d3d = math_sqrt(dist * dist + height * height)
     local att = (mn and mx and mx > mn) and (mx - d3d) / (mx - mn) or 0
     if att < 0 then att = 0 elseif att > 1 then att = 1 end
-    as_debug.dbg("[PLAY] %s dist=%.1f band=%.0f-%.0f h=%.0f att=%.2f vol=%.2f dread=%.2f",
+    as_debug.debug("[PLAY] %s dist=%.1f band=%.0f-%.0f h=%.0f att=%.2f vol=%.2f dread=%.2f",
         path, dist, opts.ch_min or 0, opts.ch_max or 0, height, att, vol, opts.dread or 0)
     return dist
 end
@@ -718,7 +718,7 @@ local function try_emit(tg)
                        ch_min = snd[5], ch_max = snd[6], indoor = snd[7], dread = dread })
         _last_play = snd[1]
         _play_at = tg
-        as_debug.dbg("[PICK] cat=%s snd=%s dread=%.2f", name, snd[1], dread)
+        as_debug.debug("[PICK] cat=%s snd=%s dread=%.2f", name, snd[1], dread)
     end
 end
 
@@ -774,8 +774,8 @@ local function play_base_channel(ch, tg)
     local dist, vec, vol = get_placement(actor, ch.min_dist, ch.max_dist, ch.height, ch.indoor)
     vol = vol * opt_ambient_volume
     xsound.play(file, { position = vec, volume = vol })
-    if as_debug.on() then
-        as_debug.dbg("[BASE] lvl=%s ch=%s file=%s dist=%.1f vol=%.2f", level.name(), ch.name, tostring(file), dist, vol)
+    if as_debug.is_on() then
+        as_debug.debug("[BASE] lvl=%s ch=%s file=%s dist=%.1f vol=%.2f", level.name(), ch.name, tostring(file), dist, vol)
     end
 end
 
@@ -815,7 +815,7 @@ local function sense_position(actor)
     local name = position and position.name
     if name ~= _last_pos_name then
         _last_pos_name = name
-        as_debug.dbg("[OVERRIDE] %s", name and ("in " .. name .. " dread=" .. tostring(position.dread)) or "cleared")
+        as_debug.debug("[OVERRIDE] %s", name and ("in " .. name .. " dread=" .. tostring(position.dread)) or "cleared")
     end
     board.position = position
 end
@@ -834,14 +834,14 @@ local function _on_tick()
     ResetTimeEvent("as_director", "tick", TICK_S)
     if not (level.present() and db.actor) then return false end
     local tg = time_global()
-    local dbg = as_debug.on()
+    local dbg = as_debug.is_on()
     local entry = _producers[_cursor]
     local tmr = xprofiler.new_if(dbg):start()
     entry[2](db.actor)
     tmr:stop()
     _cursor = _cursor % #_producers + 1
     _compute_dread()
-    if dbg then _rebuild_eligible(); as_debug.dbg("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
+    if dbg then _rebuild_eligible(); as_debug.debug("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
     try_emit(tg)
     return false
 end
