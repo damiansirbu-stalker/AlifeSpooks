@@ -1,11 +1,4 @@
---- as_director: dread director. One 100ms tick round-robins a sensor board (environment, stalkers,
---- monsters, anomalies, time), SELECT gates categories by map + environment + presence, a two-level
---- shuffle-bag picks, and grounded additive dread drives emission frequency, selection, and a placement
---- pull (up to 20% closer) - not the volume table. Each sound is placed by the base game's update_ambient
---- code from its own source-channel spawn band, then pulled by dread (emit). Man and monster collapse
---- to one low/med/high power (se:rank), so threat reads both with one rule. A separate observer owns the
---- base update_ambient slot only to replay+LOG the base ambient; the base's copies of our sounds are
---- removed statically by the DLTX overlay.
+--- as_director: dread director; a 100ms tick fills a sensor board, additive dread paces emission and selection, and a base observer replays the base ambient.
 
 local math_random, math_rad = math.random, math.rad
 local math_cos, math_sin = math.cos, math.sin
@@ -33,9 +26,7 @@ local SERVICE = { HOSTILE = "hostile", ALLIED = "allied" }
 local TIER_NONE   = "none"
 local SELECT_ONLY = "only"
 
--- Category runtime attributes: env (enclosure states it may play in) + need (a live gate). The MAP list
--- (as_static_map.ltx) decides per-level eligibility; THIS decides enclosure + need, keyed by name.
--- env flags out/ind/ug = outdoor/indoor/underground; labs satisfies ug. need "mutant"|"human"|"anomaly"|nil.
+-- Per-category play rules: env enclosure flags (out/ind/ug) and an optional live need gate; per-level eligibility lives in as_static_map.ltx.
 local CATEGORY = {
     mutant                = { out = true, ind = true, ug = true, need = NEED.MUTANT },
     mutant_ambient_forest = { out = true },
@@ -103,35 +94,22 @@ local SERVICE_HOSTILE = 0.30
 local NEAR_R  = 60
 local NEAR_R2 = NEAR_R * NEAR_R
 
--- Emission + pacing. The gap between plays scales with CURRENT dread, re-evaluated every tick, so a calm
--- place has long gaps (~SPACE_CALM_MS - silence carries the dread) and a scary one short gaps (~SPACE_PEAK_MS),
--- and a rising dread tightens the gap AT ONCE (a threat mid-calm-gap fires promptly). SPACE_JITTER keeps it
--- irregular. Nothing emits only at dread 0 (a safe hub / fully-calmed place); any dread above 0 plays. The
--- gap is power-eased off calm (SPACE_EASE); mean gaps calm ~40s / mundane ~33s / mid ~19s / peak ~8s
--- (rate pushed 20% lower than the first tuning: gaps x1.25).
--- DREAD_ON is the pacing curve's calm anchor (frequency only), NOT an emission gate. Height and the volume
--- table are the base game's per sound; dread pulls placement up to 20% closer (DREAD_PULL, see emit).
+-- Emission pacing: the gap between plays scales with current dread each tick, power-eased off calm and jittered; dread 0 is silent, any dread above 0 plays.
 local DREAD_ON      = 0.10
 local SPACE_CALM_MS = 40000
 local SPACE_PEAK_MS = 8125
 local SPACE_JITTER  = 0.15
 local SPACE_EASE    = 0.5
--- Dread pulls the placement up to DREAD_PULL closer (raw dread, linear): calm = base distance, peak = 20%
--- nearer. Only ever closer (0.8..1.0 factor), never past silence. Applied in emit, not get_placement.
+-- Dread pulls placement up to DREAD_PULL closer (0.8..1.0 factor, applied in play_sound), never the volume table.
 local DREAD_PULL    = 0.20
--- Placement is the base game's roll (sound_ambient.script:127-165): each sound carries its source channel's
--- spawn band (ch_min/ch_max in as_sound_config_gen), min lifted to the band midpoint outdoors, random(min,
--- max)/2, random bearing, pos.y + height, then the base indoor/outdoor/underground volume table times the
--- game ambient slider. emit() then pulls the rolled distance up to 20% closer by dread (DREAD_PULL); the
--- volume table is untouched.
+-- Placement is the base-game roll (sound_ambient.script:127-165): the source-channel spawn band, a random bearing and distance, then the base volume table.
 local TICK_S       = 0.1
 local BASE_TICK_S  = 1
 local INSANE_DREAD = 0.80
 local PLAY_WINDOW_MS = 6000
 local TYPE_WRAP      = 34
 
--- Dread bucket limits: board.dread -> the scene bucket (low/med/high) the sound-bag draws from. Tunable,
--- centered where dread actually sits in play (~0.5). A sound with no override plays at every scene bucket.
+-- Dread bucket cut points: board.dread maps to the low/med/high scene bucket the sound-bag draws from.
 local DREAD_LIMIT_LOW = 0.40
 local DREAD_LIMIT_MED = 0.70
 
@@ -163,10 +141,7 @@ local board = {
     elig_set = {},
 }
 
--- Runtime state. _category_sounds: category -> flat sound list from as_sound_config_gen. _map/_map_set: the level's category set.
--- _cat_bag/_snd_bag: the two shuffle-bags. _enclosure: the environment raycast cache (by cell). _visual: visual state.
--- _sound_dread: deployed name -> low|med|high override (as_static_dread.ltx), nil until loaded, absent = every dread.
--- _dread_pools: category -> {low/med/high -> {row}}, precomputed from the flat category + override at load.
+-- Runtime state: the loaded sound catalog and dread pools, the per-level map set, the shuffle-bags, the enclosure cache, and visual and base-observer state.
 local _category_sounds      = {}
 local _loaded    = false
 local _map       = nil
@@ -232,10 +207,7 @@ local function _get_sound_count(cat) return cat and #cat or 0 end
 --- True if a category has any sound.
 local function _has_sounds(cat) return _get_sound_count(cat) > 0 end
 
---- Per-sound dread override (as_static_dread.ltx, section [dread]: deployed-name = low|med|high). A sound
---- with an override plays ONLY at that dread; a sound with none plays at EVERY dread. Absent file = no
---- overrides = every sound everywhere (the default). This is the single source of a sound's dread; it
---- supersedes where the file sits on disk. Keyed by the deployed name (the stable slug_audiohash).
+--- Load the per-sound dread overrides from as_static_dread.ltx into _sound_dread, keyed by deployed name.
 local function _load_dread()
     _sound_dread = {}
     for key, val in pairs(xltx.read_section(DREAD_FILE, SEC_DREAD)) do
@@ -250,8 +222,7 @@ local function _get_dread_override(row)
     return stem and _sound_dread[stem]
 end
 
---- Place one row into the dread pools by its override: an overridden sound only in its own bucket, a
---- no-override sound in all three (it plays at every dread).
+--- Place one sound row into the dread pools: an overridden sound only in its bucket, a no-override sound in all three.
 local function _add_pool_row(pools, row)
     local override = _get_dread_override(row)
     if not override then
@@ -264,8 +235,7 @@ local function _add_pool_row(pools, row)
     if pool then pool[#pool + 1] = row end
 end
 
---- Precompute, per category, the sound pool for each dread bucket from the category's flat row list + the
---- per-sound override. Built once at load so the shuffle-bag draws from a stable pool (never rebuilt per pick).
+--- Precompute each category's per-bucket sound pool once at load, so the shuffle-bag draws from a stable pool.
 local function _build_dread_pools()
     _dread_pools = {}
     for name, cat in pairs(_category_sounds) do
@@ -275,8 +245,7 @@ local function _build_dread_pools()
     end
 end
 
---- Load each category's flat sound list from as_sound_config_gen, once. The category value is
---- { row, ... }, each row { path, blob_min, blob_max, height, ch_min, ch_max, indoor }.
+--- Load each category's flat sound list from as_sound_config_gen once, then build the dread overrides and pools.
 local function _load_channels()
     if _loaded then return end
     _loaded = true
@@ -308,9 +277,7 @@ local function _load_map(level_name)
     _cat_bag = {}
 end
 
--- Coordinate overrides ("positions"): a per-place base dread + flat add + selection. Read ONCE into a flat
--- list (a handful of records); the scan checks the current level's few via xmath.is_in_range. A position ALWAYS
--- wins where the actor is inside its radius - it overrides the level lore and even a safe hub.
+-- Coordinate overrides: a per-place base dread, flat add, and category selection, read once into a flat list.
 local function _parse_position(ini, name)
     if not xltx.has(ini, name) then return nil end
     local pos = xltx.read_str(ini, name, "pos")
@@ -340,8 +307,7 @@ local function _load_positions()
     end
 end
 
---- The active override where the actor stands, or nil. Checks this level's positions via xmath.is_in_range
---- (flat XZ). Loaded once on first call.
+--- Find the active coordinate override where the actor stands, or nil, checking this level's positions.
 local function _find_position(actor)
     _load_positions()
     local apos, here = actor:position(), level.name()
@@ -354,8 +320,7 @@ end
 
 -- SCANS (producers -> the board)
 
---- Environment token at the actor: labs / underground (engine underground flag, split by LAB_LEVELS),
---- else indoor (is_indoor raycast, cached by cell) else outdoor.
+--- Resolve the environment token at the actor: labs or underground by the engine flag, else indoor or outdoor by raycast.
 local function _read_environment(actor)
     local pos = actor:position()
     local level_name = level.name()
@@ -410,8 +375,7 @@ local function _add_monster(id, obj, apos, out)
     if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
 end
 
---- Scan online monsters via the xlibs monster iterator (db.OnlineMonsters when present, else a capped
---- best-effort is_mutant walk - the demonized registry PR is the parity fix, n119).
+--- Scan online monsters via the xlibs monster iterator into the monsters sensor.
 local function _collect_monsters(actor)
     local out = { online = false, enemy_near = "none" }
     if not (xcreature and xcreature.iterate_online_monsters) then return out end
@@ -437,8 +401,7 @@ end
 
 -- SELECT (eligibility + two-level shuffle-bag)
 
---- True if a category is eligible now: the level's map list names it, its env allows the environment,
---- and its live need (level-wide presence / anomaly-near) is met. Reads the board.
+--- True if a category is eligible now against the map list, the environment, and its live need gate.
 local function is_eligible(name, position)
     local allowed = _map_set[name]
     if position and position.cats then
@@ -461,8 +424,7 @@ local function is_eligible(name, position)
     return true
 end
 
---- Category shuffle-bag: cycle every eligible category once before any repeat. Stale names (no longer
---- eligible after the set changed) are dropped; the bag refills from the current eligible list when empty.
+--- Category shuffle-bag: draw each eligible category once before any repeat, refilling from the eligible list when empty.
 local function _select_category()
     local live = {}
     for i = 1, #_cat_bag do
@@ -486,9 +448,7 @@ local function _get_dread_bucket(dread)
     return BUCKET.LOW
 end
 
---- Sound shuffle-bag for a category at the scene's dread bucket. The pool is _dread_pools[category][bucket]
---- (no-override sounds are in every bucket, overridden ones only in theirs); every sound in the pool plays
---- once before any repeat. Keyed per category+bucket so a scene-dread shift draws from that bucket's pool.
+--- Sound shuffle-bag for a category at the scene's dread bucket, drawing each pool sound once before any repeat.
 local function _select_sound(name, scene_bucket)
     local pools = _dread_pools[name]
     local pool = pools and pools[scene_bucket]
@@ -518,10 +478,8 @@ local function _get_threat_term(stalkers, monsters)
     return 0
 end
 
---- Grounded additive dread from the board, clamped 0..1. An allied service near (a safe hub) forces 0;
---- a hostile service adds. Writes board.dread + board.terms (the HUD breakdown, one persistent table).
---- Sum the terms into the 0..1 dread, applying the active position: its dread replaces lore, add stacks,
---- and the position overrides a safe hub's silence. A position with no dread leaves the safe-hub 0 in place.
+--- Sum the dread terms into the clamped 0..1 dread, applying the active position.
+--- The position's dread replaces lore, its add stacks, and it overrides a safe hub's silence.
 local function _resolve_dread(terms, position, allied)
     if position and position.dread then terms.lore = position.dread end
     if allied and not (position and position.dread) then return 0 end
@@ -545,20 +503,15 @@ local function _compute_dread()
     board.dread   = _resolve_dread(terms, board.position, stalkers.service_near == SERVICE.ALLIED)
 end
 
---- The base-game spawn distance roll for a channel band (sound_ambient.script:127-165): min lifted to the
---- band midpoint outdoors, random(min, max)/2. The spawn_min>ch_max clamp guards the base observer's
---- third-party LTX (math_random errors on an empty interval; our generated bands cannot invert). emit pulls
---- this by dread; the base observer uses it raw.
+--- Roll the base-game spawn distance for a channel band (sound_ambient.script:127-165), clamping an inverted band.
 local function _compute_spawn_dist(ch_min, ch_max)
     local spawn_min = GetEvent("underground") and ch_min or ((ch_max + ch_min) / 2)
     if spawn_min > ch_max then spawn_min = ch_max end
     return math_random(spawn_min, ch_max) / 2
 end
 
---- Base-game update_ambient placement + volume for one spawn band (sound_ambient.script:127-165): rolls the
---- spawn distance (_compute_spawn_dist) unless fixed_dist is given (the audition player, or emit's dread-pulled
---- distance), a random bearing, pos.y + height, and the indoor/outdoor/underground volume table. Returns
---- dist, position, and the raw table volume (caller applies sliders).
+--- Place one spawn band the base-game way (sound_ambient.script:127-165): distance, random bearing, height, and the volume table.
+--- Returns the distance, position, and raw table volume, and the caller applies the sliders.
 local function get_placement(actor, ch_min, ch_max, height, indoor, fixed_dist)
     local underground = GetEvent("underground")
     local inside = GetEvent("current_safe_cover")
@@ -572,8 +525,7 @@ local function get_placement(actor, ch_min, ch_max, height, indoor, fixed_dist)
     return dist, vec, vol
 end
 
---- The director's spawn distance: the base-game roll pulled up to DREAD_PULL closer by dread (0 or nil dread
---- = no pull). A caller-provided fixed distance bypasses this, so the audition player's set distance is exact.
+--- Roll the base spawn distance, then pull it up to DREAD_PULL closer by dread; a fixed distance bypasses the pull.
 local function _compute_pull_dist(ch_min, ch_max, dread)
     local dist = _compute_spawn_dist(ch_min, ch_max)
     if dread and dread > 0 then dist = dist * (1 - DREAD_PULL * dread) end
@@ -582,8 +534,7 @@ end
 
 -- derive (board -> eligible set, built on demand)
 
---- Rebuild the eligible category list + fast lookup from the current board. Called at emission and by the
---- HUD only, never on the tick - the set is consumed only there, so a per-tick rebuild was pure garbage.
+--- Rebuild the eligible category list and lookup set from the board, called at emission and by the HUD, never on the tick.
 local function _build_eligible()
     local position = board.position
     local elig = {}
@@ -597,11 +548,8 @@ end
 
 -- emission (jittered self-schedule)
 
---- Emit one one-shot when the dread-scaled gap has elapsed. The gap tracks CURRENT dread every tick, so a
---- rising dread tightens it at once. Nothing plays only at dread 0 (a safe hub / fully-calmed place); any
---- dread above 0 emits, sparser the calmer it is. dread_norm is power-eased (SPACE_EASE) so the gap drops fast off
---- calm then fine-grades toward peak (mid-dread ~15s, not the ~19s of a linear map). The gap advances even
---- while silent so a resumed dread emits promptly. Reads the board.
+--- Emit one one-shot once the dread-scaled gap has elapsed, tightening as dread rises.
+--- The gap advances even while silent, so a resumed dread emits promptly and dread 0 stays silent.
 local function try_emit(tg)
     try_visual_pulse(tg)
     if _muted then return end
@@ -627,15 +575,7 @@ local function try_emit(tg)
     end
 end
 
--- base ambient observer (owns the base update_ambient slot)
--- This REPLACES the base sound_ambient.update_ambient (RemoveTimeEvent + our clone, in register_base_observer), so it
--- runs for EVERY player, not only at DEBUG. It is a faithful clone of the base channel rotation, timing,
--- and volume rule, with two deltas: it plays through xsound.play (an engine-owned one-shot, so a base sound
--- is not GC-cut on channel re-fire the way the base retained handle cut it), and it LOGS each base fire at
--- DEBUG. It does no muting (the DLTX overlay already stripped our sounds from the composed config it reads)
--- and no injection. Trade-off: any other ambient-scheduler mod contends for this slot (last writer wins);
--- the muting is independent of it (the static overlay), so only the trace/no-cut is lost if another wins.
-
+-- Base ambient observer: a faithful clone of the base update_ambient slot that replays through xsound.play and logs each base fire; last writer wins the slot.
 local function _read_base_channel(ch, ini_snd)
     local raw = xltx.read_list(ini_snd, ch, "sounds")
     if not raw or #raw == 0 then return nil end
@@ -660,10 +600,10 @@ local function reset_base(level_name, ambient)
         local ch = channels[i]
         local entry = (not cached[ch]) and xltx.has(ini_snd, ch) and _read_base_channel(ch, ini_snd)
         cached[ch] = true
-        if entry then
-            _base.tot = _base.tot + 1
-            _base.chan[_base.tot] = entry
-        end
+        if not entry then goto continue end
+        _base.tot = _base.tot + 1
+        _base.chan[_base.tot] = entry
+        ::continue::
     end
 end
 
@@ -710,9 +650,7 @@ end
 
 -- director loop (one tick, round-robin one producer per tick)
 
--- Each producer writes one sensor into the board. The tick runs ONE per tick, so the per-tick cost is
--- the single heaviest scan, never the sum; the full board update_configes over #producers ticks (~0.6s).
--- Position producer: resolve the active override, edge-logging enter/leave at DEBUG (not every scan).
+-- Director loop: one producer runs per tick, so per-tick cost is the single heaviest scan; the board fills over all producers in about 0.6s.
 local _last_pos_name = nil
 local function update_position(actor)
     local position = _find_position(actor)
@@ -775,11 +713,8 @@ local function _on_first_update()
     as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient; source-band placement")
 end
 
---- Fire one positioned one-shot at `path`: roll the spawn distance from the sound's own source-channel band
---- (opts.ch_min/ch_max from as_sound_config_gen, REQUIRED unless opts.dist), pull it up to 20% closer by
---- opts.dread (DREAD_PULL), then place it via get_placement - the base volume table times the game ambient
---- slider (vol_global on top, 1 = untouched base loudness). The blob pair (opts.min/max) is the ATTENUATION
---- range - trace readout only, never placement. Returns the distance.
+--- Fire one positioned one-shot at path, pulling the rolled spawn distance closer by dread and placing it via get_placement.
+--- Returns the distance; the volume is the base table times the sliders and opts.min/max is the attenuation readout only.
 function play_sound(path, opts)
     local actor = db.actor
     if not (actor and path and xsound) then return end
@@ -877,8 +812,7 @@ function _build_hud()
     _rows[#_rows + 1] = { "anomalies.near", board.anomalies.near and "yes" or "no", "" }
 end
 
---- The debug HUD rows, built fresh from the board on demand (as_hud reads this only while visible, so
---- the rows are never built on the tick - no per-frame garbage when the HUD is off).
+--- Build and return the debug HUD rows fresh from the board, so nothing is built on the tick when the HUD is off.
 function get_hud_rows()
     _build_hud()
     return _rows
@@ -889,9 +823,7 @@ function get_board()
     return board
 end
 
---- Master silence for the review player. When on, the director emits no one-shots and the base-ambient
---- observer replays nothing (both schedules keep advancing, so unmute resumes cleanly). The player auto-sets
---- this while its window is open; the player's own audition emit/play is unaffected.
+--- Master silence for the review player: the director and base observer replay nothing while both schedules keep advancing.
 function set_muted(value)
     _muted = value and true or false
 end
