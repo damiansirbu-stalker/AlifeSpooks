@@ -42,7 +42,7 @@ It needs xlibs to play the sounds. Without xlibs it is inert.
 
 1. The director
 
-Two things drive it.
+Where you stand and how much dread the place carries drive it.
 WHERE you stand decides which sounds can play.
 How much DREAD the place carries decides how close, how often, and which of them play.
 A base in daylight is silent. A lab with a mutant near at night is loud and close. Most of the Zone sits between.
@@ -56,7 +56,7 @@ The enclosure filters the rest. Outdoor never plays doors or machinery. An inter
 Dread itself is one plain sum, no multiplier and no floor.
 It adds the level's baseline, how enclosed you are, the hour, and the single scariest thing near, then subtracts your own people around.
 The baseline is the dread a place carries alone, grim in the psi north and the labs, mundane in the fields.
-The scariest thing near is one reading, never a body count. A man and a monster of the same strength weigh the same.
+The scariest thing near is one reading. A man and a monster of the same strength weigh the same.
 True isolation weighs a little on its own.
 Allies near are the only thing that calms you, so a place with your people falls quiet while a grim empty one still carries its dread.
 Dread places a sound closer and fires it more often as it rises.
@@ -77,7 +77,7 @@ The director places each sound in 3D around and above you, at the distance its o
 It uses the same placement the game's ambient system uses, so a sound plays as it did in the mod it came from.
 A sound meant to come from overhead still does.
 Every sound is mono, the only form the engine places in 3D, so nothing sticks flat at your ear.
-A long drone or the radio signal plays as a spaced sound, never a loop.
+A long drone or the radio signal plays as a spaced sound on a long period.
 
 
 2. The veto
@@ -87,8 +87,8 @@ AlifeSpooks removes its own sounds from the base's ambient channels, so only its
 It does this statically at config load, with a generated overlay that strips each of the mod's sounds out of every base channel that lists it, at the path each source pack files it under.
 A sound can ship in more than one pack. The copies include exact reships and re-encodes. It removes every one. Whichever pack you run, the base loses its version.
 The base keeps everything else it plays.
-It removes exact sounds, never a folder, never a channel, never a wind bed or creature call the mod does not carry.
-It is one config change at load, not a runtime loop, so it costs nothing while you play and no other script can strip it.
+It removes exact sounds only. It leaves every folder, channel, wind bed, and creature call the mod does not carry.
+It is one config change at load, so it costs nothing while you play and no other script can strip it.
 Whichever base you run, it keeps its own atmosphere.
 
 
@@ -103,12 +103,12 @@ The build drops a sound too long to play whole. It slices the long radio-signal 
 Each file keeps its author's own loudness, the X-Ray gain set in the ogg comment, written back unchanged. No leveling.
 The authored levels are tight and field-tested in the source mods, so the corpus already plays even.
 Dread comes from where the director places a sound, not from re-leveling one file against the next.
-The gain is a number in the header, not the audio, so nothing is re-encoded.
+The gain is a number in the header, so the audio is never re-encoded.
 
 Identity is the waveform, decided in three stages, cheapest first.
 An md5 hash collapses byte-identical reships.
 A Chromaprint fingerprint proposes the re-encoded copies the hash misses, but its ranges overlap, so it only proposes.
-A PCM cross-correlation decides. It decodes both files, aligns them by envelope, then correlates over the overlap. A re-encode scores near 1.0, a different sound near 0.
+A PCM cross-correlation decides. It decodes both files and lines them up by envelope. It then correlates over the overlap. A re-encode scores near 1.0, a different sound near 0.
 Files merge only under complete linkage, so a similarity chain never collapses two real recordings and variety holds.
 This runs among the source packs only.
 The mod never drops a sound because your install already plays it. It carries the full corpus and removes the base copy at load instead.

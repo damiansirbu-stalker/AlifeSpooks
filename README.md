@@ -1,9 +1,9 @@
 # AlifeSpooks: dark horror ambience for STALKER Anomaly
 
-A dread director. It scores the place you are standing in, how enclosed you are, the hour, the nearest threat and the allies around you, then decides how close and how often a horror one-shot plays.
+A dread director. It scores the place you are standing in, how enclosed you are, the hour, the nearest threat and the allies around you, then decides how close and how often a horror sound plays.
 The sounds are curated from several soundscape packs, placed in 3D, and removed from the base ambient channels so nothing doubles.
 
-[Releases](https://github.com/damiansirbu-stalker/AlifeSpooks/releases) | [Bugs, suggestions](https://github.com/damiansirbu-stalker/AlifeSpooks/issues)
+[Releases](https://github.com/damiansirbu-stalker/AlifeSpooks/releases) - [Bugs, suggestions](https://github.com/damiansirbu-stalker/AlifeSpooks/issues)
 
 Requires: Anomaly 1.5.3, the modded exes (for DLTX), [xlibs](https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001), MCM. Exact versions in [readme.txt](doc/readme.txt).
 
