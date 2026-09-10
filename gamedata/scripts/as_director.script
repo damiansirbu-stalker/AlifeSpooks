@@ -25,18 +25,26 @@ local CHANNELS_FILE = "environment\\sound_channels.ltx"
 local SEC_DEFAULT   = "default"
 local SEC_POSITIONS = "positions"
 
+-- Domain tokens compared against board fields (no magic strings at the comparison sites).
+local ENV     = { OUTDOOR = "outdoor", INDOOR = "indoor", UNDERGROUND = "underground", LABS = "labs" }
+local NEED    = { MUTANT = "mutant", HUMAN = "human", ANOMALY = "anomaly" }
+local BUCKET  = { LOW = "low", MED = "med", HIGH = "high" }
+local SERVICE = { HOSTILE = "hostile", ALLIED = "allied" }
+local TIER_NONE   = "none"
+local SELECT_ONLY = "only"
+
 -- Category runtime attributes: env (enclosure states it may play in) + need (a live gate). The MAP list
 -- (as_static_map.ltx) decides per-level eligibility; THIS decides enclosure + need, keyed by name.
 -- env flags out/ind/ug = outdoor/indoor/underground; labs satisfies ug. need "mutant"|"human"|"anomaly"|nil.
 local CATEGORY = {
-    mutant                = { out = true, ind = true, ug = true, need = "mutant" },
+    mutant                = { out = true, ind = true, ug = true, need = NEED.MUTANT },
     mutant_ambient_forest = { out = true },
     mutant_ambient_swamp  = { out = true },
     mutant_ambient_urban  = { out = true },
     mutant_ambient_field  = { out = true },
     spook       = { out = true, ind = true, ug = true },
     scream      = { out = true, ind = true, ug = true },
-    drone       = { out = true, ind = true, ug = true, need = "anomaly" },
+    drone       = { out = true, ind = true, ug = true, need = NEED.ANOMALY },
     dark_signal = { out = true, ind = true, ug = true },
     industrial  = { out = true, ind = true, ug = true },
     structural  = { ind = true, ug = true },
@@ -46,7 +54,7 @@ local CATEGORY = {
     foliage     = { out = true },
     wildlife    = { out = true },
     urban       = { out = true },
-    gunfire     = { out = true, need = "human" },
+    gunfire     = { out = true, need = NEED.HUMAN },
     rats        = { ind = true, ug = true },
     bats        = { out = true, ug = true },
 }
@@ -144,7 +152,7 @@ local visuals_on         = true
 
 -- The sensor board: single source of truth, filled by the producers, read by SELECT/APPLY/GUI.
 local board = {
-    environment = "outdoor",
+    environment = ENV.OUTDOOR,
     time        = "day",
     stalkers = { online = false, enemy_near = "none", ally_near = "none", service_near = "none" },
     monsters = { online = false, enemy_near = "none" },
@@ -178,7 +186,7 @@ local _base_at   = 0
 -- dev tab master silence: cuts the director's own emission + the base-ambient replay
 local _muted     = false
 local _rows      = {}
-local _enclosure = { level = nil, cx = nil, cz = nil, val = "outdoor" }
+local _enclosure = { level = nil, cx = nil, cz = nil, val = ENV.OUTDOOR }
 local _visual = { insane_since = nil, next_ok = 0, handle = nil }
 local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
 local _cursor = 1
@@ -232,7 +240,7 @@ local function _load_dread()
     _sound_dread = {}
     for key, val in pairs(xltx.read_section(DREAD_FILE, SEC_DREAD)) do
         val = val and val:lower()
-        if val == "low" or val == "med" or val == "high" then _sound_dread[key] = val end
+        if val == BUCKET.LOW or val == BUCKET.MED or val == BUCKET.HIGH then _sound_dread[key] = val end
     end
 end
 
@@ -318,7 +326,7 @@ local function _parse_position(ini, name)
         dread = xltx.read_num(ini, name, "dread"),
         add = xltx.read_num(ini, name, "add") or 0,
         cats = next(cats) and cats or nil,
-        only = xltx.read_str(ini, name, "select") == "only",
+        only = xltx.read_str(ini, name, "select") == SELECT_ONLY,
     }
 end
 
@@ -351,11 +359,11 @@ end
 local function _read_environment(actor)
     local pos = actor:position()
     local level_name = level.name()
-    if GetEvent("underground") then return LAB_LEVELS[level_name] and "labs" or "underground" end
+    if GetEvent("underground") then return LAB_LEVELS[level_name] and ENV.LABS or ENV.UNDERGROUND end
     local cx, cz = math_floor(pos.x / 4), math_floor(pos.z / 4)
     if _enclosure.level ~= level_name or _enclosure.cx ~= cx or _enclosure.cz ~= cz then
         _enclosure.level, _enclosure.cx, _enclosure.cz = level_name, cx, cz
-        _enclosure.val = (xcombat and xcombat.is_indoor and xcombat.is_indoor(pos)) and "indoor" or "outdoor"
+        _enclosure.val = (xcombat and xcombat.is_indoor and xcombat.is_indoor(pos)) and ENV.INDOOR or ENV.OUTDOOR
     end
     return _enclosure.val
 end
@@ -371,13 +379,13 @@ local function scan_stalker(id, actor_id, apos, out)
     if dist_sqr > NEAR_R2 then return end
     local rel  = xcreature.relation(npc, db.actor)
     local tier = get_power_tier(npc:character_rank(), STALKER_MED, STALKER_HIGH)
-    if rel == "enemy" then
+    if rel == xconst.RELATION.ENEMY then
         if POWER[tier] > POWER[out.enemy_near] then out.enemy_near = tier end
     else
         if POWER[tier] > POWER[out.ally_near] then out.ally_near = tier end
     end
     if _is_service(npc) then
-        out.service_near = (rel == "enemy") and "hostile" or "allied"
+        out.service_near = (rel == xconst.RELATION.ENEMY) and SERVICE.HOSTILE or SERVICE.ALLIED
     end
 end
 
@@ -443,13 +451,13 @@ local function is_eligible(name, position)
     if not allowed then return false end
     local def = CATEGORY[name]
     local env = board.environment
-    if env == "outdoor" and not def.out then return false end
-    if env == "indoor" and not def.ind then return false end
-    if (env == "underground" or env == "labs") and not def.ug then return false end
+    if env == ENV.OUTDOOR and not def.out then return false end
+    if env == ENV.INDOOR and not def.ind then return false end
+    if (env == ENV.UNDERGROUND or env == ENV.LABS) and not def.ug then return false end
     local need = def.need
-    if need == "mutant" then return board.monsters.online end
-    if need == "human" then return board.stalkers.online end
-    if need == "anomaly" then return board.anomalies.near end
+    if need == NEED.MUTANT then return board.monsters.online end
+    if need == NEED.HUMAN then return board.stalkers.online end
+    if need == NEED.ANOMALY then return board.anomalies.near end
     return true
 end
 
@@ -473,9 +481,9 @@ end
 
 --- The scene dread bucket the sound-bag draws from (low/med/high, via the DREAD_LIMIT cut points).
 local function _dread_bucket(dread)
-    if dread >= DREAD_LIMIT_MED then return "high" end
-    if dread >= DREAD_LIMIT_LOW then return "med" end
-    return "low"
+    if dread >= DREAD_LIMIT_MED then return BUCKET.HIGH end
+    if dread >= DREAD_LIMIT_LOW then return BUCKET.MED end
+    return BUCKET.LOW
 end
 
 --- Sound shuffle-bag for a category at the scene's dread bucket. The pool is _dread_pools[category][bucket]
@@ -506,7 +514,7 @@ end
 local function _get_threat_term(stalkers, monsters)
     local worst = math_max(POWER[stalkers.enemy_near], POWER[monsters.enemy_near])
     if worst > 0 then return THREAT_ADD[worst] end
-    if stalkers.ally_near == "none" then return LONELINESS end
+    if stalkers.ally_near == TIER_NONE then return LONELINESS end
     return 0
 end
 
@@ -536,8 +544,8 @@ local function _compute_dread()
     terms.threat  = _get_threat_term(stalkers, monsters)
     terms.company = ALLY_CALM[stalkers.ally_near] or 0
     terms.anomaly = board.anomalies.near and ANOMALY_ADD or 0
-    terms.service = (stalkers.service_near == "hostile") and SERVICE_HOSTILE or 0
-    board.dread   = _resolve_dread(terms, board.position, stalkers.service_near == "allied")
+    terms.service = (stalkers.service_near == SERVICE.HOSTILE) and SERVICE_HOSTILE or 0
+    board.dread   = _resolve_dread(terms, board.position, stalkers.service_near == SERVICE.ALLIED)
 end
 
 --- The base-game spawn distance roll for a channel band (sound_ambient.script:127-165): min lifted to the
