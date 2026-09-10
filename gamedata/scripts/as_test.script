@@ -1,7 +1,4 @@
---- as_test: AlifeSpooks dev harness. Console helpers, the atmosphere probe collector, and the writer for
---- the shared notes file (alifespooks_notes.txt). Console helpers are inert until called
---- (run_string as_test.dev_setup()). as_test.note_sound / note_probe are the review player's notes writers
---- (ui_as_player, PageDown); as_test.snapshot() logs the diagnostic atmosphere probe to alifespooks_probe.log.
+--- as_test: AlifeSpooks dev harness - console helpers, atmosphere probe collector, notes writer.
 
 as_test = as_test or {}
 
@@ -13,90 +10,35 @@ local news_manager, ui_options, game_fast_travel = news_manager, ui_options, gam
 -- Metres from the actor a test spawn lands.
 local DEFAULT_TEST_DIST_M = 5
 
+-- SND_OURS: one of our shipped sounds; SND_VANILLA: a known-good loud vanilla sound for the A/B check.
+local SND_OURS    = "zs\\spook\\1"
+local SND_VANILLA = "anomaly\\emi_blowout"
+
+local SMOKE_GAP_MS = 700
+
+-- The two distance bands the triple counts, in metres.
+local BAND_NEAR_M = 25
+local BAND_FAR_M = 50
+
+local NOTES_FILE = "alifespooks_notes.txt"
+
+local PGUP_KEY, PGDN_KEY, DELETE_KEY = 201, 209, 211
+
+-- Monster rank probe roster: one of each variant, spawned in god mode to read its runtime server rank.
+local ZOO = {
+    "tushkano_normal", "rat_normal", "dog_normal", "boar_normal", "flesh_normal",
+    "snork_normal", "bloodsucker_normal", "pseudodog_normal", "psy_dog_normal", "fracture_normal",
+    "zombie_normal", "psysucker_normal",
+    "gigant_normal", "m_controller_normal", "burer_normal", "chimera_normal", "bibliotekar_normal",
+}
+
+local _smoke = { list = nil, i = 0, last = nil, paused = false, dist = nil }
+local _log = nil
+
 local function _tip(msg)
     local actor = db.actor
     if actor then news_manager.send_tip(actor, msg, nil, nil, 4000) end
 end
-
--- dev helpers
-
---- Unlock all fast-travel waypoints
-function as_test.unlock_travel()
-    ui_options.set("gameplay/fast_travel/state", 2)
-    game_fast_travel.update_settings()
-    _tip("fast travel: all waypoints unlocked")
-end
-
---- Give money (default 100000)
-function as_test.give_money(amount)
-    local actor = db.actor
-    if not actor then return end
-    actor:give_money(amount or 100000)
-    _tip("money given")
-end
-
---- Disable the northern psy fields so Radar / Red Forest are walkable
-function as_test.open_north()
-    local actor = db.actor
-    if not actor then return end
-    actor:give_info_portion("bar_deactivate_radar_done")
-    actor:give_info_portion("yan_labx16_switcher_primary_off")
-    _tip("north opened: psy fields off (reload the level to apply)")
-end
-
---- One-shot dev setup: travel, money, north
-function as_test.dev_setup()
-    as_test.unlock_travel()
-    as_test.give_money(100000)
-    as_test.open_north()
-end
-
--- sound playback probe (empirical: which call actually makes sound?)
--- A confirmed MONO sound. Run each from the console and report what you HEAR:
---   run_string as_test.snd(1)       -- play_no_feedback 2D, full volume: does the FILE play at all?
---   run_string as_test.snd(2)       -- play_no_feedback 3D at 5m: the director's CURRENT path
---   run_string as_test.snd(3)       -- play_at_pos 3D at 5m: vanilla's method, no kept reference
---   run_string as_test.snd(4)       -- play_at_pos 3D at 5m + kept reference: vanilla exact
---   run_string as_test.snd(3, 50)   -- any method at a chosen distance (attenuation check)
--- SND_OURS: one of our shipped sounds; SND_VANILLA: a known-good loud vanilla sound for the A/B check.
-local SND_OURS    = "zs\\spook\\1"
-local SND_VANILLA = "anomaly\\emi_blowout"
--- Fire the play 3s AFTER the call, so it happens during live gameplay, not while the console is open
--- (an open console pauses the game and paused sounds never sound). Close the console after running it.
-function as_test.snd(method, dist)
-    dist = dist or DEFAULT_TEST_DIST_M
-    local path = (method == 5) and SND_VANILLA or SND_OURS
-    RemoveTimeEvent("as_snd", "play")
-    CreateTimeEvent("as_snd", "play", 3, function()
-        local actor = db.actor
-        if not actor then return true end
-        local pos = actor:position()
-        local vec = vector():set(pos.x + dist, pos.y, pos.z)
-        local snd = sound_object(path)
-        if not snd then _tip("snd: sound_object NIL for " .. path); return true end
-        if method == 1 then
-            snd:play_no_feedback(actor, sound_object.s2d, 0, vector():set(0, 0, 0), 1.0, 1.0)
-        elseif method == 2 then
-            snd:play_no_feedback(actor, sound_object.s3d, 0, vec, 1.0, 1.0)
-        else
-            snd:play_at_pos(actor, vec); snd.volume = 1.0
-            if method ~= 3 then as_test._kept = snd end
-        end
-        _tip(string_format("PLAYED m%s  %s", tostring(method), path))
-        return true
-    end)
-    _tip(string_format("m%s fires in 3s - CLOSE the console now", tostring(method)))
-end
-
--- corpus smoke test (audition every shipped sound, spaced by its own length)
--- Plays every sound in as_sound_config_gen one after another at-ear (2D, full volume), each spaced by its
--- measured duration + a gap so a long drone never overlaps the next. Play and length both go through
--- xsound (wrapped), never a raw sound_object. Run/stop from the console (close it after):
---   run_string as_test.smoke()            -- the whole corpus, category order
---   run_string as_test.smoke("drone")     -- one category only
---   run_string as_test.smoke_stop()
-local SMOKE_GAP_MS = 700
-local _smoke = { list = nil, i = 0, last = nil, paused = false, dist = nil }
 
 --- Flatten as_sound_config_gen to a { cat, path } list in sorted-category order (optionally one category).
 local function _smoke_flat(only_cat)
@@ -113,9 +55,7 @@ local function _smoke_flat(only_cat)
     return out
 end
 
---- Play one item. _smoke.dist set -> spawn it that many metres from the actor as a 3D one-shot, so a
---- MONO sound attenuates with distance but a STEREO one does not (OpenAL only spatialises mono) - the
---- stereo audit by ear. No dist -> 2D at-ear, full volume, the quality audition.
+--- Play one item: with _smoke.dist a 3D one-shot at that range (mono attenuates, stereo does not), else 2D at-ear.
 local function _smoke_play(item)
     if not (item and db.actor and xsound) then return end
     local opts = { volume = 1.0 }
@@ -151,63 +91,6 @@ local function _smoke_step()
     return false
 end
 
---- MANUAL audition (the controls). Step with PgDn=next / PgUp=prev; DELETE marks the current one suspect.
---- dist -> positioned stereo audit (mono fades, stereo stays loud); omit -> at-ear quality pass.
----   run_string as_test.audit()           -- whole corpus, start at 1
----   run_string as_test.audit("mutant")   -- one category
----   run_string as_test.audit(nil, 40)    -- positioned 40m
-function as_test.audit(only_cat, dist)
-    _smoke.list, _smoke.i, _smoke.last, _smoke.paused = _smoke_flat(only_cat), 0, nil, false
-    _smoke.dist = tonumber(dist)
-    RemoveTimeEvent("as_smoke", "step")
-    if #_smoke.list == 0 then _tip("audit: no sounds"); return end
-    _tip(string_format("audit: %d sounds%s  PgDn=next PgUp=prev DEL=mark", #_smoke.list,
-        _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
-    _smoke_at(1)
-end
-
---- Step the manual audition (keys PgDn/PgUp map here; also callable from console). Each kills any auto timer.
-function as_test.next() RemoveTimeEvent("as_smoke", "step"); _smoke_at((_smoke.i or 0) + 1) end
-function as_test.prev() RemoveTimeEvent("as_smoke", "step"); _smoke_at((_smoke.i or 2) - 1) end
-function as_test.replay() if _smoke.last then _smoke_play(_smoke.list[_smoke.last.i]) end end
-
---- AUTO audition: play every sound one after another, spaced by its own length. DELETE marks; PgDn/PgUp
---- take over manually. run_string as_test.smoke() / as_test.smoke("drone") / as_test.smoke(nil, 40)
-function as_test.smoke(only_cat, dist)
-    _smoke.list, _smoke.i, _smoke.paused, _smoke.dist = _smoke_flat(only_cat), 0, false, tonumber(dist)
-    if #_smoke.list == 0 then _tip("smoke: no sounds"); return end
-    _tip(string_format("smoke: %d sounds%s - close the console; DELETE=mark", #_smoke.list,
-        _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
-    RemoveTimeEvent("as_smoke", "step")
-    CreateTimeEvent("as_smoke", "step", 1, _smoke_step)
-end
-
-function as_test.smoke_stop()
-    _smoke.list = nil
-    RemoveTimeEvent("as_smoke", "step")
-    _tip("audit: stopped")
-end
-
---- Pause / resume the auto audition.
-function as_test.smoke_pause()  _smoke.paused = true;  _tip("audit: paused")  end
-function as_test.smoke_resume() _smoke.paused = false; _tip("audit: resumed") end
-
---- MARK the current sound SUSPECT -> alifespooks_probe.log (the reject list). Tap DELETE, or call with a
---- note. Cross-reference the marked cat/index against provenance.tsv after.
-function as_test.mark(note)
-    local cur = _smoke.last
-    if not cur then _tip("audit: nothing to mark"); return end
-    if xlog then
-        local log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
-        log.info("SUSPECT %d/%d\t%s\t%s\t%s", cur.i, cur.total, cur.cat, cur.path, tostring(note or ""))
-        log.flush()
-    end
-    _tip(string_format("SUSPECT %d  %s", cur.i, cur.path))
-end
-
--- atmosphere probe collector
-
-local _log = nil
 local function _logger()
     if not _log and xlog then
         _log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
@@ -289,12 +172,7 @@ local function _snap_level_species(log, level_id)
     log.info("LEVEL-SPECIES {%s}", _format_pairs(species))
 end
 
--- crystallization probes (raw numbers to fit the director thresholds)
-
--- Raw roof/wall hit-distances from xcombat.get_enclosure PLUS the is_indoor decision breakdown, so a
--- snapshot in a real room names WHICH check fails: roof ray missing (roof=-1) or too high (>4m), or the
--- wall rays not striking within 3m. roof=-1 -> roof up-ray never hit the ceiling mesh; walls all -1 ->
--- the four side-rays never hit a wall (interior walls not in the baked static mesh, or probe height off).
+-- Raw roof/wall hit-distances from xcombat.get_enclosure plus the is_indoor breakdown, so a snapshot names which check fails.
 local function _snap_enclosure(log, apos)
     local enc = xcombat.get_enclosure(apos)
     if not enc then log.info("ENCLOSURE-RAW none | is_indoor=%s", tostring(xcombat.is_indoor(apos))); return end
@@ -323,15 +201,10 @@ local function _snap_smart(log, apos)
     else
         log.info("SMART none")
     end
-    -- base detection: distance to the nearest SELLER NPC (not the smart center), within 80m
     local owner, sd = xsmart.find_base_owner(apos, 80)
     log.info("BASE seller_near owner=%s dist=%s (nearest trader/medic/mechanic NPC <=80m)",
         tostring(owner or "-"), owner and string_format("%.0f", sd) or "-")
 end
-
--- The two distance bands the triple counts, in metres.
-local BAND_NEAR_M = 25
-local BAND_FAR_M = 50
 
 -- Bump a { b25, b50, all } triple by one for a distance.
 local function _bump(triple, dist)
@@ -371,14 +244,153 @@ local function _snap_vertical(log, actor, apos)
     log.info("VERTICAL actor_y=%.1f ai_ground_y=%.1f y_above_ground=%.1f", apos.y, gy, apos.y - gy)
 end
 
--- Run one check under the modded-exe microsecond timer, logging its duration inline through `sink`.
--- Noop timing when profile_timer is absent. Lets the snapshot show each check's real cost in-game.
--- @cost O(1) wrapper | 1 profile_timer ctor + start/stop/time around the wrapped check
+--- Run one check under the modded-exe microsecond timer, logging its duration inline through `sink`.
+--- @cost O(1) wrapper | 1 profile_timer ctor + start/stop/time around the wrapped check
 local function _timed(sink, label, fn)
     local timer = profile_timer and profile_timer()
     if timer then timer:start() end
     fn()
     if timer then timer:stop(); sink.info("  [%7.0f us] %s", timer:time(), label) end
+end
+
+local function _notes_append(lines)
+    local base = getFS and getFS():update_path("$logs$", "")
+    if not base then return false end
+    local fh = io.open(base .. NOTES_FILE, "a")
+    if not fh then return false end
+    for i = 1, #lines do fh:write(lines[i]); fh:write("\n") end
+    fh:flush(); fh:close()
+    return true
+end
+
+--- Format the active position override line, or nil when there is none.
+local function _override_line(o)
+    if not o then return nil end
+    local dread = o.dread and string_format("%.2f", o.dread) or "-"
+    local sel = o.cats and (o.only and "only" or "add") or "-"
+    return string_format("  OVERRIDE position=%s dread=%s add=%+.2f select=%s", tostring(o.name), dread, o.add or 0, sel)
+end
+
+local function _on_key(key)
+    if _smoke.list then
+        if key == PGDN_KEY then as_test.next()
+        elseif key == PGUP_KEY then as_test.prev()
+        elseif key == DELETE_KEY then as_test.mark() end
+    end
+end
+
+-- Spawn one existing variant and log its runtime server rank + species (guard-clause on missing section).
+local function _probe_spawn(sec, sim, pos, lvid, gvid, log)
+    if not ini_sys:section_exist(sec) then log.info("sec=%s MISSING-skip", sec); return end
+    local se = sim:create(sec, pos, lvid, gvid)
+    log.info("sec=%s species=%s rank=%s", sec,
+        tostring(se and xcreature.get_mutant_species(se.id) or "-"),
+        tostring(se and se:rank() or "nil"))
+end
+
+--- Unlock all fast-travel waypoints.
+function as_test.unlock_travel()
+    ui_options.set("gameplay/fast_travel/state", 2)
+    game_fast_travel.update_settings()
+    _tip("fast travel: all waypoints unlocked")
+end
+
+--- Give money (default 100000).
+function as_test.give_money(amount)
+    local actor = db.actor
+    if not actor then return end
+    actor:give_money(amount or 100000)
+    _tip("money given")
+end
+
+--- Disable the northern psy fields so Radar / Red Forest are walkable.
+function as_test.open_north()
+    local actor = db.actor
+    if not actor then return end
+    actor:give_info_portion("bar_deactivate_radar_done")
+    actor:give_info_portion("yan_labx16_switcher_primary_off")
+    _tip("north opened: psy fields off (reload the level to apply)")
+end
+
+--- One-shot dev setup: travel, money, north.
+function as_test.dev_setup()
+    as_test.unlock_travel()
+    as_test.give_money(100000)
+    as_test.open_north()
+end
+
+--- Fire the test play 3s after the call so it lands during live gameplay; close the console after running.
+function as_test.snd(method, dist)
+    dist = dist or DEFAULT_TEST_DIST_M
+    local path = (method == 5) and SND_VANILLA or SND_OURS
+    RemoveTimeEvent("as_snd", "play")
+    CreateTimeEvent("as_snd", "play", 3, function()
+        local actor = db.actor
+        if not actor then return true end
+        local pos = actor:position()
+        local vec = vector():set(pos.x + dist, pos.y, pos.z)
+        local snd = sound_object(path)
+        if not snd then _tip("snd: sound_object NIL for " .. path); return true end
+        if method == 1 then
+            snd:play_no_feedback(actor, sound_object.s2d, 0, vector():set(0, 0, 0), 1.0, 1.0)
+        elseif method == 2 then
+            snd:play_no_feedback(actor, sound_object.s3d, 0, vec, 1.0, 1.0)
+        else
+            snd:play_at_pos(actor, vec); snd.volume = 1.0
+            if method ~= 3 then as_test._kept = snd end
+        end
+        _tip(string_format("PLAYED m%s  %s", tostring(method), path))
+        return true
+    end)
+    _tip(string_format("m%s fires in 3s - CLOSE the console now", tostring(method)))
+end
+
+--- Manual audition: PgDn=next PgUp=prev DELETE=mark; dist gives a positioned stereo audit, omit for at-ear.
+function as_test.audit(only_cat, dist)
+    _smoke.list, _smoke.i, _smoke.last, _smoke.paused = _smoke_flat(only_cat), 0, nil, false
+    _smoke.dist = tonumber(dist)
+    RemoveTimeEvent("as_smoke", "step")
+    if #_smoke.list == 0 then _tip("audit: no sounds"); return end
+    _tip(string_format("audit: %d sounds%s  PgDn=next PgUp=prev DEL=mark", #_smoke.list,
+        _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
+    _smoke_at(1)
+end
+
+--- Step the manual audition (keys PgDn/PgUp map here; also callable from console). Each kills any auto timer.
+function as_test.next() RemoveTimeEvent("as_smoke", "step"); _smoke_at((_smoke.i or 0) + 1) end
+function as_test.prev() RemoveTimeEvent("as_smoke", "step"); _smoke_at((_smoke.i or 2) - 1) end
+function as_test.replay() if _smoke.last then _smoke_play(_smoke.list[_smoke.last.i]) end end
+
+--- Auto audition: play every sound spaced by its length; DELETE marks, PgDn/PgUp take over manually.
+function as_test.smoke(only_cat, dist)
+    _smoke.list, _smoke.i, _smoke.paused, _smoke.dist = _smoke_flat(only_cat), 0, false, tonumber(dist)
+    if #_smoke.list == 0 then _tip("smoke: no sounds"); return end
+    _tip(string_format("smoke: %d sounds%s - close the console; DELETE=mark", #_smoke.list,
+        _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
+    RemoveTimeEvent("as_smoke", "step")
+    CreateTimeEvent("as_smoke", "step", 1, _smoke_step)
+end
+
+function as_test.smoke_stop()
+    _smoke.list = nil
+    RemoveTimeEvent("as_smoke", "step")
+    _tip("audit: stopped")
+end
+
+--- Pause / resume the auto audition.
+function as_test.smoke_pause()  _smoke.paused = true;  _tip("audit: paused")  end
+function as_test.smoke_resume() _smoke.paused = false; _tip("audit: resumed") end
+
+--- Mark the current sound suspect to alifespooks_probe.log (tap DELETE or call with a note).
+function as_test.mark(note)
+    local cur = _smoke.last
+    if not cur then _tip("audit: nothing to mark"); return end
+    if xlog then
+        local log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+        log.info("SUSPECT %d/%d\t%s\t%s\t%s", cur.i, cur.total, cur.cat, cur.path, tostring(note or ""))
+        log.flush()
+    end
+    _tip(string_format("SUSPECT %d  %s", cur.i, cur.path))
 end
 
 --- Log one atmosphere snapshot with a note. Cheap; run on demand only, never per frame.
@@ -387,8 +399,6 @@ function as_test.snapshot(note)
     local log = _logger()
     local actor = db.actor
     if not (log and xcreature and xsmart and xlevel and xcombat and actor and level.present()) then return end
-    -- sink: full diagnostic detail goes to the LOG only; the on-screen tip is a compact, aligned
-    -- override-record block (note + level + coordinate), ready to paste into the per-map override LTX.
     local sink = { info = function(fmt, ...)
         local ok, msg = pcall(string_format, fmt, ...)
         log.info("%s", ok and msg or tostring(fmt))
@@ -409,26 +419,7 @@ function as_test.snapshot(note)
         tostring(note or "?"), tostring(level.name()), apos.x, apos.y, apos.z), nil, nil, 20000)
 end
 
--- the shared notes file (alifespooks_notes.txt)
--- One clean, human-readable notes file the review player appends to: [SOUND] note lines and [PROBE]
--- atmosphere dumps. Distinct from the diagnostic alifespooks_probe.log (xlog, machine-prefixed lines) -
--- written raw (io.open append, no prefix) so it stays shareable and diff-able. Human-read only; nothing
--- parses it. The player is the caller; the writer lives here (the note/snapshot home).
-
-local NOTES_FILE = "alifespooks_notes.txt"
-
-local function _notes_append(lines)
-    local base = getFS and getFS():update_path("$logs$", "")
-    if not base then return false end
-    local fh = io.open(base .. NOTES_FILE, "a")
-    if not fh then return false end
-    for i = 1, #lines do fh:write(lines[i]); fh:write("\n") end
-    fh:flush(); fh:close()
-    return true
-end
-
---- Append one [SOUND] note line: the deployed path (-> provenance origin), the live dread, level +
---- coordinate, and the note text (a premade or a typed custom note). One line, comparable.
+--- Append one [SOUND] note line: path, live dread, level and coordinate, and the note text.
 function as_test.note_sound(path, text)
     local actor = db.actor
     if not (actor and level.present()) then return false end
@@ -440,18 +431,7 @@ function as_test.note_sound(path, text)
         apos.x, apos.y, apos.z, tostring(text)) })
 end
 
---- Format the active position override line, or nil when there is none.
-local function _override_line(o)
-    if not o then return nil end
-    local dread = o.dread and string_format("%.2f", o.dread) or "-"
-    local sel = o.cats and (o.only and "only" or "add") or "-"
-    return string_format("  OVERRIDE position=%s dread=%s add=%+.2f select=%s", tostring(o.name), dread, o.add or 0, sel)
-end
-
---- Append a [PROBE] block: a header line then the full SENSOR BOARD - every field the director actually
---- reads (environment, time, stalkers, monsters, anomalies), the dread with its APPLY term breakdown, and
---- any active position override. Ordered so two probe notes line up field-for-field. Only the real sensors;
---- no diagnostic gatherers.
+--- Append a [PROBE] block: header then the full sensor board (environment, time, stalkers, monsters, anomalies) and the dread breakdown.
 function as_test.note_probe(text)
     local actor = db.actor
     if not (actor and level.present()) then return false end
@@ -476,38 +456,7 @@ function as_test.note_probe(text)
     return _notes_append(lines)
 end
 
--- probe stepper keys (smoke audit; debug-gated)
-
-local PGUP_KEY, PGDN_KEY, DELETE_KEY = 201, 209, 211
-local function _on_key(key)
-    if _smoke.list then
-        if key == PGDN_KEY then as_test.next()
-        elseif key == PGUP_KEY then as_test.prev()
-        elseif key == DELETE_KEY then as_test.mark() end
-    end
-end
-
--- monster rank probe (does se:rank() tier cleanly at runtime?)
--- Spawn one of each variant at the actor and log its server rank. sim:create on a MISSING section
--- CTDs in C++ (pcall cannot catch that), so section_exist GUARDS every create - guard-first, no pcall.
--- Run in god mode:  run_string as_test.probe_zoo()  -> alifespooks_probe.log
-local ZOO = {
-    "tushkano_normal", "rat_normal", "dog_normal", "boar_normal", "flesh_normal",
-    "snork_normal", "bloodsucker_normal", "pseudodog_normal", "psy_dog_normal", "fracture_normal",
-    "zombie_normal", "psysucker_normal",
-    "gigant_normal", "m_controller_normal", "burer_normal", "chimera_normal", "bibliotekar_normal",
-}
-
--- Spawn one existing variant and log its runtime server rank + species (guard-clause on missing section)
-local function _probe_spawn(sec, sim, pos, lvid, gvid, log)
-    if not ini_sys:section_exist(sec) then log.info("sec=%s MISSING-skip", sec); return end
-    local se = sim:create(sec, pos, lvid, gvid)
-    log.info("sec=%s species=%s rank=%s", sec,
-        tostring(se and xcreature.get_mutant_species(se.id) or "-"),
-        tostring(se and se:rank() or "nil"))
-end
-
---- Spawn each ZOO variant that exists and log its runtime server rank + species
+--- Spawn each ZOO variant that exists and log its runtime server rank + species.
 function as_test.probe_zoo()
     local log = _logger()
     local actor = db.actor
