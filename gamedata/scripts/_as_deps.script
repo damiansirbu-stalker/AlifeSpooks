@@ -1,6 +1,4 @@
---- _as_deps: AlifeSpooks dependency gate. xlibs is REQUIRED (the mod ships its sounds in its own
---- directories and plays them itself through xsound - there are no engine ambient channels for our
---- content - so without xlibs nothing plays), plus the modded-exes floor the whole family enforces.
+--- _as_deps: AlifeSpooks dependency gate. xlibs REQUIRED (plays its own sounds via xsound), plus the modded-exes floor.
 
 local assert, tostring, type, math_floor = assert, tostring, type, math.floor
 
@@ -9,29 +7,29 @@ local _VERSION = "next"
 local XLIBS_MIN_VERSION = "1.8.5"
 local XLIBS_URL = "https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001"
 
--- Modded-exes minimum build in YYYYMMDD format. 20250908 = AOEngine v0.55 baseline
--- (binary build date 2025-09-08; equivalent demonized release is tag 2025.9.10).
--- get_modded_exes_version() returns __DATE__ parsed as years*10000 + months*100 + days.
+-- Compatibility floor, YYYYMMDD (stalker-compatibility.md). @src xray/script_ini_file_script.cpp:95-125
 local DEMONIZED_MIN_VERSION = 20250908
 local DEMONIZED_URL = "https://github.com/themrdemonized/xray-monolith"
 local AOENGINE_URL  = "https://github.com/Mirrowel/AOEngine-Assets"
 
---- @return string Version string
-function get_version()
-    return _VERSION
-end
-
 -- Build this release is tested against, raised every release (stalker-compatibility.md).
 local TARGET_DEMONIZED = 20260809
+
+-- AOE is judged as an engine frozen at this build (stalker-compatibility.md).
+local AOE_BASELINE_BUILD = 20250908
+
+-- Colors build lazily: GetARGB is nil under the static validator.
+local _footer_clr = nil
 
 -- xray-monolith build (YYYYMMDD) as the themrdemonized tag style, no zero padding (20260722 -> "2026.7.22").
 local function _build_tag(build)
     return math_floor(build / 10000) .. "." .. (math_floor(build / 100) % 100) .. "." .. (build % 100)
 end
 
--- AOEngine v0.55 is cut from the 2025-09-08 xray-monolith fork state, so AOE is judged as an engine frozen
--- at this build: any newer target reads partially compatible on AOE.
-local AOE_BASELINE_BUILD = 20250908
+--- @return string Version string
+function get_version()
+    return _VERSION
+end
 
 -- Platform status line and verdict for the boot log and the MCM footer.
 function platform_status()
@@ -56,9 +54,7 @@ function platform_status()
     return line .. " (fully compatible)", "full"
 end
 
--- MCM ui_hook_functor for the footer row: writes platform_status into the desc widget, colored by verdict.
--- Colors build lazily (GetARGB is absent under the static validator).
-local _footer_clr = nil
+-- MCM footer ui_hook_functor: writes the colored platform_status into the desc widget.
 function platform_functor()
     return function(_anchor, handlers)
         if not _footer_clr then
@@ -117,8 +113,6 @@ function on_game_start()
         )
     end
 
-    -- The boot platform line and the MCM footer come from the same builder, so they never drift.
-    -- printf lands it in xray_*.log (the log reporters attach); xlog mirrors it to <mod>.log.
     local platform_line = (platform_status())
     printf("~ [%s] %s", MOD_NAME, platform_line)
     xlog.get_logger(MOD_NAME, { outfile = MOD_NAME:lower() .. ".log" })

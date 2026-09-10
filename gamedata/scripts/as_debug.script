@@ -2,10 +2,13 @@
 
 as_debug = as_debug or {}
 
+local DEBUG_LEVEL = 5
+local _lvl = 0
+
 if not xlog then
-    function as_debug.refresh() end
-    function as_debug.on() return false end
-    function as_debug.dbg() end
+    function as_debug.update_config() end
+    function as_debug.is_on() return false end
+    function as_debug.debug() end
     function as_debug.info() end
     function as_debug.warn() end
     function as_debug.flush() end
@@ -15,24 +18,22 @@ end
 
 local tostring, RegisterScriptCallback = tostring, RegisterScriptCallback
 local log = xlog.get_logger("AS", { outfile = "alifespooks.log" })
-local DEBUG_LEVEL = 5
-local _lvl = 0
 local _levels = xlog.get_levels()
 
---- Re-read the log level and flush setting from MCM
-function as_debug.refresh()
+--- Re-read the log level and flush setting from MCM.
+function as_debug.update_config()
     log.set_level(as_mcm.get_config("log_level") or "WARN")
     _lvl = log.get_level() or 0
     log._logger.flush_on_level = as_mcm.get_config("log_flush") and _levels.TRACE or _levels.ERROR
 end
 
---- True when DEBUG tracing is live
-function as_debug.on()
+--- True when DEBUG tracing is live.
+function as_debug.is_on()
     return _lvl >= DEBUG_LEVEL
 end
 
---- Log a DEBUG line; noop below DEBUG
-function as_debug.dbg(template, ...)
+--- Log a DEBUG line; noop below DEBUG.
+function as_debug.debug(template, ...)
     if _lvl >= DEBUG_LEVEL then log.debug(template, ...) end
 end
 
@@ -48,13 +49,13 @@ function as_debug.flush()
     log.flush()
 end
 
---- A value, or "?" when nil
+--- A value, or "?" when nil.
 function as_debug.show(v)
     return v ~= nil and tostring(v) or "?"
 end
 
 function on_game_start()
-    RegisterScriptCallback("actor_on_first_update",      as_debug.refresh)
-    RegisterScriptCallback("on_option_change",           as_debug.refresh)
-    RegisterScriptCallback("mcm_option_restore_default", as_debug.refresh)
+    RegisterScriptCallback("actor_on_first_update",      as_debug.update_config)
+    RegisterScriptCallback("on_option_change",           as_debug.update_config)
+    RegisterScriptCallback("mcm_option_restore_default", as_debug.update_config)
 end

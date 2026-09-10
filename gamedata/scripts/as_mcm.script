@@ -23,6 +23,8 @@ local _key_to_tab = {
     sound_player = "development", btn_reset_all = "development",
 }
 
+local GREY = {255, 200, 200, 200}
+
 local function _build_mcm_path(key)
     return "as/" .. (_key_to_tab[key] or "spooks") .. "/" .. key
 end
@@ -30,7 +32,7 @@ end
 cfg, get_config, load_config = xmcm.create_config("as", defaults, _build_mcm_path)
 as_mcm.get_config = get_config
 
---- Write every default to storage, save, reload, notify consumers, close the menu
+--- Write every default to storage, save, reload, notify consumers, close the menu.
 local function _apply_defaults(gui, msg)
     local config = axr_main.config
     for k, v in pairs(defaults) do
@@ -48,25 +50,17 @@ local function _apply_defaults(gui, msg)
     end
 end
 
-function btn_reset_all(gui)
-    _apply_defaults(gui, game.translate_string("st_as_reset_all_done"))
-end
-
-local GREY = {255, 200, 200, 200}
-
-local function _title()
+local function _build_title()
     return { id = "title", type = "slide", link = "as_mcm_banner",
              text = "ui_mcm_as_title", size = {512, 50}, spacing = 20 }
 end
 
---- Spooks: one master volume for our sounds, plus the rarity feel knob. No per-category volume - the
---- director mixes every category off the single master, and placement is each sound's own vanilla band
---- (no distance knob).
-local function spooks_page()
+--- Spooks: master volume for our sounds plus the rarity feel knob; the director mixes every category off the master.
+local function _build_spooks_page()
     return {
         id = "spooks", sh = true,
         gr = {
-            _title(),
+            _build_title(),
             { id = "desc", type = "desc", text = "ui_mcm_as_spooks_desc" },
             { id = "vol_global", type = "track", val = 2, min = 0.0, max = 5.0, step = 0.05, def = 1.0, hint = "as_vol_global" },
 
@@ -74,7 +68,6 @@ local function spooks_page()
             { id = "hdr_feel", type = "desc", text = "ui_mcm_as_hdr_feel", clr = GREY },
             { id = "rarity",   type = "track", val = 2, min = 0.5, max = 3.0, step = 0.05, def = 1.0, hint = "as_rarity" },
 
-            -- Platform footer (self-contained builder in _as_deps, not xlibs), the family-standard verdict row.
             { id = "div_footer", type = "line" },
             { id = "platform", type = "desc", text = "ui_mcm_xmcm_footer",
               ui_hook_functor = { _as_deps.platform_functor() }, clr = {255, 212, 201, 168} },
@@ -82,24 +75,24 @@ local function spooks_page()
     }
 end
 
---- Visuals: the subtle screen distortion at peak dread
-local function visuals_page()
+--- Visuals: the subtle screen distortion at peak dread.
+local function _build_visuals_page()
     return {
         id = "visuals", sh = true,
         gr = {
-            _title(),
+            _build_title(),
             { id = "desc", type = "desc", text = "ui_mcm_as_visuals_page_desc" },
             { id = "visuals", type = "check", val = 1, def = true, hint = "as_visuals" },
         },
     }
 end
 
---- Development: trace log level, flush, the debug HUD, reset-to-defaults
-local function development_page()
+--- Development: trace log level, flush, the debug HUD, reset-to-defaults.
+local function _build_development_page()
     return {
         id = "development", sh = true,
         gr = {
-            _title(),
+            _build_title(),
             { id = "dev_desc", type = "desc", text = "ui_mcm_as_development_desc" },
 
             { id = "div_logging", type = "line" },
@@ -125,13 +118,17 @@ local function development_page()
     }
 end
 
+function btn_reset_all(gui)
+    _apply_defaults(gui, game.translate_string("st_as_reset_all_done"))
+end
+
 function on_mcm_load()
     return {
         id = "as",
         gr = {
-            spooks_page(),
-            visuals_page(),
-            development_page(),
+            _build_spooks_page(),
+            _build_visuals_page(),
+            _build_development_page(),
         },
     }
 end

@@ -1,8 +1,4 @@
---- as_hud: live debug HUD - the AlifeSpooks spook readout (grade/score, place, what's playing, each
---- term's contribution, gates) from as_director.get_hud_rows(), laid out on a fixed two-column grid
---- (label | value) so everything aligns by construction. Mirrors at_hud: a CUIScriptWnd built once
---- and shown via AddDialogToRender, a self-rearming, visibility-gated refresh, position from the MCM
---- hud_position preset. Off by default; players never see it. Inert without xmcm or as_director.
+--- as_hud: live debug HUD - the AlifeSpooks spook readout on a fixed two-column grid, mirrors at_hud.
 
 local RegisterScriptCallback, math_floor, tostring = RegisterScriptCallback, math.floor, tostring
 
@@ -23,12 +19,10 @@ local COL3_W = 8  * CHAR_W + CELL_PAD
 local PANEL_W = COL1_W + COL_GAP + COL2_W + COL_GAP + COL3_W + PAD * 2
 local PANEL_H = MAX_ROWS * ROW_H + PAD * 2
 
--- Row text colors, built lazily: GetARGB is not present at module-load under the static validator
--- (same as at_hud). Neutral off-white body, gold section headers, green/gray for the live/stopped sound
--- lines, and a green->red gradient tinting the DREAD summary row by its grade. Applied per row each
--- refresh so color tracks state, not grid position. Moderate saturation + high luminance to stay legible
--- over dark, busy scenes; the sound lines use luminance (bright vs dim), so play/stop reads colorblind-safe.
 local _clr
+local _hud, _shown, _active = nil, false, false
+
+-- Row text colors, built lazily: GetARGB is not present at module-load under the static validator.
 local function _get_row_color(style)
     if not _clr then
         _clr = {
@@ -65,11 +59,74 @@ local function _get_position(key)
     return presets[key] or presets.top_left
 end
 
--- UISpookHUD: a three-column grid (factor | state | spook) built once; refresh only rewrites text.
+--- Log a [HUD] trace line via as_debug when tracing is on.
+local function _log_hud(template, ...)
+    if as_debug and as_debug.is_on and as_debug.is_on() then as_debug.debug("[HUD] " .. template, ...) end
+end
+
+local function _is_hud_wanted()
+    return _get_pos_key() ~= "off"
+end
+
+local function _hide()
+    if _hud and _shown then get_hud():RemoveDialogToRender(_hud); _shown = false end
+end
+
+--- Drop the window entirely (position change, actor teardown); the next refresh rebuilds it.
+local function _destroy_hud()
+    _hide(); _hud = nil
+end
+
+local function _is_visible()
+    if not main_hud_shown() then return false end
+    local pda = ActorMenu and ActorMenu.get_pda_menu and ActorMenu.get_pda_menu()
+    return not (pda and pda:IsShown())
+end
+
+local function _render_hud()
+    if not _is_hud_wanted() then _log_hud("_render_hud: not wanted, skip"); return end
+    if not _hud then _hud = UISpookHUD(); _log_hud("_render_hud: built UISpookHUD") end
+    if not _shown then get_hud():AddDialogToRender(_hud); _shown = true; _log_hud("_render_hud: AddDialogToRender, shown=true") end
+    local rows = (as_director and as_director.get_hud_rows and as_director.get_hud_rows()) or {}
+    _log_hud("_render_hud: rows=%d hud=%s shown=%s", #rows, tostring(_hud ~= nil), tostring(_shown))
+    _hud:set_rows(rows)
+end
+
+--- Re-arm FIRST: an expired event that errored would re-fire every frame and starve all time events.
+local function _update_hud()
+    if not _active then _log_hud("_update_hud: not active, hide"); _hide(); return true end
+    ResetTimeEvent("as_hud", "tick", REFRESH_SEC)
+    local vis = _is_visible()
+    _log_hud("_update_hud: active=%s visible=%s main_hud=%s", tostring(_active), tostring(vis), tostring(main_hud_shown()))
+    if vis then _render_hud() else _hide() end
+    return false
+end
+
+local function _start()
+    if _active then _log_hud("_start: already active"); return end
+    _active = true
+    RemoveTimeEvent("as_hud", "tick")
+    CreateTimeEvent("as_hud", "tick", REFRESH_SEC, _update_hud)
+    _log_hud("_start: armed tick")
+end
+
+local function _stop()
+    _active = false
+    RemoveTimeEvent("as_hud", "tick")
+    _destroy_hud()
+    _log_hud("_stop")
+end
+
+--- Position preset changed or actor (re)spawned: rebuild and (dis)arm to match the current setting.
+local function _apply()
+    _log_hud("_apply: wanted=%s pos=%s", tostring(_is_hud_wanted()), tostring(_get_pos_key()))
+    _destroy_hud()
+    if _is_hud_wanted() then _start() else _stop() end
+end
 
 class "UISpookHUD" (CUIScriptWnd)
 
-function UISpookHUD:_cell(xml, elem, cell_x, cell_y, cell_w)
+function UISpookHUD:_build_cell(xml, elem, cell_x, cell_y, cell_w)
     local static = xml:InitStatic(elem, self)
     static:SetWndPos(vector2():set(cell_x, cell_y))
     static:SetWndSize(vector2():set(cell_w, ROW_H))
@@ -89,9 +146,9 @@ function UISpookHUD:__init() super()
     local x3 = x2 + COL2_W + COL_GAP
     for row = 1, MAX_ROWS do
         local row_y = PAD + (row - 1) * ROW_H
-        self.c1[row] = self:_cell(xml, "line", x1, row_y, COL1_W)
-        self.c2[row] = self:_cell(xml, "line", x2, row_y, COL2_W)
-        self.c3[row] = self:_cell(xml, "line", x3, row_y, COL3_W)
+        self.c1[row] = self:_build_cell(xml, "line", x1, row_y, COL1_W)
+        self.c2[row] = self:_build_cell(xml, "line", x2, row_y, COL2_W)
+        self.c3[row] = self:_build_cell(xml, "line", x3, row_y, COL3_W)
     end
     self.used = 0
 end
@@ -115,77 +172,8 @@ end
 
 function UISpookHUD:__finalize() end
 
--- Lifecycle: visibility-gated refresh (REFRESH_SEC) via a self-rearming event
-
-local _hud, _shown, _active = nil, false, false
-
--- DIAGNOSTIC trace: logs to alifespooks.log via as_debug (tag [AS]) when tracing is on. Prefix [HUD].
-local function _tr(template, ...)
-    if as_debug and as_debug.on and as_debug.on() then as_debug.dbg("[HUD] " .. template, ...) end
-end
-
-local function _wanted()
-    return _get_pos_key() ~= "off"
-end
-
-local function _hide()
-    if _hud and _shown then get_hud():RemoveDialogToRender(_hud); _shown = false end
-end
-
---- Drop the window entirely (position change, actor teardown); the next refresh rebuilds it.
-local function _drop()
-    _hide(); _hud = nil
-end
-
-local function _is_visible()
-    if not main_hud_shown() then return false end
-    local pda = ActorMenu and ActorMenu.get_pda_menu and ActorMenu.get_pda_menu()
-    return not (pda and pda:IsShown())
-end
-
-local function _refresh()
-    if not _wanted() then _tr("_refresh: not wanted, skip"); return end
-    if not _hud then _hud = UISpookHUD(); _tr("_refresh: built UISpookHUD") end
-    if not _shown then get_hud():AddDialogToRender(_hud); _shown = true; _tr("_refresh: AddDialogToRender, shown=true") end
-    local rows = (as_director and as_director.get_hud_rows and as_director.get_hud_rows()) or {}
-    _tr("_refresh: rows=%d hud=%s shown=%s", #rows, tostring(_hud ~= nil), tostring(_shown))
-    _hud:set_rows(rows)
-end
-
---- Re-arm FIRST: an expired event that errored would re-fire every frame and starve all time events.
-local function _tick()
-    if not _active then _tr("_tick: not active, hide"); _hide(); return true end
-    ResetTimeEvent("as_hud", "tick", REFRESH_SEC)
-    local vis = _is_visible()
-    _tr("_tick: active=%s visible=%s main_hud=%s", tostring(_active), tostring(vis), tostring(main_hud_shown()))
-    if vis then _refresh() else _hide() end
-    return false
-end
-
-local function _start()
-    if _active then _tr("_start: already active"); return end
-    _active = true
-    RemoveTimeEvent("as_hud", "tick")
-    CreateTimeEvent("as_hud", "tick", REFRESH_SEC, _tick)
-    _tr("_start: armed tick")
-end
-
-local function _stop()
-    _active = false
-    RemoveTimeEvent("as_hud", "tick")
-    _drop()
-    _tr("_stop")
-end
-
---- Position preset changed or actor (re)spawned: rebuild and (dis)arm to match the current setting.
-local function _apply()
-    _tr("_apply: wanted=%s pos=%s", tostring(_wanted()), tostring(_get_pos_key()))
-    _drop()
-    if _wanted() then _start() else _stop() end
-end
-
 function on_game_start()
-    _tr("on_game_start: registering callbacks")
+    _log_hud("on_game_start: registering callbacks")
     RegisterScriptCallback("actor_on_first_update",      _apply)
     RegisterScriptCallback("actor_on_net_destroy",       _stop)
     RegisterScriptCallback("on_option_change",           _apply)
