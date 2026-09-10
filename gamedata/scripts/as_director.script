@@ -180,6 +180,8 @@ local _muted     = false
 local _rows      = {}
 local _enclosure = { level = nil, cx = nil, cz = nil, val = "outdoor" }
 local _visual = { insane_since = nil, next_ok = 0, handle = nil }
+local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
+local _cursor = 1
 
 -- Forward declarations for helpers referenced before their definition line (kept local, never global).
 local _build_hud, fire_visual_pulse, try_visual_pulse
@@ -573,28 +575,6 @@ local function _pulled_spawn_dist(ch_min, ch_max, dread)
     return dist
 end
 
---- Fire one positioned one-shot at `path`: roll the spawn distance from the sound's own source-channel band
---- (opts.ch_min/ch_max from as_sound_config_gen, REQUIRED unless opts.dist), pull it up to 20% closer by
---- opts.dread (DREAD_PULL), then place it via get_placement - the base volume table times the game ambient
---- slider (vol_global on top, 1 = untouched base loudness). The blob pair (opts.min/max) is the ATTENUATION
---- range - trace readout only, never placement. Returns the distance.
-function emit(path, opts)
-    local actor = db.actor
-    if not (actor and path and xsound) then return end
-    local height = opts.height or 0
-    local place_dist = opts.dist or _pulled_spawn_dist(opts.ch_min, opts.ch_max, opts.dread)
-    local dist, vec, vol = get_placement(actor, opts.ch_min, opts.ch_max, height, opts.indoor, place_dist)
-    vol = vol * opt_ambient_volume * vol_global
-    xsound.play_at(path, { position = vec, volume = vol })
-    local mn, mx = opts.min, opts.max
-    local d3d = math_sqrt(dist * dist + height * height)
-    local att = (mn and mx and mx > mn) and (mx - d3d) / (mx - mn) or 0
-    if att < 0 then att = 0 elseif att > 1 then att = 1 end
-    as_debug.debug("[PLAY] %s dist=%.1f band=%.0f-%.0f h=%.0f att=%.2f vol=%.2f dread=%.2f",
-        path, dist, opts.ch_min or 0, opts.ch_max or 0, height, att, vol, opts.dread or 0)
-    return dist
-end
-
 -- derive (board -> eligible set, built on demand)
 
 --- Rebuild the eligible category list + fast lookup from the current board. Called at emission and by the
@@ -608,86 +588,6 @@ local function _rebuild_eligible()
     board.eligible = elig
     board.elig_set = {}
     for i = 1, #elig do board.elig_set[elig[i]] = true end
-end
-
---- Build the debug HUD rows (PLAYING / SELECT / SENSORS) from the board.
-function _build_hud()
-    _rebuild_eligible()
-    local playing = _play_at > 0 and (time_global() - _play_at) < PLAY_WINDOW_MS
-    local base_playing = _base_at > 0 and (time_global() - _base_at) < PLAY_WINDOW_MS
-    local dread = board.dread
-    local grade = (dread >= INSANE_DREAD) and "g_insane" or (dread >= DREAD_ON) and "g_med" or "g_none"
-    local stalkers, monsters = board.stalkers, board.monsters
-    _rows = {
-        { "PLAYING", "", "", "hdr" },
-        { "spook", _last_play, "", playing and "play" or "stop" },
-        { "base", _base_last, "", base_playing and "play" or "stop" },
-        { "", "", "" },
-        { "SELECT", "", "", "hdr" },
-    }
-    local avail = wrap_list(board.eligible, TYPE_WRAP)
-    if #avail == 0 then avail = { "-" } end
-    for i = 1, #avail do _rows[#_rows + 1] = { i == 1 and "available" or "", avail[i], "" } end
-    _rows[#_rows + 1] = { "dread", string_format("%.2f", dread), "", grade }
-    _rows[#_rows + 1] = { "", "", "" }
-    _rows[#_rows + 1] = { "APPLY", "", "", "hdr" }
-    local terms = board.terms
-    _rows[#_rows + 1] = { "lore",        string_format("%+.2f", terms.lore or 0), "" }
-    _rows[#_rows + 1] = { "environment", string_format("%+.2f", terms.env or 0), "" }
-    _rows[#_rows + 1] = { "time",        string_format("%+.2f", terms.time or 0), "" }
-    _rows[#_rows + 1] = { "threat",      string_format("%+.2f", terms.threat or 0), "" }
-    _rows[#_rows + 1] = { "company",     string_format("%+.2f", terms.company or 0), "" }
-    _rows[#_rows + 1] = { "anomaly",     string_format("%+.2f", terms.anomaly or 0), "" }
-    _rows[#_rows + 1] = { "service",     string_format("%+.2f", terms.service or 0), "" }
-    _rows[#_rows + 1] = { "", "", "" }
-    _rows[#_rows + 1] = { "OVERRIDE", "", "", "hdr" }
-    local override = board.position
-    _rows[#_rows + 1] = { "position", override and override.name or "none", "", override and "g_med" or "g_none" }
-    _rows[#_rows + 1] = { "dread",  override and override.dread and string_format("%.2f", override.dread) or "-", "" }
-    _rows[#_rows + 1] = { "add",    override and string_format("%+.2f", override.add) or "-", "" }
-    _rows[#_rows + 1] = { "select", override and override.cats and (override.only and "only" or "add") or "-", "" }
-    _rows[#_rows + 1] = { "", "", "" }
-    _rows[#_rows + 1] = { "SENSORS", "", "", "hdr" }
-    _rows[#_rows + 1] = { "environment", board.environment, "" }
-    _rows[#_rows + 1] = { "time", board.time, "" }
-    _rows[#_rows + 1] = { "stalkers.online", stalkers.online and "yes" or "no", "" }
-    _rows[#_rows + 1] = { "stalkers.enemy_near", stalkers.enemy_near, "" }
-    _rows[#_rows + 1] = { "stalkers.ally_near", stalkers.ally_near, "" }
-    _rows[#_rows + 1] = { "stalkers.service_near", stalkers.service_near, "" }
-    _rows[#_rows + 1] = { "monsters.online", monsters.online and "yes" or "no", "" }
-    _rows[#_rows + 1] = { "monsters.enemy_near", monsters.enemy_near, "" }
-    _rows[#_rows + 1] = { "anomalies.near", board.anomalies.near and "yes" or "no", "" }
-end
-
--- visual layer
-
---- Fire one subtle distortion pulse: create a cyclic effector, drive its factor up, release after a hold.
-function fire_visual_pulse()
-    if not xpp then return end
-    local ppe = VIS_PPE[math_random(#VIS_PPE)]
-    if _visual.handle and xpp.is_active(_visual.handle) then xpp.release(_visual.handle) end
-    local handle = xpp.create_effector(ppe, { cyclic = true, smoothing = VIS_SMOOTH })
-    _visual.handle = handle
-    if handle then
-        xpp.set_target(handle, VIS_FACTOR, VIS_SMOOTH)
-        CreateTimeEvent("as_director", "vis_release", VIS_HOLD_S, function()
-            if xpp.is_active(handle) then xpp.release(handle) end
-            if _visual.handle == handle then _visual.handle = nil end
-            return true
-        end)
-    end
-end
-
---- Peak-dread visual gate: require sustained peak (dwell), then once per cooldown roll to pulse.
-function try_visual_pulse(tg)
-    if not (visuals_on and xpp) or board.dread < INSANE_DREAD then
-        _visual.insane_since = nil
-        return
-    end
-    if not _visual.insane_since then _visual.insane_since = tg; return end
-    if tg < _visual.next_ok or tg - _visual.insane_since < VIS_DWELL_MS then return end
-    _visual.next_ok = tg + VIS_COOLDOWN_MS
-    if math_random() < VIS_CHANCE then fire_visual_pulse() end
 end
 
 -- emission (jittered self-schedule)
@@ -730,7 +630,6 @@ end
 -- DEBUG. It does no muting (the DLTX overlay already stripped our sounds from the composed config it reads)
 -- and no injection. Trade-off: any other ambient-scheduler mod contends for this slot (last writer wins);
 -- the muting is independent of it (the static overlay), so only the trace/no-cut is lost if another wins.
-local _base = { chan = {}, idx = 0, tot = 0, hour = nil }
 
 local function _read_base_channel(ch, ini_snd)
     local raw = xltx.read_list(ini_snd, ch, "sounds")
@@ -828,7 +727,6 @@ local _producers = {
     { "position",    sense_position },
     { "time",        function()      if level.present() then board.time = _get_time_band(level.get_time_hours()) end end },
 }
-local _cursor = 1
 
 local function _on_tick()
     ResetTimeEvent("as_director", "tick", TICK_S)
@@ -870,6 +768,108 @@ local function _on_first_update()
     RemoveTimeEvent("as_director", "tick")
     CreateTimeEvent("as_director", "tick", TICK_S, _on_tick)
     as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient; source-band placement")
+end
+
+--- Fire one positioned one-shot at `path`: roll the spawn distance from the sound's own source-channel band
+--- (opts.ch_min/ch_max from as_sound_config_gen, REQUIRED unless opts.dist), pull it up to 20% closer by
+--- opts.dread (DREAD_PULL), then place it via get_placement - the base volume table times the game ambient
+--- slider (vol_global on top, 1 = untouched base loudness). The blob pair (opts.min/max) is the ATTENUATION
+--- range - trace readout only, never placement. Returns the distance.
+function emit(path, opts)
+    local actor = db.actor
+    if not (actor and path and xsound) then return end
+    local height = opts.height or 0
+    local place_dist = opts.dist or _pulled_spawn_dist(opts.ch_min, opts.ch_max, opts.dread)
+    local dist, vec, vol = get_placement(actor, opts.ch_min, opts.ch_max, height, opts.indoor, place_dist)
+    vol = vol * opt_ambient_volume * vol_global
+    xsound.play_at(path, { position = vec, volume = vol })
+    local mn, mx = opts.min, opts.max
+    local d3d = math_sqrt(dist * dist + height * height)
+    local att = (mn and mx and mx > mn) and (mx - d3d) / (mx - mn) or 0
+    if att < 0 then att = 0 elseif att > 1 then att = 1 end
+    as_debug.debug("[PLAY] %s dist=%.1f band=%.0f-%.0f h=%.0f att=%.2f vol=%.2f dread=%.2f",
+        path, dist, opts.ch_min or 0, opts.ch_max or 0, height, att, vol, opts.dread or 0)
+    return dist
+end
+
+-- visual layer
+
+--- Fire one subtle distortion pulse: create a cyclic effector, drive its factor up, release after a hold.
+function fire_visual_pulse()
+    if not xpp then return end
+    local ppe = VIS_PPE[math_random(#VIS_PPE)]
+    if _visual.handle and xpp.is_active(_visual.handle) then xpp.release(_visual.handle) end
+    local handle = xpp.create_effector(ppe, { cyclic = true, smoothing = VIS_SMOOTH })
+    _visual.handle = handle
+    if handle then
+        xpp.set_target(handle, VIS_FACTOR, VIS_SMOOTH)
+        CreateTimeEvent("as_director", "vis_release", VIS_HOLD_S, function()
+            if xpp.is_active(handle) then xpp.release(handle) end
+            if _visual.handle == handle then _visual.handle = nil end
+            return true
+        end)
+    end
+end
+
+--- Peak-dread visual gate: require sustained peak (dwell), then once per cooldown roll to pulse.
+function try_visual_pulse(tg)
+    if not (visuals_on and xpp) or board.dread < INSANE_DREAD then
+        _visual.insane_since = nil
+        return
+    end
+    if not _visual.insane_since then _visual.insane_since = tg; return end
+    if tg < _visual.next_ok or tg - _visual.insane_since < VIS_DWELL_MS then return end
+    _visual.next_ok = tg + VIS_COOLDOWN_MS
+    if math_random() < VIS_CHANCE then fire_visual_pulse() end
+end
+
+--- Build the debug HUD rows (PLAYING / SELECT / SENSORS) from the board.
+function _build_hud()
+    _rebuild_eligible()
+    local playing = _play_at > 0 and (time_global() - _play_at) < PLAY_WINDOW_MS
+    local base_playing = _base_at > 0 and (time_global() - _base_at) < PLAY_WINDOW_MS
+    local dread = board.dread
+    local grade = (dread >= INSANE_DREAD) and "g_insane" or (dread >= DREAD_ON) and "g_med" or "g_none"
+    local stalkers, monsters = board.stalkers, board.monsters
+    _rows = {
+        { "PLAYING", "", "", "hdr" },
+        { "spook", _last_play, "", playing and "play" or "stop" },
+        { "base", _base_last, "", base_playing and "play" or "stop" },
+        { "", "", "" },
+        { "SELECT", "", "", "hdr" },
+    }
+    local avail = wrap_list(board.eligible, TYPE_WRAP)
+    if #avail == 0 then avail = { "-" } end
+    for i = 1, #avail do _rows[#_rows + 1] = { i == 1 and "available" or "", avail[i], "" } end
+    _rows[#_rows + 1] = { "dread", string_format("%.2f", dread), "", grade }
+    _rows[#_rows + 1] = { "", "", "" }
+    _rows[#_rows + 1] = { "APPLY", "", "", "hdr" }
+    local terms = board.terms
+    _rows[#_rows + 1] = { "lore",        string_format("%+.2f", terms.lore or 0), "" }
+    _rows[#_rows + 1] = { "environment", string_format("%+.2f", terms.env or 0), "" }
+    _rows[#_rows + 1] = { "time",        string_format("%+.2f", terms.time or 0), "" }
+    _rows[#_rows + 1] = { "threat",      string_format("%+.2f", terms.threat or 0), "" }
+    _rows[#_rows + 1] = { "company",     string_format("%+.2f", terms.company or 0), "" }
+    _rows[#_rows + 1] = { "anomaly",     string_format("%+.2f", terms.anomaly or 0), "" }
+    _rows[#_rows + 1] = { "service",     string_format("%+.2f", terms.service or 0), "" }
+    _rows[#_rows + 1] = { "", "", "" }
+    _rows[#_rows + 1] = { "OVERRIDE", "", "", "hdr" }
+    local override = board.position
+    _rows[#_rows + 1] = { "position", override and override.name or "none", "", override and "g_med" or "g_none" }
+    _rows[#_rows + 1] = { "dread",  override and override.dread and string_format("%.2f", override.dread) or "-", "" }
+    _rows[#_rows + 1] = { "add",    override and string_format("%+.2f", override.add) or "-", "" }
+    _rows[#_rows + 1] = { "select", override and override.cats and (override.only and "only" or "add") or "-", "" }
+    _rows[#_rows + 1] = { "", "", "" }
+    _rows[#_rows + 1] = { "SENSORS", "", "", "hdr" }
+    _rows[#_rows + 1] = { "environment", board.environment, "" }
+    _rows[#_rows + 1] = { "time", board.time, "" }
+    _rows[#_rows + 1] = { "stalkers.online", stalkers.online and "yes" or "no", "" }
+    _rows[#_rows + 1] = { "stalkers.enemy_near", stalkers.enemy_near, "" }
+    _rows[#_rows + 1] = { "stalkers.ally_near", stalkers.ally_near, "" }
+    _rows[#_rows + 1] = { "stalkers.service_near", stalkers.service_near, "" }
+    _rows[#_rows + 1] = { "monsters.online", monsters.online and "yes" or "no", "" }
+    _rows[#_rows + 1] = { "monsters.enemy_near", monsters.enemy_near, "" }
+    _rows[#_rows + 1] = { "anomalies.near", board.anomalies.near and "yes" or "no", "" }
 end
 
 --- The debug HUD rows, built fresh from the board on demand (as_hud reads this only while visible, so
