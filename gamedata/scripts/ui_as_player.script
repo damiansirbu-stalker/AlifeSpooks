@@ -113,6 +113,7 @@ function as_player_wnd:init_controls()
     self.lbl_path  = xml:InitStatic("lbl_path", self):TextControl()
     self.lbl_now   = xml:InitStatic("lbl_now", self):TextControl()
     self.lbl_pos   = xml:InitStatic("lbl_pos", self):TextControl()
+    self.lbl_loud  = xml:InitStatic("lbl_loud", self):TextControl()
     self.status    = xml:InitStatic("status", self):TextControl()
     self.insp_read = xml:InitStatic("insp_read", self):TextControl()
     self.snote = xml:InitEditBox("snote", self); self:Register(self.snote, "snote")
@@ -198,6 +199,7 @@ function as_player_wnd:render()
     self.lbl_now:SetText(_cur and ("loaded:  " .. _cur.cat .. "/" .. _cur.name)
         or "loaded:  (none - click a sound)")
     self.lbl_pos:SetText("mode:  " .. self:_get_mode_label())
+    if self.lbl_loud then self.lbl_loud:SetText(self:format_loud()) end
     if self.insp_read then self.insp_read:SetText(self:_format_spot()) end
 end
 
@@ -208,6 +210,24 @@ function as_player_wnd:_format_spot()
     local board = as_director and as_director.get_board and as_director.get_board()
     return string_format("%s    dread %.2f    env %s    pos %.0f %.0f %.0f",
         level.name(), board and board.dread or 0, board and board.environment or "?", pos.x, pos.y, pos.z)
+end
+
+--- The loudness line: measured LUFS and base_volume from the profile, plus the delivered dB at the audition distance.
+--- Reads xsound.get_meta + compute_delivered_loudness; a director mode reads at the blob mid-range, a fixed mode at its distance.
+function as_player_wnd:format_loud()
+    if not _cur then return "loud:   (none)" end
+    local prof = xsound and xsound.get_meta and xsound.get_meta(_cur.path)
+    if not prof then return "loud:   -- (no profile; run build.py deploy)" end
+    local mode = _get_mode()
+    local dist
+    if mode.kind == KIND_DIST then
+        dist = mode.dist
+    elseif mode.kind == KIND_DIRECTOR and prof.mx then
+        dist = prof.mx / 2.0
+    end
+    local eff = xsound.compute_delivered_loudness(prof, dist)
+    if not eff then return string_format("loud:   bv %.2f | LUFS --", prof.bv or 1.0) end
+    return string_format("loud:   %.1f LUFS | bv %.2f | est. %.0f dB", prof.lufs, prof.bv or 1.0, eff)
 end
 
 --- Director placement at the given dread: the sound placed exactly as the director would, including the pull.

@@ -33,6 +33,9 @@
 	<lbl_pos x="460" y="152" width="300" height="20">
 		<text font="letterica16" align="l" vert_align="c" r="66" g="157" b="195"/>
 	</lbl_pos>
+	<lbl_loud x="460" y="172" width="300" height="20">
+		<text font="letterica16" align="l" vert_align="c" r="66" g="157" b="195"/>
+	</lbl_loud>
 
 	<!-- transport: [ mode - ] [ mode + ]   [ prev ] [ play ] [ stop ] [ next ] -->
 	<btn_pos_down x="470" y="188" width="48" height="30" stretch="1">
