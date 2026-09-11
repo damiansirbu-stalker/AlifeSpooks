@@ -36,7 +36,7 @@ The category list is the single source of truth.
 
 ## Content pipeline (reproducible)
 
-`tools/build.py` is a six-stage pipeline. Each stage is a subcommand that reads the previous stage's committed artifact and writes the next. The pipeline runs as one of two commands.
+`tools/build.py` is a seven-stage pipeline. Each stage is a subcommand that reads the previous stage's committed artifact and writes the next. The pipeline runs as one of two commands.
 `rebuild` is the full run. It wipes `zs/` and re-emits the whole corpus FLAT into `<category>/`, is RARE, and refreshes the ledger and provenance proofs. `add` is the incremental everyday path.
 It ingests a new source into `<category>/` and re-syncs the config from the current tree, and it leaves the existing tree in place.
 Dread curation is per-sound in `as_spooks_metadata` rather than in the tree, so neither command touches it. Adopting a pack is additive, and a full re-run is a rewrite.
@@ -48,6 +48,7 @@ loudness    per-group loudness, outliers flagged     -> loudness_outliers.json
 deploy      audio + sound config + veto DLTX overlay -> gamedata/
 ledger      content-hash proof of coverage           -> ledger.tsv
 provenance  every shipped sound -> its origin         -> provenance.tsv
+verify      config paths <-> deployed oggs match       -> stdout
 ```
 
 - plan (`cmd_plan`): walk every source pack's sound tree and route each FILE to a category by its folder path (`route` / `ROUTE`), a structural per-file allowlist.
@@ -65,6 +66,9 @@ provenance  every shipped sound -> its origin         -> provenance.tsv
   reports any stale `as_spooks_metadata` dread entry (`_report_dangling_dread`),
   and generates the base-veto DLTX overlay that removes our sounds from the base ambient channels (`_build_veto_overlay` -> `mod_sound_channels_alifespooks.ltx`).
 - ledger (`cmd_ledger`) and provenance (`cmd_provenance`): the proofs, below.
+- verify (`cmd_verify`): referential integrity - every `as_sound_metadata` path resolves to an .ogg on disk, and every
+  deployed .ogg is in the config. Since the config is generated FROM the tree, a mismatch means the committed config
+  drifted from the committed tree (a hand edit, or a change never redeployed). Read-only. Runs standalone or in a rebuild.
 
 ### No audible sound drops before audition (shared invariant with AlifeAmbience)
 

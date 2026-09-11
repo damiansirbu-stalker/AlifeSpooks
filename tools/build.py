@@ -1876,6 +1876,37 @@ def cmd_provision(a):
         print("\nall sources present - `build.py all` reproduces the corpus.")
 
 
+def cmd_verify(a):
+    """Referential integrity of the committed config against the committed sound tree: every as_sound_metadata
+    path resolves to an .ogg on disk, and every deployed .ogg is in the config. Catches a stale committed config
+    (a hand edit, or a tree change never redeployed). Read-only; run standalone or at the end of a rebuild.
+    The config is generated FROM the tree, so a clean state matches; a mismatch means the two drifted."""
+    root = Path(a.root) if getattr(a, "root", None) else GDATA
+    cfg = root / "scripts" / "as_sound_metadata.script"
+    snd = root / "sounds"
+    if not cfg.exists():
+        print("  verify: as_sound_metadata.script absent - run `deploy` first")
+        return
+    cfg_paths = {re.sub(r"[\\/]+", "/", m).lower()
+                 for m in re.findall(r'path\s*=\s*"([^"]+)"', cfg.read_text(encoding="utf-8", errors="ignore"))}
+    disk_paths = set()
+    zs = snd / "zs"
+    if zs.exists():
+        for p in zs.rglob("*.ogg"):
+            disk_paths.add(p.relative_to(snd).with_suffix("").as_posix().lower())
+    missing = sorted(cfg_paths - disk_paths)                 # config path -> no file on disk
+    orphan  = sorted(disk_paths - cfg_paths)                 # deployed ogg -> no config entry
+    print(f"  verify: {len(cfg_paths)} config paths, {len(disk_paths)} deployed oggs")
+    if missing:
+        print(f"  ! MISSING {len(missing)} config paths with no file: "
+              + ", ".join(missing[:8]) + ("..." if len(missing) > 8 else ""))
+    if orphan:
+        print(f"  ! ORPHAN {len(orphan)} deployed oggs not in config: "
+              + ", ".join(orphan[:8]) + ("..." if len(orphan) > 8 else ""))
+    if not missing and not orphan:
+        print("  verify: OK - config and sound tree match")
+
+
 def cmd_rebuild(a):
     """FULL rebuild from scratch: plan -> classify -> loudness -> deploy -> ledger -> provenance. Wipes zs/
     and re-emits the whole corpus FLAT into <cat>/ (dread lives per-sound in as_spooks_metadata, not in the
@@ -1887,7 +1918,8 @@ def cmd_rebuild(a):
     timings = []
     t_all = time.perf_counter()
     for name, fn in (("plan", cmd_plan), ("classify", cmd_classify), ("loudness", cmd_loudness),
-                     ("deploy", cmd_deploy), ("ledger", cmd_ledger), ("provenance", cmd_provenance)):
+                     ("deploy", cmd_deploy), ("ledger", cmd_ledger), ("provenance", cmd_provenance),
+                     ("verify", cmd_verify)):
         print(f"\n========== {name} ==========")
         t0 = time.perf_counter()
         fn(ns)
@@ -1913,6 +1945,7 @@ if __name__ == "__main__":
     p = sub.add_parser("add"); p.add_argument("name", nargs="?"); p.add_argument("gd", nargs="?"); p.add_argument("--root"); p.set_defaults(func=cmd_add)
     sub.add_parser("ledger").set_defaults(func=cmd_ledger)
     sub.add_parser("provenance").set_defaults(func=cmd_provenance)
+    p = sub.add_parser("verify"); p.add_argument("--root"); p.set_defaults(func=cmd_verify)
     sub.add_parser("provision").set_defaults(func=cmd_provision)
     p = sub.add_parser("rebuild"); p.add_argument("--root"); p.set_defaults(func=cmd_rebuild)
     a = ap.parse_args(); a.func(a)
