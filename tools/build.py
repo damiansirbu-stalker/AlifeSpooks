@@ -1413,6 +1413,8 @@ def _report_dangling_dread(effects, root):
     shipped = {_deployed_name(e) for cat in effects for e in effects[cat]}
     keys = []
     for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if line.lstrip().startswith("--"):       # skip commented example / doc lines
+            continue
         if '["' in line and '"]' in line:
             keys.append(line.split('["', 1)[1].split('"]', 1)[0])
     dangling = sorted(k for k in keys if k not in shipped)
