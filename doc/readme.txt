@@ -140,6 +140,7 @@ The in-game HUD reads out the current dread, each term that fed it, what is play
 
 Requirements:
 Anomaly 1.5.3
+Modded exes: themrdemonized 2025.9.10 or newer, or AOEngine v0.55 or newer. The full feature set needs the latest demonized build; a feature that needs a newer one stays inactive on older exes.
 xlibs (plays the sounds, https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001)
 MCM (shows the settings and the trace)
 
@@ -152,11 +153,6 @@ Install (MO2):
 Uninstall (MO2):
 Disable or remove in MO2.
 
-Performance:
-Performance comes first, ahead of any feature.
-AlifeSpooks reads its signals every few seconds and caches them, never per frame. Its audio is byte for byte with no engine-bed cost.
-A feature that cannot fit that budget changes, or moves into an X-Ray engine modification, before it slows the game.
-
 Compatibility:
 It runs on vanilla Anomaly and alongside any soundscape mod.
 It removes only its own sounds from the base channels and adds nothing. It never doubles or collides with the base ambience.
@@ -168,6 +164,11 @@ Tested against Anomaly 1.5.3, GAMMA (installer definition 920, with Soundscape O
 Tested with every source pack listed under Credits below.
 Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
 You can install or remove it mid-save. Weather sound stays the base ambience's job. AlifeSpooks adds no storm or rain.
+
+Performance:
+Performance comes first, ahead of any feature.
+AlifeSpooks reads its signals every few seconds and caches them, never per frame. Its audio is byte for byte with no engine-bed cost.
+A feature that cannot fit that budget changes, or moves into an X-Ray engine modification, before it slows the game.
 
 Credits:
 Most of the sounds come from the original S.T.A.L.K.E.R. games and the standalone builds that carry and rework that audio.
