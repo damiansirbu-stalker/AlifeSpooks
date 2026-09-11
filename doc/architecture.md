@@ -21,7 +21,8 @@ The old model shipped our sounds as engine sound channels (`sound_channels.ltx` 
 
 Because the director is the only playback path, xlibs (`xsound`) is required. Without it the mod is inert and no sound plays. The director's own data is Lua: `as_sound_metadata`
 (generated audio facts), `as_spooks_metadata` (hand-curated dread), and `as_location_override` (hand-curated level and coordinate overrides), each an auto-loaded table read once.
-`xltx` reads only the engine's own LTX (the base-ambient `sound_channels.ltx`), and `xfs` enumerates on-disk oggs for the review player. There is no raw `ini_file` or `getFS` in the mod's own scripts.
+`xltx` reads only the engine's own LTX (the base-ambient `sound_channels.ltx`), and `xfs` enumerates on-disk oggs for the
+review player, which also reads a logs-dir `.txt` playlist through `getFS`. There is no raw `ini_file` in the mod's own scripts.
 
 The category is the unit of organization and of play. It is a directory of sounds plus two attributes, an `env` set (which enclosure states it may play in) and a `requires` gate (a live precondition),
 with no weight and no cooldown. Dread lives per-sound. `as_spooks_metadata` (the `sounds` table, `["deployed-name"] = { dread = "low"|"med"|"high" }`) is the single source of a sound's dread.

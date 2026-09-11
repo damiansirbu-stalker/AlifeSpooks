@@ -1,10 +1,13 @@
---- ui_as_player: the AlifeSpooks review/curation tool - a keyboard-owning 2D modal that auditions sounds and logs notes.
+--- ui_as_player: the AlifeSpooks review/curation tool - audition categories or a loaded logs-dir playlist, log notes.
 
 local table_sort, string_format = table.sort, string.format
-local RegisterScriptCallback = RegisterScriptCallback
+local tostring, RegisterScriptCallback = tostring, RegisterScriptCallback
 
-local SND_ROOT   = "zs"
-local PGDN_KEY   = 209
+local SND_ROOT     = "zs"
+local PGDN_KEY     = 209
+local LOGS_MOUNT   = "$logs$"
+local PLAYLIST_ROW = "[load playlist]"
+local VIEW_ROOT, VIEW_POOL, VIEW_FSDIR = "root", "pool", "fsdir"
 
 local KIND_DIRECTOR = "director"
 local KIND_ATEAR    = "atear"
@@ -29,16 +32,21 @@ local DREAD_PULL = 0.20
 
 local _cats     = nil
 local _files    = {}
-local _cat_i    = 1
-local _at_root  = true
+local _view     = VIEW_ROOT
+local _row      = nil
+local _from_fs  = false
+local _fs_dir   = ""
 local _mode_i   = 1
 local _cur      = nil
 local _box      = nil
 -- RemoveAll on the empty, not-yet-attached list (the first fill) CTDs in CUIScrollView::Clear.
 local _built    = false
 
-local function _get_category()  return _cats and _cats[_cat_i] end
 local function _get_mode()  return MODES[_mode_i] end
+local function _get_tail(path)  return path:match("([^\\]+)$") or path end
+
+--- The category (the path's second segment) a playlist entry belongs to, so its config row resolves.
+local function _resolve_cat(path)  return path:match("^[^\\]+\\([^\\]+)\\") end
 
 local function _read_categories()
     _cats = xfs.read_folders("$game_sounds$", SND_ROOT .. "\\")
@@ -54,9 +62,12 @@ local function _get_files(cat)
     return out
 end
 
---- The _cur record for a browsed sound (flat path zs\<cat>\<name>).
-local function _build_record(cat, name)
-    return { cat = cat, name = name, path = SND_ROOT .. "\\" .. cat .. "\\" .. name }
+--- A category browse row: its name plus the full deployed path of each of its oggs.
+local function _build_category_row(cat)
+    local files = _get_files(cat)
+    local pool = {}
+    for i = 1, #files do pool[i] = SND_ROOT .. "\\" .. cat .. "\\" .. files[i] end
+    return { name = cat, cat = cat, pool = pool }
 end
 
 --- Find the config row whose path matches, within one category's flat sound list.
@@ -66,9 +77,30 @@ local function _find_row(rows, path)
     end
 end
 
+--- Read a playlist .txt from the logs dir into a POOL row, one sound path per line.
+--- Blank lines and ';' comments are skipped and each path is normalized, so a slightly-off line still plays.
+local function _load_playlist(name)
+    local base = getFS and getFS():update_path(LOGS_MOUNT, "")
+    if not base then return nil end
+    local rel = _fs_dir:gsub("/", "\\")
+    local handle = io.open(base .. rel .. name .. ".txt", "r")
+    if not handle then return nil end
+    local pool = {}
+    for line in handle:lines() do
+        local path = line:match("^%s*(.-)%s*$")
+        if path ~= "" and path:sub(1, 1) ~= ";" then
+            path = path:gsub("/", "\\"):gsub("%.ogg$", "")
+            pool[#pool + 1] = path
+        end
+    end
+    handle:close()
+    return { name = "playlist: " .. name, pool = pool, playlist = true }
+end
+
 local function _show_player()
     if _box and _box:IsShown() then return end
     if not (db.actor and as_mcm and as_mcm.get_config and as_mcm.get_config("sound_player")) then return end
+    _cats = nil
     _box = as_player_wnd()
     _box:ShowDialog(true)
     Register_UI("as_player_wnd", "ui_as_player", _box)
@@ -86,6 +118,7 @@ function as_player_wnd:__init() super()
     self:init_controls()
     self:init_callbacks()
     _built = false
+    _view, _row, _from_fs, _fs_dir = VIEW_ROOT, nil, false, ""
     if not _cats then _read_categories() end
     self:build_list()
     self:render()
@@ -127,7 +160,7 @@ function as_player_wnd:init_controls()
 end
 
 function as_player_wnd:init_callbacks()
-    self:AddCallback("list",        ui_events.LIST_ITEM_CLICKED, self.select_item, self)
+    self:AddCallback("list",        ui_events.LIST_ITEM_CLICKED, self.select_row, self)
     self:AddCallback("btn_pos_down", ui_events.BUTTON_CLICKED,    self.select_prev_mode, self)
     self:AddCallback("btn_pos_up",   ui_events.BUTTON_CLICKED,    self.select_next_mode, self)
     self:AddCallback("btn_prior",    ui_events.BUTTON_CLICKED,    self.select_prev_sound, self)
@@ -144,32 +177,54 @@ function as_player_wnd:init_callbacks()
     self:AddCallback("btn_probe",   ui_events.BUTTON_CLICKED, self.save_probe, self)
 end
 
+--- FSDIR list entries in a fixed order: ".." then subfolders then .txt files, so the click index maps back deterministically.
+function as_player_wnd:read_fs_entries()
+    local folders = (xfs and xfs.read_folders and xfs.read_folders(LOGS_MOUNT, _fs_dir)) or {}
+    local files   = (xfs and xfs.read_files and xfs.read_files(LOGS_MOUNT, _fs_dir, ".txt")) or {}
+    table_sort(folders)
+    table_sort(files)
+    return folders, files
+end
+
 function as_player_wnd:build_list()
     if xslice then xslice.stop_queue("as_player_fill") end
     if _built then self.list:RemoveAll() end
     _built = true
-    if _at_root then
+    if _view == VIEW_ROOT then
+        self.list:AddTextItem(PLAYLIST_ROW)
         for i = 1, #(_cats or {}) do self.list:AddTextItem(_cats[i] .. "/") end
+    elseif _view == VIEW_FSDIR then
+        self.list:AddTextItem("..")
+        local folders, files = self:read_fs_entries()
+        for i = 1, #folders do self.list:AddTextItem(folders[i] .. "\\") end
+        for i = 1, #files do self.list:AddTextItem(files[i]) end
     else
-        self:_build_category(_get_category())
+        self:add_pool_rows(_row)
     end
 end
 
---- Fill one category's sounds: a ".." row then each sound with its duration, frame-spread so no build spikes.
-function as_player_wnd:_build_category(cat)
-    if not cat then return end
+--- Fill one row's pool, frame-spread by xslice so xsound.length never builds them all at once.
+--- A playlist row also shows each entry's resolved category, so the sound's context stays visible.
+function as_player_wnd:add_pool_rows(row)
+    if not row then return end
     self.list:AddTextItem("..")
-    local files = _get_files(cat)
     local list = self.list
-    if not xslice then
-        for i = 1, #files do list:AddTextItem(files[i]) end
+    local pl = row.playlist
+    local function format_label(path)
+        local ms = (xsound and xsound.length and xsound.length(path)) or 0
+        if pl then
+            return string_format("%s  [%s]  %.1fs", _get_tail(path), _resolve_cat(path) or "no category", ms / 1000)
+        end
+        return string_format("%s    %.1fs", _get_tail(path), ms / 1000)
+    end
+    if xslice then
+        xslice.start("as_player_fill", row.pool, { step = 15, func = function(path)
+            list:AddTextItem(format_label(path))
+            return true
+        end })
         return
     end
-    xslice.start("as_player_fill", files, { step = 15, func = function(name)
-        local ms = (xsound and xsound.length and xsound.length(_build_record(cat, name).path)) or 0
-        list:AddTextItem(string_format("%s    %.1fs", name, ms / 1000))
-        return true
-    end })
+    for i = 1, #row.pool do list:AddTextItem(format_label(row.pool[i])) end
 end
 
 --- The dread a director mode plays at: its fixed preset, or the LIVE scene dread for the "now" entry.
@@ -188,12 +243,14 @@ function as_player_wnd:_get_mode_label()
 end
 
 function as_player_wnd:render()
-    local cat = _get_category()
-    if _at_root then
-        self.lbl_path:SetText(string_format("sounds/    (%d categories)", _cats and #_cats or 0))
-        self.status:SetText("click a category to browse it")
+    if _view == VIEW_ROOT then
+        self.lbl_path:SetText(string_format("sounds/    (%d categories)  -  [load playlist]", _cats and #_cats or 0))
+        self.status:SetText("click a category, or [load playlist] to browse the logs dir")
+    elseif _view == VIEW_FSDIR then
+        self.lbl_path:SetText(string_format("logs\\%s    (browse a .txt playlist)", _fs_dir))
+        self.status:SetText("click a folder to open it, a .txt to load it, or .. to go up")
     else
-        self.lbl_path:SetText(string_format("sounds/%s/    (%d)", cat or "?", cat and #_get_files(cat) or 0))
+        self.lbl_path:SetText(string_format("%s    (%d)", _row and _row.name or "?", _row and #_row.pool or 0))
         self.status:SetText("click a sound to play    -    click a premade note, or type + add note")
     end
     self.lbl_now:SetText(_cur and ("loaded:  " .. _cur.cat .. "/" .. _cur.name)
@@ -230,6 +287,11 @@ function as_player_wnd:format_loud()
     return string_format("loud:   %.1f LUFS | bv %.2f | est. %.0f dB", prof.lufs, prof.bv or 1.0, eff)
 end
 
+--- Load a sound into _cur from a pool path: a playlist entry resolves its category from the path, a category row carries it.
+function as_player_wnd:load_cur(row, path)
+    _cur = { cat = row.cat or _resolve_cat(path) or "?", name = _get_tail(path), path = path }
+end
+
 --- Director placement at the given dread: the sound placed exactly as the director would, including the pull.
 function as_player_wnd:_play_director(dread)
     local cats = as_sound_metadata and as_sound_metadata.categories and as_sound_metadata.categories[_cur.cat]
@@ -250,27 +312,66 @@ function as_player_wnd:_play_current()
     end
 end
 
-function as_player_wnd:select_item()
+function as_player_wnd:select_row()
     local idx = self.list:GetSelectedIndex()
     if not idx or idx < 0 then return end
-    if _at_root then
-        if not (_cats and _cats[idx + 1]) then return end
-        _cat_i, _at_root = idx + 1, false
+    if _view == VIEW_ROOT then self:select_root(idx)
+    elseif _view == VIEW_FSDIR then self:select_fsdir(idx)
+    else self:select_pool(idx) end
+end
+
+--- ROOT click: index 0 opens the logs-dir browser; any other index drills into that category's pool.
+function as_player_wnd:select_root(idx)
+    if idx == 0 then
+        _view, _fs_dir = VIEW_FSDIR, ""
+        self:build_list(); self:render()
+        return
+    end
+    local cat = _cats and _cats[idx]
+    if not cat then return end
+    _row, _from_fs, _view = _build_category_row(cat), false, VIEW_POOL
+    self:build_list(); self:render()
+end
+
+--- FSDIR click: index 0 goes up (root, or drop the last segment), a folder descends, a .txt loads as a playlist.
+function as_player_wnd:select_fsdir(idx)
+    if idx == 0 and _fs_dir == "" then
+        _view = VIEW_ROOT
         self:build_list(); self:render()
         return
     end
     if idx == 0 then
-        _at_root = true
+        _fs_dir = _fs_dir:gsub("[^\\]+\\$", "")
         self:build_list(); self:render()
         return
     end
-    local cat = _get_category()
-    local name = cat and _get_files(cat)[idx]
-    if not name then return end
-    _cur = _build_record(cat, name)
+    local folders, files = self:read_fs_entries()
+    if idx <= #folders then
+        _fs_dir = _fs_dir .. folders[idx] .. "\\"
+        self:build_list(); self:render()
+        return
+    end
+    local name = files[idx - #folders]
+    local pl = name and _load_playlist(name)
+    if not pl then self.status:SetText("could not read playlist: " .. tostring(name)); return end
+    _row, _from_fs, _view = pl, true, VIEW_POOL
+    self:build_list(); self:render()
+    self.status:SetText(string_format("loaded playlist %s  (%d entries)", name, #pl.pool))
+end
+
+--- POOL click: index 0 returns (to the logs browser if a playlist, else root); any other index plays.
+function as_player_wnd:select_pool(idx)
+    if idx == 0 then
+        _view = _from_fs and VIEW_FSDIR or VIEW_ROOT
+        self:build_list(); self:render()
+        return
+    end
+    local path = _row and _row.pool[idx]
+    if not path then return end
+    self:load_cur(_row, path)
     self:_play_current()
     self:render()
-    self.status:SetText(string_format("playing:  %s\\%s", cat, name))
+    self.status:SetText(string_format("playing:  %s/%s", _cur.cat, _cur.name))
 end
 
 function as_player_wnd:play() self:_play_current() end
@@ -291,19 +392,21 @@ function as_player_wnd:select_next_mode()
     self:render()
 end
 
---- Step the selection to a neighbouring sound, move only (silent) - Prev/Next never play; Play/click do.
-function as_player_wnd:_select_neighbor(delta)
-    if _at_root then return end
-    local cat = _get_category()
-    local files = cat and _get_files(cat)
-    if not (files and #files > 0) then return end
-    local i = 1
-    if _cur and _cur.cat == cat then
-        for k = 1, #files do if files[k] == _cur.name then i = k; break end end
+--- The pool index of the loaded sound, or 1 when none is loaded.
+function as_player_wnd:find_pool_index()
+    if not (_cur and _row) then return 1 end
+    for k = 1, #_row.pool do
+        if _row.pool[k] == _cur.path then return k end
     end
-    i = (i - 1 + delta) % #files + 1
-    _cur = _build_record(cat, files[i])
-    self.list:SetSelectedIndex(i)
+    return 1
+end
+
+--- Step the selection to a neighbouring pool entry, move only (silent) - Prev/Next never play; Play/click do.
+function as_player_wnd:_select_neighbor(delta)
+    if _view ~= VIEW_POOL or not (_row and #_row.pool > 0) then return end
+    local at = (self:find_pool_index() - 1 + delta) % #_row.pool + 1
+    self:load_cur(_row, _row.pool[at])
+    self.list:SetSelectedIndex(at)
     self:render()
 end
 
@@ -333,10 +436,11 @@ function as_player_wnd:save_probe()
     self.status:SetText(ok and "probe note saved -> alifespooks_notes.txt" or "probe note FAILED (no actor/level?)")
 end
 
+--- Re-read the category tree (after a build) and return to root.
 function as_player_wnd:reload()
     _cats, _files = nil, {}
     _read_categories()
-    if _cat_i > #_cats then _cat_i = 1 end
+    _view, _row, _from_fs, _fs_dir = VIEW_ROOT, nil, false, ""
     self:build_list(); self:render()
 end
 
@@ -344,10 +448,10 @@ end
 --- Esc closes the window when no edit box has focus.
 function as_player_wnd:OnKeyboard(dik, action)
     local res = CUIScriptWnd.OnKeyboard(self, dik, action)
-    if action == ui_events.WINDOW_KEY_PRESSED and not res and dik == DIK_keys.DIK_ESCAPE then
-        self:hide(); return true
-    end
-    return res
+    if action ~= ui_events.WINDOW_KEY_PRESSED then return res end
+    if res or dik ~= DIK_keys.DIK_ESCAPE then return res end
+    self:hide()
+    return true
 end
 
 function as_player_wnd:hide()
