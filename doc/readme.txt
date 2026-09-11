@@ -164,7 +164,7 @@ It runs as a self-contained layer. It plays its own sounds through its own direc
 Its removal only takes sounds out, so it can never empty or break a base channel. It replays whatever base ambience wins, so those beds keep sounding.
 Its own sounds play at their authors' loudness and distances, so the horror sits within the base mix rather than over it.
 The master volume balances the two when a base runs unusually loud or quiet.
-Tested against Anomaly 1.5.3 and GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active).
+Tested against Anomaly 1.5.3, GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and Forgotten Zone.
 Tested with every source pack listed under Credits below.
 Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
 You can install or remove it mid-save. Weather sound stays the base ambience's job. AlifeSpooks adds no storm or rain.
