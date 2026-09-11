@@ -8,15 +8,10 @@ local time_global, vector, GetEvent = time_global, vector, GetEvent
 local string_format, RegisterScriptCallback = string.format, RegisterScriptCallback
 local table_remove, table_concat = table.remove, table.concat
 local pairs, ipairs, tostring = pairs, ipairs, tostring
-local tonumber, next = tonumber, next
+local next = next
 
-local MAP_FILE      = "scripts\\as_static_map.ltx"
-local POSITION_FILE = "scripts\\as_static_position.ltx"
-local DREAD_FILE    = "scripts\\as_static_dread.ltx"
-local SEC_DREAD     = "dread"
 local CHANNELS_FILE = "environment\\sound_channels.ltx"
-local SEC_DEFAULT   = "default"
-local SEC_POSITIONS = "positions"
+local LEVEL_DEFAULT = "default"
 
 -- Domain tokens compared against board fields (no magic strings at the comparison sites).
 local ENV     = { OUTDOOR = "outdoor", INDOOR = "indoor", UNDERGROUND = "underground", LABS = "labs" }
@@ -26,7 +21,7 @@ local SERVICE = { HOSTILE = "hostile", ALLIED = "allied" }
 local TIER_NONE   = "none"
 local SELECT_ONLY = "only"
 
--- Per-category play rules: env enclosure flags (out/ind/ug) and an optional live need gate; per-level eligibility lives in as_static_map.ltx.
+-- Per-category play rules: env enclosure flags (out/ind/ug) and an optional live need gate; per-level eligibility lives in as_location_override.levels.
 local CATEGORY = {
     mutant                = { out = true, ind = true, ug = true, need = NEED.MUTANT },
     mutant_ambient_forest = { out = true },
@@ -144,7 +139,6 @@ local board = {
 -- Runtime state: the loaded sound catalog and dread pools, the per-level map set, the shuffle-bags, the enclosure cache, and visual and base-observer state.
 local _category_sounds      = {}
 local _loaded    = false
-local _map       = nil
 local _map_level = nil
 local _map_set   = {}
 local _positions     = nil
@@ -201,24 +195,26 @@ end
 
 -- LOAD
 
---- Sound count of a category (its flat row list from as_sound_config_gen).
+--- Sound count of a category (its flat row list from as_sound_metadata).
 local function _get_sound_count(cat) return cat and #cat or 0 end
 
 --- True if a category has any sound.
 local function _has_sounds(cat) return _get_sound_count(cat) > 0 end
 
---- Load the per-sound dread overrides from as_static_dread.ltx into _sound_dread, keyed by deployed name.
+--- Load the per-sound dread overrides from as_spooks_metadata.sounds into _sound_dread, keyed by deployed name.
 local function _load_dread()
     _sound_dread = {}
-    for key, val in pairs(xltx.read_section(DREAD_FILE, SEC_DREAD)) do
-        val = val and val:lower()
+    local sounds = as_spooks_metadata and as_spooks_metadata.sounds
+    if not sounds then return end
+    for key, entry in pairs(sounds) do
+        local val = entry and entry.dread and tostring(entry.dread):lower()
         if val == BUCKET.LOW or val == BUCKET.MED or val == BUCKET.HIGH then _sound_dread[key] = val end
     end
 end
 
 --- A sound row's override bucket (keyed by its deployed name = the path's last segment), or nil = every bucket.
 local function _get_dread_override(row)
-    local stem = tostring(row[1]):match("([^\\/]+)$")
+    local stem = tostring(row.path):match("([^\\/]+)$")
     return stem and _sound_dread[stem]
 end
 
@@ -245,65 +241,79 @@ local function _build_dread_pools()
     end
 end
 
---- Load each category's flat sound list from as_sound_config_gen once, then build the dread overrides and pools.
+--- Flatten the per-sound rows into xsound's metadata registry (path -> audio-facts profile), once at load.
+local function _load_meta(cats)
+    if not (xsound and xsound.load_meta) then return end
+    local rows = {}
+    for _, list in pairs(cats) do
+        for i = 1, #list do
+            local row = list[i]
+            rows[row.path] = { lufs = row.lufs, crest = row.crest, bv = row.bv, mn = row.mn, mx = row.mx }
+        end
+    end
+    xsound.load_meta(rows)
+end
+
+--- Load each category's flat sound list from as_sound_metadata once, feed xsound, then build the dread pools.
 local function _load_channels()
     if _loaded then return end
     _loaded = true
-    if not as_sound_config_gen then
-        as_debug.warn("as_director: as_sound_config_gen absent - no sounds to play (run build.py deploy)")
+    if not as_sound_metadata then
+        as_debug.warn("as_director: as_sound_metadata absent - no sounds to play (run build.py deploy)")
     end
-    local cats = as_sound_config_gen and as_sound_config_gen.categories or {}
+    local cats = as_sound_metadata and as_sound_metadata.categories or {}
     for name in pairs(CATEGORY) do
         _category_sounds[name] = cats[name] or {}
         as_debug.debug("as_director: category %s = %d sounds", name, _get_sound_count(_category_sounds[name]))
     end
+    _load_meta(cats)
     _load_dread()
     _build_dread_pools()
 end
 
---- Build the per-level eligible-category set from as_static_map.ltx ([default] + [level]), once per level.
+--- Build the per-level eligible-category set from as_location_override.levels (default + level), once per level.
 local function _load_map(level_name)
     if _map_level == level_name then return end
     _map_level = level_name
-    if not _map then _map = xltx.resolve_handle(MAP_FILE) end
     _map_set = {}
-    local function add_section(section)
-        for _, name in ipairs(xltx.read_list(_map, section, "categories")) do
+    local levels = as_location_override and as_location_override.levels or {}
+    local function add_level(names)
+        for _, name in ipairs(names or {}) do
             if CATEGORY[name] and _has_sounds(_category_sounds[name]) then _map_set[name] = true end
         end
     end
-    add_section(SEC_DEFAULT)
-    add_section(level_name)
+    add_level(levels[LEVEL_DEFAULT])
+    add_level(levels[level_name])
     _cat_bag = {}
 end
 
--- Coordinate overrides: a per-place base dread, flat add, and category selection, read once into a flat list.
-local function _parse_position(ini, name)
-    if not xltx.has(ini, name) then return nil end
-    local pos = xltx.read_str(ini, name, "pos")
-    local position_level = xltx.read_str(ini, name, "level")
-    local cx, cz
-    if pos then cx, cz = pos:match("(-?[%d.]+)%s*,%s*-?[%d.]+%s*,%s*(-?[%d.]+)") end
-    if not (position_level and cx and cz) then return nil end
-    local cats = {}
-    for _, cat in ipairs(xltx.read_list(ini, name, "categories")) do cats[cat] = true end
+--- Build a lookup set from a category name list, or nil when empty.
+local function _build_cats_set(list)
+    if not list then return nil end
+    local set = {}
+    for _, cat in ipairs(list) do set[cat] = true end
+    return next(set) and set or nil
+end
+
+--- Normalize one raw as_location_override.positions entry into the director's shape (px/pz, cats set, only), or nil.
+local function _parse_override(entry)
+    local pos = entry.pos
+    if not (entry.level and pos and pos[1] and pos[3]) then return nil end
     return {
-        name = name, level = position_level, px = tonumber(cx), pz = tonumber(cz),
-        radius = xltx.read_num(ini, name, "radius") or 30,
-        dread = xltx.read_num(ini, name, "dread"),
-        add = xltx.read_num(ini, name, "add") or 0,
-        cats = next(cats) and cats or nil,
-        only = xltx.read_str(ini, name, "select") == SELECT_ONLY,
+        name = entry.name, level = entry.level, px = pos[1], pz = pos[3],
+        radius = entry.radius or 30, dread = entry.dread, add = entry.add or 0,
+        cats = _build_cats_set(entry.categories), only = entry.select == SELECT_ONLY,
     }
 end
 
+--- Coordinate overrides read once from as_location_override.positions into a flat normalized list.
 local function _load_positions()
     if _positions then return end
     _positions = {}
-    local ini = xltx.resolve_handle(POSITION_FILE)
-    for _, name in ipairs(xltx.read_list(ini, SEC_POSITIONS, "list")) do
-        local position = _parse_position(ini, name)
-        if position then _positions[#_positions + 1] = position end
+    local list = as_location_override and as_location_override.positions or {}
+    for i = 1, #list do
+        local override = _parse_override(list[i])
+        if override then _positions[#_positions + 1] = override end
     end
 end
 
@@ -567,11 +577,11 @@ local function try_emit(tg)
     if not name then return end
     local snd = _select_sound(name, _get_dread_bucket(dread))
     if snd then
-        play_sound(snd[1], { min = snd[2], max = snd[3], height = snd[4],
-                       ch_min = snd[5], ch_max = snd[6], indoor = snd[7], dread = dread })
-        _last_play = snd[1]
+        play_sound(snd.path, { min = snd.mn, max = snd.mx, height = snd.h,
+                       ch_min = snd.ch_min, ch_max = snd.ch_max, indoor = snd.indoor, dread = dread })
+        _last_play = snd.path
         _play_at = tg
-        as_debug.debug("[PICK] cat=%s snd=%s dread=%.2f", name, snd[1], dread)
+        as_debug.debug("[PICK] cat=%s snd=%s dread=%.2f", name, snd.path, dread)
     end
 end
 

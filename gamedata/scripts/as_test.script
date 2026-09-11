@@ -40,9 +40,9 @@ local function _tip(msg)
     if actor then news_manager.send_tip(actor, msg, nil, nil, 4000) end
 end
 
---- Flatten as_sound_config_gen to a { cat, path } list in sorted-category order (optionally one category).
+--- Flatten as_sound_metadata to a { cat, path } list in sorted-category order (optionally one category).
 local function _smoke_flat(only_cat)
-    local out, cats = {}, (as_sound_config_gen and as_sound_config_gen.categories) or {}
+    local out, cats = {}, (as_sound_metadata and as_sound_metadata.categories) or {}
     local names = {}
     for cat in pairs(cats) do
         if not only_cat or cat == only_cat then names[#names + 1] = cat end
@@ -50,7 +50,7 @@ local function _smoke_flat(only_cat)
     table_sort(names)
     for _, cat in ipairs(names) do
         local sounds = cats[cat]
-        for i = 1, #sounds do out[#out + 1] = { cat = cat, path = sounds[i][1] } end
+        for i = 1, #sounds do out[#out + 1] = { cat = cat, path = sounds[i].path } end
     end
     return out
 end

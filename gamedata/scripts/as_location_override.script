@@ -1,0 +1,53 @@
+--- as_location_override: HAND-CURATED levels + positions overrides. Schema in doc/architecture.md.
+
+levels = {
+    default = { "spook", "scream", "mutant", "drone", "gunfire" },
+
+    -- swamp / wetland
+    k00_marsh  = { "mutant_ambient_swamp", "wind", "wildlife", "bats", "structural" },
+    l08_yantar = { "dark_signal", "mutant_ambient_swamp", "wind", "wildlife", "bats", "structural", "industrial" },
+    zaton      = { "dark_signal", "mutant_ambient_swamp", "wind", "wildlife", "bats", "structural", "industrial" },
+
+    -- forest
+    l07_military    = { "dark_signal", "mutant_ambient_forest", "foliage", "wind", "wildlife", "structural" },
+    l10_red_forest  = { "mutant_ambient_forest", "foliage", "wind", "wildlife", "structural" },
+
+    -- field / open
+    l01_escape          = { "dark_signal", "mutant_ambient_field", "wind", "wildlife", "foliage", "structural" },
+    k01_darkscape       = { "dark_signal", "mutant_ambient_field", "wind", "wildlife", "structural" },
+    k02_trucks_cemetery = { "dark_signal", "mutant_ambient_field", "wind", "wildlife", "structural", "industrial" },
+    l02_garbage         = { "dark_signal", "mutant_ambient_field", "wind", "wildlife", "structural", "industrial" },
+    l03_agroprom        = { "dark_signal", "mutant_ambient_field", "wind", "wildlife", "foliage", "structural", "industrial" },
+    l04_darkvalley      = { "mutant_ambient_field", "wind", "wildlife", "foliage", "structural" },
+    l10_radar           = { "dark_signal", "mutant_ambient_field", "wind", "wildlife", "structural", "industrial" },
+    l13_generators      = { "dark_signal", "mutant_ambient_field", "wind", "wildlife", "structural", "industrial" },
+    jupiter             = { "dark_signal", "mutant_ambient_field", "wind", "wildlife", "structural", "industrial" },
+    y04_pole            = { "mutant_ambient_field", "wind", "wildlife", "foliage" },
+
+    -- urban / city
+    l05_bar        = { "dark_signal", "mutant_ambient_urban", "urban", "wind", "structural", "industrial" },
+    l06_rostok     = { "dark_signal", "mutant_ambient_urban", "urban", "wind", "structural", "industrial" },
+    l09_deadcity   = { "dark_signal", "mutant_ambient_urban", "urban", "wind", "structural", "industrial" },
+    l10_limansk    = { "dark_signal", "mutant_ambient_urban", "urban", "wind", "structural", "industrial" },
+    l11_hospital   = { "dark_signal", "mutant_ambient_urban", "urban", "wind", "structural", "industrial", "labs", "drip" },
+    l11_pripyat    = { "dark_signal", "mutant_ambient_urban", "urban", "wind", "structural", "industrial" },
+    pripyat        = { "dark_signal", "mutant_ambient_urban", "urban", "wind", "structural", "industrial" },
+    l12_stancia    = { "dark_signal", "mutant_ambient_urban", "urban", "wind", "structural", "industrial", "labs", "drip" },
+    l12_stancia_2  = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+
+    -- underground / lab / bunker (no outdoor terrain)
+    l03u_agr_underground  = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+    l04u_labx18           = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+    l08u_brainlab         = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+    l10u_bunker           = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+    l12u_control_monolith = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+    l12u_sarcofag         = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+    l13u_warlab           = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+    labx8                 = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+    jupiter_underground   = { "dark_signal", "labs", "drip", "rats", "structural", "industrial", "bats" },
+}
+
+positions = {
+    -- A place the live sensors cannot read (an empty bloodsucker village): pin the dread by hand.
+    { name = "bloodsucker_village", level = "l07_military", pos = { -218, -22, 205 }, radius = 60, dread = 0.50 },
+}

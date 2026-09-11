@@ -45,7 +45,7 @@ local function _read_categories()
     table_sort(_cats)
 end
 
---- Scan a category's oggs (flat: zs\<cat>\<name>.ogg, no dread subdir - dread lives in as_static_dread.ltx).
+--- Scan a category's oggs (flat: zs\<cat>\<name>.ogg, no dread subdir - dread lives in as_spooks_metadata).
 local function _get_files(cat)
     if _files[cat] then return _files[cat] end
     local out = xfs.read_files("$game_sounds$", SND_ROOT .. "\\" .. cat .. "\\", ".ogg")
@@ -62,7 +62,7 @@ end
 --- Find the config row whose path matches, within one category's flat sound list.
 local function _find_row(rows, path)
     for k = 1, #(rows or {}) do
-        if rows[k][1] == path then return rows[k] end
+        if rows[k].path == path then return rows[k] end
     end
 end
 
@@ -212,10 +212,10 @@ end
 
 --- Director placement at the given dread: the sound placed exactly as the director would, including the pull.
 function as_player_wnd:_play_director(dread)
-    local cats = as_sound_config_gen and as_sound_config_gen.categories and as_sound_config_gen.categories[_cur.cat]
+    local cats = as_sound_metadata and as_sound_metadata.categories and as_sound_metadata.categories[_cur.cat]
     local row = _find_row(cats, _cur.path) or {}
-    as_director.play_sound(_cur.path, { min = row[2] or 2, max = row[3] or 100, height = row[4] or 0,
-        ch_min = row[5] or 30, ch_max = row[6] or 100, indoor = row[7] or false, dread = dread or 0 })
+    as_director.play_sound(_cur.path, { min = row.mn or 2, max = row.mx or 100, height = row.h or 0,
+        ch_min = row.ch_min or 30, ch_max = row.ch_max or 100, indoor = row.indoor or false, dread = dread or 0 })
 end
 
 function as_player_wnd:_play_current()

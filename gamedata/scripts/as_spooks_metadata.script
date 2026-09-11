@@ -1,0 +1,5 @@
+--- as_spooks_metadata: HAND-CURATED per-sound business metadata. Schema in doc/architecture.md.
+
+sounds = {
+    -- ["darksignal7_3194c0c98f"] = { dread = "high" },
+}
