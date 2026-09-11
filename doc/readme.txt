@@ -187,6 +187,8 @@ Addons, patches, and integrations are fine. Credit "AlifeSpooks by Damian Sirbu"
 You may not reproduce the implementation in other software, even with credit.
 The full license is in the LICENSE file and on GitHub.
 
-Issues and suggestions:
-Open a report at https://github.com/damiansirbu-stalker/AlifeSpooks/issues/new/choose, or ask on the EFP, Anomaly, and Zona Discord servers.
-Read this readme and the MCM options first. Set the MCM log level to DEBUG. Reproduce the issue. Set it back to WARN. Include the debug log with your report.
+Diagnostics and reporting:
+Development > Spook trace: set to DEBUG, reproduce, then back to WARN. Logs the spook score, grade, and each sound to alifespooks.log.
+Development > Spook HUD: pick a corner for a live breakdown of the dread calculation (grade, score, terms, gates); Off hides it.
+Development > Sound review player: enable to audition the spook sounds on PageDown.
+Report at https://github.com/damiansirbu-stalker/AlifeSpooks/issues/new/choose or the EFP, Anomaly, and Zona Discord. Include repro steps, engine build, modlist, load order, xray.log, and the debug log.
