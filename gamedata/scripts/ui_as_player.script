@@ -83,17 +83,16 @@ local function _load_playlist(name)
     local base = getFS and getFS():update_path(LOGS_MOUNT, "")
     if not base then return nil end
     local rel = _fs_dir:gsub("/", "\\")
-    local handle = io.open(base .. rel .. name .. ".txt", "r")
-    if not handle then return nil end
+    local data = xfs.read_file(base .. rel .. name .. ".txt")
+    if not data then return nil end
     local pool = {}
-    for line in handle:lines() do
+    for line in data:gmatch("[^\r\n]+") do
         local path = line:match("^%s*(.-)%s*$")
         if path ~= "" and path:sub(1, 1) ~= ";" then
             path = path:gsub("/", "\\"):gsub("%.ogg$", "")
             pool[#pool + 1] = path
         end
     end
-    handle:close()
     return { name = "playlist: " .. name, pool = pool, playlist = true }
 end
 

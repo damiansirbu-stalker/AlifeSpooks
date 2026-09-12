@@ -256,11 +256,7 @@ end
 local function _notes_append(lines)
     local base = getFS and getFS():update_path("$logs$", "")
     if not base then return false end
-    local fh = io.open(base .. NOTES_FILE, "a")
-    if not fh then return false end
-    for i = 1, #lines do fh:write(lines[i]); fh:write("\n") end
-    fh:flush(); fh:close()
-    return true
+    return xfs.write_file(base .. NOTES_FILE, table_concat(lines, "\n") .. "\n", true)
 end
 
 --- Format the active position override line, or nil when there is none.
