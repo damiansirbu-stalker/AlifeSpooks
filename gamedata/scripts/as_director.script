@@ -193,8 +193,6 @@ local function _is_service(npc)
     return (roles.trader or roles.medic or roles.mechanic) and true or false
 end
 
--- LOAD
-
 --- Sound count of a category (its flat row list from as_sound_metadata).
 local function _get_sound_count(cat) return cat and #cat or 0 end
 
@@ -328,8 +326,6 @@ local function _find_position(actor)
     return nil
 end
 
--- SCANS (producers -> the board)
-
 --- Resolve the environment token at the actor: labs or underground by the engine flag, else indoor or outdoor by raycast.
 local function _read_environment(actor)
     local pos = actor:position()
@@ -409,8 +405,6 @@ local function _get_time_band(hour)
     return "night"
 end
 
--- SELECT (eligibility + two-level shuffle-bag)
-
 --- True if a category is eligible now against the map list, the environment, and its live need gate.
 local function is_eligible(name, position)
     local allowed = _map_set[name]
@@ -478,8 +472,6 @@ local function _select_sound(name, scene_bucket)
     return pool[idx]
 end
 
--- APPLY (dread + positioned play)
-
 --- The threat dread term: the scariest near thing (man or monster, one power), or loneliness if none near.
 local function _get_threat_term(stalkers, monsters)
     local worst = math_max(POWER[stalkers.enemy_near], POWER[monsters.enemy_near])
@@ -542,8 +534,6 @@ local function _compute_pull_dist(ch_min, ch_max, dread)
     return dist
 end
 
--- derive (board -> eligible set, built on demand)
-
 --- Rebuild the eligible category list and lookup set from the board, called at emission and by the HUD, never on the tick.
 local function _build_eligible()
     local position = board.position
@@ -555,8 +545,6 @@ local function _build_eligible()
     board.elig_set = {}
     for i = 1, #elig do board.elig_set[elig[i]] = true end
 end
-
--- emission (jittered self-schedule)
 
 --- Emit one one-shot once the dread-scaled gap has elapsed, tightening as dread rises.
 --- The gap advances even while silent, so a resumed dread emits promptly and dread 0 stays silent.
@@ -658,8 +646,6 @@ local function register_base_observer()
     CreateTimeEvent("sound_channels", "update_ambient", 1, update_base_ambient)
 end
 
--- director loop (one tick, round-robin one producer per tick)
-
 -- Director loop: one producer runs per tick, so per-tick cost is the single heaviest scan; the board fills over all producers in about 0.6s.
 local _last_pos_name = nil
 local function update_position(actor)
@@ -696,8 +682,6 @@ local function _on_tick()
     try_emit(tg)
     return false
 end
-
--- lifecycle
 
 local function update_config()
     rarity             = as_mcm.get_config("rarity") or 1
@@ -741,8 +725,6 @@ function play_sound(path, opts)
         path, dist, opts.ch_min or 0, opts.ch_max or 0, height, att, vol, opts.dread or 0)
     return dist
 end
-
--- visual layer
 
 --- Fire one subtle distortion pulse: create a cyclic effector, drive its factor up, release after a hold.
 function play_visual_pulse()
