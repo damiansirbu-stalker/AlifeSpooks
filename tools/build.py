@@ -1907,6 +1907,70 @@ def cmd_verify(a):
         print("  verify: OK - config and sound tree match")
 
 
+def _reach_verdict(mx, near, far):
+    """One sound's REACH verdict at its System B spawn roll (pure geometry, no loudness model). Past its own
+    max_distance a 3D sound delivers 0 regardless of base_volume (Emitter_FSM.cpp:361). ALWAYS_SILENT = max
+    below the nearest roll (never audible); SOMETIMES_SILENT = max inside the roll (silent at the far rolls).
+    Loudness leveling is the build's job and dead/quiet content is the silence gate's; this audit is reach."""
+    if mx < near:
+        return "ALWAYS_SILENT"
+    if mx < far:
+        return "SOMETIMES_SILENT"
+    return "AUDIBLE"
+
+
+def cmd_audit(a):
+    """Reach audit over as_sound_metadata, read-only, no ffmpeg. Per sound, the reach verdict at its spawn
+    roll: ALWAYS_SILENT (max below the nearest roll, never audible), SOMETIMES_SILENT (max inside the roll,
+    silent at the far rolls), AUDIBLE. The director places via get_placement (random((ch_max+ch_min)/2,
+    ch_max)/2, as_director.script:509-527) and only pulls CLOSER by dread, so ch_max/2 (the base-observer far
+    end, plus the source height) is the quietest placement - the conservative reach floor. max is the
+    deployed ogg-blob attenuation range. Loudness leveling is the build's concern, dead content the silence
+    gate's; this is reach only. The ear is final (occlusion and culling are uncaught)."""
+    root = Path(a.root) if getattr(a, "root", None) else GDATA
+    cfg = root / "scripts" / "as_sound_metadata.script"
+    if not cfg.exists():
+        print("  audit: as_sound_metadata.script absent - run `deploy` first")
+        return
+    txt = cfg.read_text(encoding="utf-8", errors="ignore")
+    counts, offenders = {}, {}
+    for body in re.findall(r"{([^}]*)}", txt):
+        pm = re.search(r'path\s*=\s*"([^"]+)"', body)
+        if not pm:
+            continue
+        path = pm.group(1)
+        nums = dict(re.findall(r"(\w+)\s*=\s*(nil|-?[\d.]+)", body))
+        try:
+            ch_min, ch_max = float(nums.get("ch_min", "0")), float(nums.get("ch_max", "0"))
+            mx = float(nums["mx"])
+        except (KeyError, ValueError):
+            continue
+        if ch_max <= 0.0:
+            continue
+        h = float(nums["h"]) if nums.get("h", "nil") not in (None, "nil") else 0.0
+        near = ((ch_max + ch_min) / 2) / 2
+        far = math.sqrt((ch_max / 2) ** 2 + h * h)
+        parts = re.split(r"[\\/]+", path)
+        cat = parts[1] if len(parts) > 1 else "?"
+        tag = _reach_verdict(mx, near, far)
+        counts[tag] = counts.get(tag, 0) + 1
+        if tag != "AUDIBLE":
+            offenders.setdefault(cat, []).append((tag, path, mx, near, far))
+    order = ["ALWAYS_SILENT", "SOMETIMES_SILENT", "AUDIBLE"]
+    total = sum(counts.values())
+    if not total:
+        print("  audit: no sounds in metadata (run deploy first?)")
+        return
+    summ = "  ".join("%s=%d" % (k, counts[k]) for k in order if counts.get(k))
+    print(f"  audit: sounds={total}  {summ}")
+    print("  (reach only: SILENT = placed past its own max_distance; loudness is the build's, the ear is final)")
+    for cat in sorted(offenders):
+        rows = sorted(offenders[cat])
+        print(f"  [{cat}] {len(rows)} flagged")
+        for tag, path, mx, near, far in rows:
+            print("    %-16s %s  max=%.0f roll=%.0f-%.0f" % (tag, path, mx, near, far))
+
+
 def cmd_rebuild(a):
     """FULL rebuild from scratch: plan -> classify -> loudness -> deploy -> ledger -> provenance. Wipes zs/
     and re-emits the whole corpus FLAT into <cat>/ (dread lives per-sound in as_spooks_metadata, not in the
@@ -1919,7 +1983,7 @@ def cmd_rebuild(a):
     t_all = time.perf_counter()
     for name, fn in (("plan", cmd_plan), ("classify", cmd_classify), ("loudness", cmd_loudness),
                      ("deploy", cmd_deploy), ("ledger", cmd_ledger), ("provenance", cmd_provenance),
-                     ("verify", cmd_verify)):
+                     ("verify", cmd_verify), ("audit", cmd_audit)):
         print(f"\n========== {name} ==========")
         t0 = time.perf_counter()
         fn(ns)
@@ -1946,6 +2010,7 @@ if __name__ == "__main__":
     sub.add_parser("ledger").set_defaults(func=cmd_ledger)
     sub.add_parser("provenance").set_defaults(func=cmd_provenance)
     p = sub.add_parser("verify"); p.add_argument("--root"); p.set_defaults(func=cmd_verify)
+    p = sub.add_parser("audit"); p.add_argument("--root"); p.set_defaults(func=cmd_audit)
     sub.add_parser("provision").set_defaults(func=cmd_provision)
     p = sub.add_parser("rebuild"); p.add_argument("--root"); p.set_defaults(func=cmd_rebuild)
     a = ap.parse_args(); a.func(a)
