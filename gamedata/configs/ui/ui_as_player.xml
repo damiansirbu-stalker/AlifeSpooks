@@ -24,7 +24,7 @@
 		<texture>ui_inGame2_pda_line_horizontal</texture>
 	</line_player>
 
-	<screen x="444" y="124" width="332" height="56" stretch="1">
+	<screen x="444" y="124" width="332" height="72" stretch="1">
 		<texture>ui_inGame2_pda_Filtr_plyer_interface_off</texture>
 	</screen>
 	<lbl_now x="460" y="130" width="300" height="20">
