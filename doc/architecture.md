@@ -49,6 +49,7 @@ deploy      audio + sound config + veto DLTX overlay -> gamedata/
 ledger      content-hash proof of coverage           -> ledger.tsv
 provenance  every shipped sound -> its origin         -> provenance.tsv
 verify      config paths <-> deployed oggs match       -> stdout
+audit       reach: sounds placed past their own max    -> stdout
 ```
 
 - plan (`cmd_plan`): walk every source pack's sound tree and route each FILE to a category by its folder path (`route` / `ROUTE`), a structural per-file allowlist.
@@ -504,7 +505,7 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
 - Committed data: `merged_channels.json` (the curated corpus per category), `classification.json` (measured features), `loudness_outliers.json`,
   `folder_audit.tsv` (which source folders each category pulled), `ledger.tsv` (coverage proof), `provenance.tsv` (origin of every shipped sound).
 - `build.py` is the pipeline, and its `MODS` list and `route`/`ROUTE` table are the source of truth. The whole run is one command,
-  `build.py rebuild` (plan -> classify -> loudness -> deploy -> ledger -> provenance, in order), and `build.py add` is the incremental path. `soundpool.py` is the probe and resolver.
+  `build.py rebuild` (plan -> classify -> loudness -> deploy -> ledger -> provenance -> verify -> audit, in order), and `build.py add` is the incremental path. `soundpool.py` is the probe and resolver.
 
 A new pack is adopted by hand first. Its folders then enter `MODS` and `ROUTE`. `build.py add <Source> <gamedata>` ingests it into `<category>/` (flat).
 `build.py rebuild` before a release refreshes the ledger (UNUSED-DARK must stay 0) and the provenance self-verify (0 mismatch).
