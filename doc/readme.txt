@@ -140,7 +140,7 @@ The in-game HUD reads out the current dread, each term that fed it, what is play
 
 Requirements:
 Anomaly 1.5.3
-Modded exes: themrdemonized 2025.9.10 or newer, or AOEngine v0.55 or newer. The full feature set needs the latest demonized build; a feature that needs a newer one stays inactive on older exes.
+Modded exes: themrdemonized or AOEngine v0.55 or newer. The full feature set needs the latest demonized build; a feature that needs a newer one stays inactive on older exes.
 xlibs (plays the sounds, https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001)
 MCM (shows the settings and the trace)
 
@@ -165,10 +165,17 @@ Tested with every source pack listed under Credits below.
 Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
 You can install or remove it mid-save. Weather sound stays the base ambience's job. AlifeSpooks adds no storm or rain.
 
-Performance:
+Performance and Infrastructure:
 Performance comes first, ahead of any feature.
 AlifeSpooks reads its signals every few seconds and caches them, never per frame. Its audio is byte for byte with no engine-bed cost.
 A feature that cannot fit that budget changes, or moves into an X-Ray engine modification, before it slows the game.
+Built from the X-Ray engine source by reverse engineering, with targeted engine changes of my own for performance, precision, and accuracy.
+Heavy work spreads across frames, paced by rate limiters and staggered, deferred queues, with the math to keep cost bounded at any entity count.
+A layered validator runs on every change, locally and in CI, and blocks the build on any crash, unsafe engine call, performance regression, style break, failed smoke load, or leaked secret.
+Profiled with JitProfiler, an engine-native, scientific profiler.
+Timings are worst-case, from a build with no multithreading or optimizations, so yours runs faster.
+Project Health: https://damiansirbu-stalker.github.io/AlifeSpooks/
+[JitProfiler: AlifeSpooks under CPU and allocation capture]
 
 Credits:
 Most of the sounds come from the original S.T.A.L.K.E.R. games and the standalone builds that carry and rework that audio.
