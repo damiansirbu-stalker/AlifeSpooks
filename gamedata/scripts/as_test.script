@@ -35,13 +35,13 @@ local ZOO = {
 local _smoke = { list = nil, i = 0, last = nil, paused = false, dist = nil }
 local _log = nil
 
-local function _tip(msg)
+local function _show_tip(msg)
     local actor = db.actor
-    if actor then news_manager.send_tip(actor, msg, nil, nil, 4000) end
+    if actor then news_manager.send_show_tip(actor, msg, nil, nil, 4000) end
 end
 
 --- Flatten as_sound_metadata to a { cat, path } list in sorted-category order (optionally one category).
-local function _smoke_flat(only_cat)
+local function _build_smoke_list(only_cat)
     local out, cats = {}, (as_sound_metadata and as_sound_metadata.categories) or {}
     local names = {}
     for cat in pairs(cats) do
@@ -56,7 +56,7 @@ local function _smoke_flat(only_cat)
 end
 
 --- Play one item: with _smoke.dist a 3D one-shot at that range (mono attenuates, stereo does not), else 2D at-ear.
-local function _smoke_play(item)
+local function _play_smoke(item)
     if not (item and db.actor and xsound) then return end
     local opts = { volume = 1.0 }
     if _smoke.dist then
@@ -67,38 +67,38 @@ local function _smoke_play(item)
 end
 
 --- Play list index i (clamped 1..n), make it current, tip its identity. The one place a sound plays.
-local function _smoke_at(i)
+local function _play_index(i)
     local total = _smoke.list and #_smoke.list or 0
-    if total == 0 then _tip("audit: no sounds"); return end
+    if total == 0 then _show_tip("audit: no sounds"); return end
     if i < 1 then i = 1 elseif i > total then i = total end
     _smoke.i = i
     local item = _smoke.list[i]
-    _smoke_play(item)
+    _play_smoke(item)
     local dur = (xsound.length and xsound.length(item.path)) or 0
     _smoke.last = { i = i, total = total, cat = item.cat, path = item.path }
-    _tip(string_format("audit %d/%d  %s  (%s %dms)%s", i, total, item.path, item.cat, dur,
+    _show_tip(string_format("audit %d/%d  %s  (%s %dms)%s", i, total, item.path, item.cat, dur,
         _smoke.dist and ("  @" .. _smoke.dist .. "m") or ""))
 end
 
 --- Auto-advance step: play next, re-arm for its duration + a gap. Paused -> hold. Deregisters at end.
-local function _smoke_step()
+local function _update_smoke()
     if _smoke.paused then ResetTimeEvent("as_smoke", "step", 0.3); return false end
     local nexti = (_smoke.i or 0) + 1
-    if not (_smoke.list and _smoke.list[nexti] and db.actor and xsound) then _tip("smoke: done"); return true end
-    _smoke_at(nexti)
+    if not (_smoke.list and _smoke.list[nexti] and db.actor and xsound) then _show_tip("smoke: done"); return true end
+    _play_index(nexti)
     local dur = (xsound.length and xsound.length(_smoke.list[nexti].path)) or 2000
     ResetTimeEvent("as_smoke", "step", (dur + SMOKE_GAP_MS) / 1000)
     return false
 end
 
-local function _logger()
+local function _get_logger()
     if not _log and xlog then
-        _log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+        _log = xlog.get_get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
     end
     return _log
 end
 
-local function _count(tbl)
+local function _get_count(tbl)
     local total = 0
     for _ in pairs(tbl or {}) do total = total + 1 end
     return total
@@ -120,12 +120,12 @@ local function _add_online(obj, species)
     return xcreature.is_stalker(obj) and 1 or 0
 end
 
-local function _snap_combat(log)
+local function _log_combat(log)
     local fw = xr_combat_ignore and xr_combat_ignore.fighting_with_actor_npcs
-    log.info("COMBAT fighting_with_actor_npcs=%d", fw and _count(fw) or -1)
+    log.info("COMBAT fighting_with_actor_npcs=%d", fw and _get_count(fw) or -1)
 end
 
-local function _snap_online(log, actor_id)
+local function _log_online(log, actor_id)
     local species, humans = {}, 0
     for id, st in pairs(db.storage) do
         local obj = (id ~= actor_id) and st and st.object
@@ -140,7 +140,7 @@ local function _is_bright_day(hour, weather, rain)
     return (hour >= 7 and hour < 19) and (rain < 0.1) and not overcast and true or false
 end
 
-local function _snap_place(log, apos)
+local function _log_place(log, apos)
     local enclosed = xcombat.is_indoor(apos)
     local static_ug = (xcombat.INDOOR_LEVELS and xcombat.INDOOR_LEVELS[level.name()]) and true or false
     log.info("PLACE enclosed=%s static_underground=%s pos=%.0f,%.0f,%.0f",
@@ -166,14 +166,14 @@ local function _add_smart_species(smart, level_id, species)
     end
 end
 
-local function _snap_level_species(log, level_id)
+local function _log_level_species(log, level_id)
     local species = {}
     for smart in xsmart.iterate_smarts() do _add_smart_species(smart, level_id, species) end
     log.info("LEVEL-SPECIES {%s}", _format_pairs(species))
 end
 
 -- Raw roof/wall hit-distances from xcombat.get_enclosure plus the is_indoor breakdown, so a snapshot names which check fails.
-local function _snap_enclosure(log, apos)
+local function _log_enclosure(log, apos)
     local enc = xcombat.get_enclosure(apos)
     if not enc then log.info("ENCLOSURE-RAW none | is_indoor=%s", tostring(xcombat.is_indoor(apos))); return end
     local walls = enc.walls
@@ -187,7 +187,7 @@ local function _snap_enclosure(log, apos)
 end
 
 -- Nearest smart id/name/distance + props, to fit the place-identity distance gate.
-local function _snap_smart(log, apos)
+local function _log_smart(log, apos)
     local ns = smart_terrain and smart_terrain.nearest_to_actor_smart
     if ns and ns.id then
         local smart = alife_object(ns.id)
@@ -207,34 +207,34 @@ local function _snap_smart(log, apos)
 end
 
 -- Bump a { b25, b50, all } triple by one for a distance.
-local function _bump(triple, dist)
+local function _add_band(triple, dist)
     triple.all = triple.all + 1
     if dist < BAND_FAR_M then triple.b50 = triple.b50 + 1 end
     if dist < BAND_NEAR_M then triple.b25 = triple.b25 + 1 end
 end
 
 -- Classify one online object into the human or mutant band triple.
-local function _band_one(obj, apos, humans, mutants)
+local function _add_creature(obj, apos, humans, mutants)
     local dist = apos:distance_to(obj:position())
-    if xcreature.is_stalker(obj) then _bump(humans, dist)
-    elseif xcreature.is_mutant(obj) then _bump(mutants, dist) end
+    if xcreature.is_stalker(obj) then _add_band(humans, dist)
+    elseif xcreature.is_mutant(obj) then _add_band(mutants, dist) end
 end
 
 -- Online creature counts in distance bands, to fit the local-presence radius.
-local function _snap_bands(log, actor, apos)
+local function _log_bands(log, actor, apos)
     local actor_id = actor:id()
     local humans = { b25 = 0, b50 = 0, all = 0 }
     local mutants = { b25 = 0, b50 = 0, all = 0 }
     for id, st in pairs(db.storage) do
         local obj = (id ~= actor_id) and st and st.object
-        if obj then _band_one(obj, apos, humans, mutants) end
+        if obj then _add_creature(obj, apos, humans, mutants) end
     end
     log.info("PRESENCE-BANDS humans<25=%d <50=%d all=%d | mutants<25=%d <50=%d all=%d",
         humans.b25, humans.b50, humans.all, mutants.b25, mutants.b50, mutants.all)
 end
 
 -- Actor height above the AI-mesh ground, to explore basement/floor feasibility.
-local function _snap_vertical(log, actor, apos)
+local function _log_vertical(log, actor, apos)
     local lvid = actor:level_vertex_id()
     local gy = -1
     if lvid and level.vertex_position then
@@ -246,21 +246,21 @@ end
 
 --- Run one check under the modded-exe microsecond timer, logging its duration inline through `sink`.
 --- @cost O(1) wrapper | 1 profile_timer ctor + start/stop/time around the wrapped check
-local function _timed(sink, label, fn)
+local function _run_timed(sink, label, fn)
     local timer = profile_timer and profile_timer()
     if timer then timer:start() end
     fn()
     if timer then timer:stop(); sink.info("  [%7.0f us] %s", timer:time(), label) end
 end
 
-local function _notes_append(lines)
+local function _add_notes(lines)
     local base = getFS and getFS():update_path("$logs$", "")
     if not base then return false end
     return xfs.write_file(base .. NOTES_FILE, table_concat(lines, "\n") .. "\n", true)
 end
 
 --- Format the active position override line, or nil when there is none.
-local function _override_line(o)
+local function _format_override(o)
     if not o then return nil end
     local dread = o.dread and string_format("%.2f", o.dread) or "-"
     local sel = o.cats and (o.only and "only" or "add") or "-"
@@ -269,14 +269,14 @@ end
 
 local function _on_key(key)
     if _smoke.list then
-        if key == PGDN_KEY then as_test.next()
-        elseif key == PGUP_KEY then as_test.prev()
-        elseif key == DELETE_KEY then as_test.mark() end
+        if key == PGDN_KEY then as_test.play_next()
+        elseif key == PGUP_KEY then as_test.play_prev()
+        elseif key == DELETE_KEY then as_test.log_suspect() end
     end
 end
 
 -- Spawn one existing variant and log its runtime server rank + species (guard-clause on missing section).
-local function _probe_spawn(sec, sim, pos, lvid, gvid, log)
+local function _spawn_variant(sec, sim, pos, lvid, gvid, log)
     if not ini_sys:section_exist(sec) then log.info("sec=%s MISSING-skip", sec); return end
     local se = sim:create(sec, pos, lvid, gvid)
     log.info("sec=%s species=%s rank=%s", sec,
@@ -285,10 +285,10 @@ local function _probe_spawn(sec, sim, pos, lvid, gvid, log)
 end
 
 --- Unlock all fast-travel waypoints.
-function as_test.unlock_travel()
+function as_test.enable_travel()
     ui_options.set("gameplay/fast_travel/state", 2)
     game_fast_travel.update_settings()
-    _tip("fast travel: all waypoints unlocked")
+    _show_tip("fast travel: all waypoints unlocked")
 end
 
 --- Give money (default 100000).
@@ -296,27 +296,27 @@ function as_test.give_money(amount)
     local actor = db.actor
     if not actor then return end
     actor:give_money(amount or 100000)
-    _tip("money given")
+    _show_tip("money given")
 end
 
 --- Disable the northern psy fields so Radar / Red Forest are walkable.
-function as_test.open_north()
+function as_test.enable_north()
     local actor = db.actor
     if not actor then return end
     actor:give_info_portion("bar_deactivate_radar_done")
     actor:give_info_portion("yan_labx16_switcher_primary_off")
-    _tip("north opened: psy fields off (reload the level to apply)")
+    _show_tip("north opened: psy fields off (reload the level to apply)")
 end
 
 --- One-shot dev setup: travel, money, north.
-function as_test.dev_setup()
-    as_test.unlock_travel()
+function as_test.init_dev()
+    as_test.enable_travel()
     as_test.give_money(100000)
-    as_test.open_north()
+    as_test.enable_north()
 end
 
 --- Fire the test play 3s after the call so it lands during live gameplay; close the console after running.
-function as_test.snd(method, dist)
+function as_test.play_sound(method, dist)
     dist = dist or DEFAULT_TEST_DIST_M
     local path = (method == 5) and SND_VANILLA or SND_OURS
     RemoveTimeEvent("as_snd", "play")
@@ -326,7 +326,7 @@ function as_test.snd(method, dist)
         local pos = actor:position()
         local vec = vector():set(pos.x + dist, pos.y, pos.z)
         local snd = sound_object(path)
-        if not snd then _tip("snd: sound_object NIL for " .. path); return true end
+        if not snd then _show_tip("snd: sound_object NIL for " .. path); return true end
         if method == 1 then
             snd:play_no_feedback(actor, sound_object.s2d, 0, vector():set(0, 0, 0), 1.0, 1.0)
         elseif method == 2 then
@@ -335,64 +335,64 @@ function as_test.snd(method, dist)
             snd:play_at_pos(actor, vec); snd.volume = 1.0
             if method ~= 3 then as_test._kept = snd end
         end
-        _tip(string_format("PLAYED m%s  %s", tostring(method), path))
+        _show_tip(string_format("PLAYED m%s  %s", tostring(method), path))
         return true
     end)
-    _tip(string_format("m%s fires in 3s - CLOSE the console now", tostring(method)))
+    _show_tip(string_format("m%s fires in 3s - CLOSE the console now", tostring(method)))
 end
 
 --- Manual audition: PgDn=next PgUp=prev DELETE=mark; dist gives a positioned stereo audit, omit for at-ear.
-function as_test.audit(only_cat, dist)
-    _smoke.list, _smoke.i, _smoke.last, _smoke.paused = _smoke_flat(only_cat), 0, nil, false
+function as_test.run_audit(only_cat, dist)
+    _smoke.list, _smoke.i, _smoke.last, _smoke.paused = _build_smoke_list(only_cat), 0, nil, false
     _smoke.dist = tonumber(dist)
     RemoveTimeEvent("as_smoke", "step")
-    if #_smoke.list == 0 then _tip("audit: no sounds"); return end
-    _tip(string_format("audit: %d sounds%s  PgDn=next PgUp=prev DEL=mark", #_smoke.list,
+    if #_smoke.list == 0 then _show_tip("audit: no sounds"); return end
+    _show_tip(string_format("audit: %d sounds%s  PgDn=next PgUp=prev DEL=mark", #_smoke.list,
         _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
-    _smoke_at(1)
+    _play_index(1)
 end
 
 --- Step the manual audition (keys PgDn/PgUp map here; also callable from console). Each kills any auto timer.
-function as_test.next() RemoveTimeEvent("as_smoke", "step"); _smoke_at((_smoke.i or 0) + 1) end
-function as_test.prev() RemoveTimeEvent("as_smoke", "step"); _smoke_at((_smoke.i or 2) - 1) end
-function as_test.replay() if _smoke.last then _smoke_play(_smoke.list[_smoke.last.i]) end end
+function as_test.play_next() RemoveTimeEvent("as_smoke", "step"); _play_index((_smoke.i or 0) + 1) end
+function as_test.play_prev() RemoveTimeEvent("as_smoke", "step"); _play_index((_smoke.i or 2) - 1) end
+function as_test.play_last() if _smoke.last then _play_smoke(_smoke.list[_smoke.last.i]) end end
 
 --- Auto audition: play every sound spaced by its length; DELETE marks, PgDn/PgUp take over manually.
-function as_test.smoke(only_cat, dist)
-    _smoke.list, _smoke.i, _smoke.paused, _smoke.dist = _smoke_flat(only_cat), 0, false, tonumber(dist)
-    if #_smoke.list == 0 then _tip("smoke: no sounds"); return end
-    _tip(string_format("smoke: %d sounds%s - close the console; DELETE=mark", #_smoke.list,
+function as_test.run_smoke(only_cat, dist)
+    _smoke.list, _smoke.i, _smoke.paused, _smoke.dist = _build_smoke_list(only_cat), 0, false, tonumber(dist)
+    if #_smoke.list == 0 then _show_tip("smoke: no sounds"); return end
+    _show_tip(string_format("smoke: %d sounds%s - close the console; DELETE=mark", #_smoke.list,
         _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
     RemoveTimeEvent("as_smoke", "step")
-    CreateTimeEvent("as_smoke", "step", 1, _smoke_step)
+    CreateTimeEvent("as_smoke", "step", 1, _update_smoke)
 end
 
-function as_test.smoke_stop()
+function as_test.stop_smoke()
     _smoke.list = nil
     RemoveTimeEvent("as_smoke", "step")
-    _tip("audit: stopped")
+    _show_tip("audit: stopped")
 end
 
 --- Pause / resume the auto audition.
-function as_test.smoke_pause()  _smoke.paused = true;  _tip("audit: paused")  end
-function as_test.smoke_resume() _smoke.paused = false; _tip("audit: resumed") end
+function as_test.disable_smoke()  _smoke.paused = true;  _show_tip("audit: paused")  end
+function as_test.enable_smoke() _smoke.paused = false; _show_tip("audit: resumed") end
 
 --- Mark the current sound suspect to alifespooks_probe.log (tap DELETE or call with a note).
-function as_test.mark(note)
+function as_test.log_suspect(note)
     local cur = _smoke.last
-    if not cur then _tip("audit: nothing to mark"); return end
+    if not cur then _show_tip("audit: nothing to mark"); return end
     if xlog then
-        local log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+        local log = xlog.get_get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
         log.info("SUSPECT %d/%d\t%s\t%s\t%s", cur.i, cur.total, cur.cat, cur.path, tostring(note or ""))
         log.flush()
     end
-    _tip(string_format("SUSPECT %d  %s", cur.i, cur.path))
+    _show_tip(string_format("SUSPECT %d  %s", cur.i, cur.path))
 end
 
 --- Log one atmosphere snapshot with a note. Cheap; run on demand only, never per frame.
 --- @safety pcall: the per-check sink wraps string.format on diagnostic args, see doc/library/modding/pcall-safety.md
-function as_test.snapshot(note)
-    local log = _logger()
+function as_test.log_snapshot(note)
+    local log = _get_logger()
     local actor = db.actor
     if not (log and xcreature and xsmart and xlevel and xcombat and actor and level.present()) then return end
     local sink = { info = function(fmt, ...)
@@ -401,34 +401,34 @@ function as_test.snapshot(note)
     end }
     sink.info("=== SNAPSHOT note=[%s] level=%s ===", tostring(note or "?"), tostring(level.name()))
     local apos = actor:position()
-    _timed(sink, "combat",         function() _snap_combat(sink) end)
-    _timed(sink, "online-near",    function() _snap_online(sink, actor:id()) end)
-    _timed(sink, "place",          function() _snap_place(sink, apos) end)
-    _timed(sink, "level-species",  function() _snap_level_species(sink, xlevel.get_actor_level()) end)
-    _timed(sink, "enclosure",      function() _snap_enclosure(sink, apos) end)
-    _timed(sink, "smart+base_near",function() _snap_smart(sink, apos) end)
-    _timed(sink, "presence-bands", function() _snap_bands(sink, actor, apos) end)
-    _timed(sink, "vertical",       function() _snap_vertical(sink, actor, apos) end)
+    _run_timed(sink, "combat",         function() _log_combat(sink) end)
+    _run_timed(sink, "online-near",    function() _log_online(sink, actor:id()) end)
+    _run_timed(sink, "place",          function() _log_place(sink, apos) end)
+    _run_timed(sink, "level-species",  function() _log_level_species(sink, xlevel.get_actor_level()) end)
+    _run_timed(sink, "enclosure",      function() _log_enclosure(sink, apos) end)
+    _run_timed(sink, "smart+base_near",function() _log_smart(sink, apos) end)
+    _run_timed(sink, "presence-bands", function() _log_bands(sink, actor, apos) end)
+    _run_timed(sink, "vertical",       function() _log_vertical(sink, actor, apos) end)
     log.flush()
-    news_manager.send_tip(actor, string_format(
+    news_manager.send_show_tip(actor, string_format(
         "SPOT  [%s]\nlevel   %s\npos     %.1f  %.1f  %.1f\nradius  ?\n(detail -> alifespooks_probe.log)",
         tostring(note or "?"), tostring(level.name()), apos.x, apos.y, apos.z), nil, nil, 20000)
 end
 
 --- Append one [SOUND] note line: path, live dread, level and coordinate, and the note text.
-function as_test.note_sound(path, text)
+function as_test.log_sound_note(path, text)
     local actor = db.actor
     if not (actor and level.present()) then return false end
     local board = as_director and as_director.get_board and as_director.get_board()
     local apos = actor:position()
-    return _notes_append({ string_format(
+    return _add_notes({ string_format(
         "[SOUND] %s  dread=%.2f  level=%s  pos=%.1f,%.1f,%.1f  :: %s",
         tostring(path), board and board.dread or 0, tostring(level.name()),
         apos.x, apos.y, apos.z, tostring(text)) })
 end
 
 --- Append a [PROBE] block: header then the full sensor board (environment, time, stalkers, monsters, anomalies) and the dread breakdown.
-function as_test.note_probe(text)
+function as_test.log_probe_note(text)
     local actor = db.actor
     if not (actor and level.present()) then return false end
     local board = as_director and as_director.get_board and as_director.get_board()
@@ -446,23 +446,23 @@ function as_test.note_probe(text)
         lines[#lines + 1] = string_format("  anomalies near=%s", tostring(anomalies.near))
         lines[#lines + 1] = string_format("  DREAD %.2f = lore %+.2f env %+.2f time %+.2f threat %+.2f company %+.2f anomaly %+.2f service %+.2f",
             board.dread or 0, terms.lore or 0, terms.env or 0, terms.time or 0, terms.threat or 0, terms.company or 0, terms.anomaly or 0, terms.service or 0)
-        local override = _override_line(board.position)
+        local override = _format_override(board.position)
         if override then lines[#lines + 1] = override end
     end
-    return _notes_append(lines)
+    return _add_notes(lines)
 end
 
 --- Spawn each ZOO variant that exists and log its runtime server rank + species.
-function as_test.probe_zoo()
-    local log = _logger()
+function as_test.spawn_zoo()
+    local log = _get_logger()
     local actor = db.actor
     local sim = alife()
     if not (log and actor and sim and xcreature and ini_sys) then return end
     local pos, lvid, gvid = actor:position(), actor:level_vertex_id(), actor:game_vertex_id()
     log.info("=== ZOO RANK PROBE ===")
-    for i = 1, #ZOO do _probe_spawn(ZOO[i], sim, pos, lvid, gvid, log) end
+    for i = 1, #ZOO do _spawn_variant(ZOO[i], sim, pos, lvid, gvid, log) end
     log.flush()
-    _tip("zoo rank probe -> alifespooks_probe.log")
+    _show_tip("zoo rank probe -> alifespooks_probe.log")
 end
 
 function on_game_start()

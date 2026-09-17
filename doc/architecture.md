@@ -487,7 +487,7 @@ Scripts add control, an in-game trace, and the MCM, mirroring the alife-family p
   It browses `zs/<category>/` off disk (via `xfs`) and auditions each sound through the director's own `play_sound` at the director's exact placement (fed the live scene dread), a fixed distance,
   or at-ear. It curates by LOGGING only and never moves or deletes a file. Five premade one-word buttons (inaudible, faint, loud, unfit, good) and a custom free-text field write `[SOUND]` note lines,
   and a separate PROBE NOTE field writes a `[PROBE]` block with the full ordered sensor dump. Both go to `alifespooks_notes.txt` (a clean, human-read notes file,
-  distinct from the diagnostic `alifespooks_probe.log`), written by `as_test.note_sound` / `as_test.note_probe`.
+  distinct from the diagnostic `alifespooks_probe.log`), written by `as_test.log_sound_note` / `as_test.log_probe_note`.
   The window owns the keyboard only so its text fields capture typing (a PDA-subdialog editbox never could). There are no command shortcuts,
   and a focused edit box is detected by the parent `OnKeyboard` return so it never doubles as a command. While the window is open the director is auto-silenced (`as_director.set_muted`),
   restored on close. It replaces the old PDA tab (`ui_as_player_tab` / `pda_dynamic_tabs`) and the INSERT note popup (`ui_as_note`), all retired to `.deleted/`.
