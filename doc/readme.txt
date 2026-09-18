@@ -190,10 +190,10 @@ I credit every author above. I include only selected audio. If an author does no
 licensing.md records each source's license and the granting author's permission. I include nothing without a free license or the author's consent.
 
 Usage and License:
-Modpacks are welcome. Keep the readme and license files.
-Addons, patches, and integrations are fine. Credit "AlifeSpooks by Damian Sirbu" visibly on your mod page.
-You may not reproduce the implementation in other software, even with credit.
-The full license is in the LICENSE file and on GitHub.
+Modpacks: allowed and encouraged. Keep the readme and license files.
+Addons, patches, integrations: allowed. Credit "AlifeSpooks by Damian Sirbu" visibly on your mod page.
+Reproducing the implementation in other software: not allowed, even with credit.
+Full license in LICENSE file and on GitHub.
 
 Diagnostics and reporting:
 Development > Spook trace: set to DEBUG, reproduce, then back to WARN. Logs the spook score, grade, and each sound to alifespooks.log.
