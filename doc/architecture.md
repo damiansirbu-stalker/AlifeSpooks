@@ -1,6 +1,6 @@
 # AlifeSpooks - architecture and method
 
-AlifeSpooks is a dark ambient layer for S.T.A.L.K.E.R. Anomaly and G.A.M.M.A.
+AlifeSpooks is a dark ambient layer for S.T.A.L.K.E.R. Anomaly.
 It gathers dark and eerie sounds from community soundscape packs, then measures and deduplicates them. It plays them as positioned single sounds.
 A runtime director reads where the player stands and who is near.
 It does not add engine ambient channels and it does not edit an ambient file. It plays its own sounds, and it mutes the base game's copy of any sound it also ships.
@@ -71,13 +71,12 @@ audit       reach: sounds placed past their own max    -> stdout
   deployed .ogg is in the config. Since the config is generated FROM the tree, a mismatch means the committed config
   drifted from the committed tree (a hand edit, or a change never redeployed). Read-only. Runs standalone or in a rebuild.
 
-### No audible sound drops before audition (shared invariant with AlifeAmbience)
+### No audible sound drops before audition
 
 No audible sound is dropped before the user auditions it.
 Measurement only FLAGS a drop candidate (too long, off-character, past a spectral or loudness bound). It never excludes an audible file on its own.
 The flagged list is loaded into `ui_as_player` as a playlist, the user auditions it, and only then does a file get excluded.
 The sole mechanical removals are files that cannot be auditioned: dead-silent (below the LUFS floor), off sample rate, corrupt, or an anti-phase pair that folds to silence.
-This invariant is shared with AlifeAmbience.
 
 ### Selection is manual, pulling is mechanical
 
@@ -429,7 +428,7 @@ A time-event on the vanilla `update_ambient` slot (`update_base_ambient`, instal
 not only at DEBUG. It is a clone of the vanilla channel rotation, timing, and volume rule with added nil-guards, and it has two deltas. It replays through `xsound.play` (an engine-owned single play),
 so a base sound is not cut on channel re-fire the way vanilla's retained-handle GC cut it, and it LOGS each base fire at DEBUG (`[BASE]` lines and the HUD BASE row).
 It does no muting (the composed config it reads already has our sounds removed) and no injection. It is not there only to log. It owns the base ambience for everyone,
-and the log plus the no-cut are what it adds over leaving vanilla in place. If another ambient-scheduler mod wins the slot back (for example TestZone's ambient logger),
+and the log plus the no-cut are what it adds over leaving vanilla in place. If another ambient-scheduler mod wins the slot back,
 only the trace and the no-cut are lost, and the muting still holds because it is the static overlay, independent of this hook.
 This slot (`sound_channels`/`update_ambient`) is separate from the director's own loop slot (`as_director`/`tick`), and the two never share.
 
