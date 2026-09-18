@@ -2,7 +2,6 @@ AlifeSpooks: dark horror ambience for STALKER Anomaly, by Damian
 Version: next (xlibs 1.8.5, demonized 20250908)
 Changelog: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/changelog
 Read it in Russian / Na russkom: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/readme_ru.txt
-Report at https://github.com/damiansirbu-stalker/AlifeSpooks/issues/new/choose or the EFP, Anomaly, and Zona Discord. Include repro steps, engine build, modlist, load order, xray.log, and the debug log.
 
 My work:
 GitHub: https://github.com/orgs/damiansirbu-stalker/repositories
@@ -189,10 +188,10 @@ I credit every author above. I include only selected audio. If an author does no
 licensing.md records each source's license and the granting author's permission. I include nothing without a free license or the author's consent.
 
 Usage and License:
-Modpacks: allowed and encouraged. Keep the readme and license files.
-Addons, patches, integrations: allowed. Credit "AlifeSpooks by Damian Sirbu" visibly on your mod page.
-Reproducing the implementation in other software: not allowed, even with credit.
-Full license in LICENSE file and on GitHub.
+  Modpacks: allowed and encouraged. Keep the readme and license files.
+  Addons, patches, integrations: allowed. Credit "AlifeSpooks by Damian Sirbu" visibly on your mod page.
+  Reproducing the implementation in other software: not allowed, even with credit.
+  Full license in LICENSE file and on GitHub.
 
 Diagnostics and reporting:
 Development > Spook trace: set to DEBUG, reproduce, then back to WARN. Logs the spook score, grade, and each sound to alifespooks.log.
