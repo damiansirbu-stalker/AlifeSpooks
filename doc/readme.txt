@@ -3,7 +3,7 @@ Version: next (xlibs 1.8.5, demonized 20250908)
 GitHub: https://github.com/damiansirbu-stalker/AlifeSpooks
 Changelog: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/changelog
 Read it in Russian / Na russkom: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/readme_ru.txt
-Report bugs and suggestions: https://github.com/damiansirbu-stalker/AlifeSpooks/issues
+Report at https://github.com/damiansirbu-stalker/AlifeSpooks/issues/new/choose or the EFP, Anomaly, and Zona Discord. Include repro steps, engine build, modlist, load order, xray.log, and the debug log.
 
 Alife Collection:
 AlifeAmbience: https://github.com/damiansirbu-stalker/AlifeAmbience
