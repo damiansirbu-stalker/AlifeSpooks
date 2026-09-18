@@ -1,5 +1,5 @@
 AlifeSpooks: dark horror ambience for STALKER Anomaly, by Damian
-Version: next (xlibs 1.8.5, demonized 20250908)
+Version: 1.0.0-snapshot (xlibs 1.8.5, demonized 20250908)
 Changelog: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/changelog
 Read it in Russian / Na russkom: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/readme_ru.txt
 

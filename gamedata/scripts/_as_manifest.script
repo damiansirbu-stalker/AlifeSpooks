@@ -2,6 +2,6 @@
 
 MANIFEST = {
     name    = "AlifeSpooks",
-    version = "next",
+    version = "1.0.0-snapshot",
     xlibs   = "1.8.5",
 }
