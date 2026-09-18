@@ -93,7 +93,7 @@ end
 
 local function _get_logger()
     if not _log and xlog then
-        _log = xlog.get_get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+        _log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
     end
     return _log
 end
@@ -382,7 +382,7 @@ function as_test.log_suspect(note)
     local cur = _smoke.last
     if not cur then _show_tip("audit: nothing to mark"); return end
     if xlog then
-        local log = xlog.get_get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+        local log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
         log.info("SUSPECT %d/%d\t%s\t%s\t%s", cur.i, cur.total, cur.cat, cur.path, tostring(note or ""))
         log.flush()
     end
