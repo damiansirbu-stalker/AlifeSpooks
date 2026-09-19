@@ -1441,10 +1441,6 @@ def cmd_deploy(a):
     if getattr(a, "wipe", True):
         _clean(snd)
     _clean(env / "ambients")
-    for stale in ("mod_sound_channels_alifespooks.ltx", "as_channel_layers.ltx"):
-        (env / stale).unlink(missing_ok=True)      # old channel model, no longer written
-    (root / "scripts" / "as_manifest.script").unlink(missing_ok=True)   # renamed to dd_sound_metadata
-    (root / "scripts" / "as_sound_config_gen.script").unlink(missing_ok=True)   # renamed to dd_sound_metadata
 
     # Emit each sound FLAT into its category directory: zs\<category>\<name>.ogg. Dread is NOT a directory -
     # it lives per-sound in dd_spooks_metadata (the business-metadata override the director reads), so there
