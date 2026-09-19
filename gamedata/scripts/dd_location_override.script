@@ -1,4 +1,4 @@
---- as_location_override: HAND-CURATED levels + positions overrides. Schema in doc/architecture.md.
+--- dd_location_override: HAND-CURATED levels + positions overrides. Schema in doc/architecture.md.
 
 levels = {
     default = { "spook", "scream", "mutant", "drone", "gunfire" },

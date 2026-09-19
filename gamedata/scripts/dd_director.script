@@ -1,4 +1,4 @@
---- as_director: dread director; a 100ms tick fills a sensor board, additive dread paces emission and selection, and a base observer replays the base ambient.
+--- dd_director: dread director; a 100ms tick fills a sensor board, additive dread paces emission and selection, and a base observer replays the base ambient.
 
 local math_random, math_rad = math.random, math.rad
 local math_cos, math_sin = math.cos, math.sin
@@ -21,7 +21,7 @@ local SERVICE = { HOSTILE = "hostile", ALLIED = "allied" }
 local TIER_NONE   = "none"
 local SELECT_ONLY = "only"
 
--- Per-category play rules: env enclosure flags (out/ind/ug) and an optional live need gate; per-level eligibility lives in as_location_override.levels.
+-- Per-category play rules: env enclosure flags (out/ind/ug) and an optional live need gate; per-level eligibility lives in dd_location_override.levels.
 local CATEGORY = {
     mutant                = { out = true, ind = true, ug = true, need = NEED.MUTANT },
     mutant_ambient_forest = { out = true },
@@ -193,16 +193,16 @@ local function _is_service(npc)
     return (roles.trader or roles.medic or roles.mechanic) and true or false
 end
 
---- Sound count of a category (its flat row list from as_sound_metadata).
+--- Sound count of a category (its flat row list from dd_sound_metadata).
 local function _get_sound_count(cat) return cat and #cat or 0 end
 
 --- True if a category has any sound.
-local function _has_sounds(cat) return _get_sound_count(cat) > 0 end
+local function _hdd_sounds(cat) return _get_sound_count(cat) > 0 end
 
---- Load the per-sound dread overrides from as_spooks_metadata.sounds into _sound_dread, keyed by deployed name.
+--- Load the per-sound dread overrides from dd_spooks_metadata.sounds into _sound_dread, keyed by deployed name.
 local function _load_dread()
     _sound_dread = {}
-    local sounds = as_spooks_metadata and as_spooks_metadata.sounds
+    local sounds = dd_spooks_metadata and dd_spooks_metadata.sounds
     if not sounds then return end
     for key, entry in pairs(sounds) do
         local val = entry and entry.dread and tostring(entry.dread):lower()
@@ -252,32 +252,32 @@ local function _load_meta(cats)
     xsound.load_meta(rows)
 end
 
---- Load each category's flat sound list from as_sound_metadata once, feed xsound, then build the dread pools.
+--- Load each category's flat sound list from dd_sound_metadata once, feed xsound, then build the dread pools.
 local function _load_channels()
     if _loaded then return end
     _loaded = true
-    if not as_sound_metadata then
-        as_debug.warn("as_director: as_sound_metadata absent - no sounds to play (run build.py deploy)")
+    if not dd_sound_metadata then
+        dd_debug.warn("dd_director: dd_sound_metadata absent - no sounds to play (run build.py deploy)")
     end
-    local cats = as_sound_metadata and as_sound_metadata.categories or {}
+    local cats = dd_sound_metadata and dd_sound_metadata.categories or {}
     for name in pairs(CATEGORY) do
         _category_sounds[name] = cats[name] or {}
-        as_debug.debug("as_director: category %s = %d sounds", name, _get_sound_count(_category_sounds[name]))
+        dd_debug.debug("dd_director: category %s = %d sounds", name, _get_sound_count(_category_sounds[name]))
     end
     _load_meta(cats)
     _load_dread()
     _build_dread_pools()
 end
 
---- Build the per-level eligible-category set from as_location_override.levels (default + level), once per level.
+--- Build the per-level eligible-category set from dd_location_override.levels (default + level), once per level.
 local function _load_map(level_name)
     if _map_level == level_name then return end
     _map_level = level_name
     _map_set = {}
-    local levels = as_location_override and as_location_override.levels or {}
+    local levels = dd_location_override and dd_location_override.levels or {}
     local function add_level(names)
         for _, name in ipairs(names or {}) do
-            if CATEGORY[name] and _has_sounds(_category_sounds[name]) then _map_set[name] = true end
+            if CATEGORY[name] and _hdd_sounds(_category_sounds[name]) then _map_set[name] = true end
         end
     end
     add_level(levels[LEVEL_DEFAULT])
@@ -293,7 +293,7 @@ local function _build_cats_set(list)
     return next(set) and set or nil
 end
 
---- Normalize one raw as_location_override.positions entry into the director's shape (px/pz, cats set, only), or nil.
+--- Normalize one raw dd_location_override.positions entry into the director's shape (px/pz, cats set, only), or nil.
 local function _parse_override(entry)
     local pos = entry.pos
     if not (entry.level and pos and pos[1] and pos[3]) then return nil end
@@ -304,11 +304,11 @@ local function _parse_override(entry)
     }
 end
 
---- Coordinate overrides read once from as_location_override.positions into a flat normalized list.
+--- Coordinate overrides read once from dd_location_override.positions into a flat normalized list.
 local function _load_positions()
     if _positions then return end
     _positions = {}
-    local list = as_location_override and as_location_override.positions or {}
+    local list = dd_location_override and dd_location_override.positions or {}
     for i = 1, #list do
         local override = _parse_override(list[i])
         if override then _positions[#_positions + 1] = override end
@@ -410,8 +410,8 @@ local function is_eligible(name, position)
     local allowed = _map_set[name]
     if position and position.cats then
         if position.only then
-            allowed = position.cats[name] and CATEGORY[name] and _has_sounds(_category_sounds[name])
-        elseif position.cats[name] and CATEGORY[name] and _has_sounds(_category_sounds[name]) then
+            allowed = position.cats[name] and CATEGORY[name] and _hdd_sounds(_category_sounds[name])
+        elseif position.cats[name] and CATEGORY[name] and _hdd_sounds(_category_sounds[name]) then
             allowed = true
         end
     end
@@ -569,7 +569,7 @@ local function try_emit(tg)
                        ch_min = snd.ch_min, ch_max = snd.ch_max, indoor = snd.indoor, dread = dread })
         _last_play = snd.path
         _play_at = tg
-        as_debug.debug("[PICK] cat=%s snd=%s dread=%.2f", name, snd.path, dread)
+        dd_debug.debug("[PICK] cat=%s snd=%s dread=%.2f", name, snd.path, dread)
     end
 end
 
@@ -616,8 +616,8 @@ local function play_base_channel(ch, tg)
     local dist, vec, vol = get_placement(actor, ch.min_dist, ch.max_dist, ch.height, ch.indoor)
     vol = vol * opt_ambient_volume
     xsound.play(file, { position = vec, volume = vol })
-    if as_debug.is_on() then
-        as_debug.debug("[BASE] lvl=%s ch=%s file=%s dist=%.1f vol=%.2f", level.name(), ch.name, tostring(file), dist, vol)
+    if dd_debug.is_on() then
+        dd_debug.debug("[BASE] lvl=%s ch=%s file=%s dist=%.1f vol=%.2f", level.name(), ch.name, tostring(file), dist, vol)
     end
 end
 
@@ -653,7 +653,7 @@ local function update_position(actor)
     local name = position and position.name
     if name ~= _last_pos_name then
         _last_pos_name = name
-        as_debug.debug("[OVERRIDE] %s", name and ("in " .. name .. " dread=" .. tostring(position.dread)) or "cleared")
+        dd_debug.debug("[OVERRIDE] %s", name and ("in " .. name .. " dread=" .. tostring(position.dread)) or "cleared")
     end
     board.position = position
 end
@@ -668,26 +668,26 @@ local _producers = {
 }
 
 local function _on_tick()
-    ResetTimeEvent("as_director", "tick", TICK_S)
+    ResetTimeEvent("dd_director", "tick", TICK_S)
     if not (level.present() and db.actor) then return false end
     local tg = time_global()
-    local dbg = as_debug.is_on()
+    local dbg = dd_debug.is_on()
     local entry = _producers[_cursor]
     local tmr = xprofiler.new_if(dbg):start()
     entry[2](db.actor)
     tmr:stop()
     _cursor = _cursor % #_producers + 1
     _compute_dread()
-    if dbg then _build_eligible(); as_debug.debug("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
+    if dbg then _build_eligible(); dd_debug.debug("[SCAN %s %.2fms] dread=%.2f elig=%d", entry[1], tmr:get_ms(), board.dread, #board.eligible) end
     try_emit(tg)
     return false
 end
 
 local function update_config()
-    rarity             = as_mcm.get_config("rarity") or 1
-    vol_global         = as_mcm.get_config("vol_global") or 1
+    rarity             = dd_mcm.get_config("rarity") or 1
+    vol_global         = dd_mcm.get_config("vol_global") or 1
     opt_ambient_volume = (ui_options and ui_options.get("sound/environment/ambient_volume")) or 1
-    local wanted = as_mcm.get_config("visuals")
+    local wanted = dd_mcm.get_config("visuals")
     visuals_on = (wanted == nil) or wanted
 end
 
@@ -695,16 +695,16 @@ end
 --- Inert without xlibs (xsound). The veto still holds - it is the static DLTX overlay.
 local function _on_first_update()
     update_config()
-    if not xsound then as_debug.warn("as_director: xlibs (xsound) absent - director inert"); return end
+    if not xsound then dd_debug.warn("dd_director: xlibs (xsound) absent - director inert"); return end
     _load_channels()
     _load_map(level.name())
     _gap_at, _jitter, _cursor = 0, 1, 1
     _map_level, _cat_bag, _snd_bag = nil, {}, {}
     _visual.insane_since, _visual.next_ok, _visual.handle = nil, 0, nil
     register_base_observer()
-    RemoveTimeEvent("as_director", "tick")
-    CreateTimeEvent("as_director", "tick", TICK_S, _on_tick)
-    as_debug.info("as_director: armed - sensor-board director on tick; base observer on update_ambient; source-band placement")
+    RemoveTimeEvent("dd_director", "tick")
+    CreateTimeEvent("dd_director", "tick", TICK_S, _on_tick)
+    dd_debug.info("dd_director: armed - sensor-board director on tick; base observer on update_ambient; source-band placement")
 end
 
 -- Predicted-audibility floor for the trace token (delivered-dB), mirroring the pipeline LOUD_FLOOR (build.py).
@@ -728,11 +728,11 @@ function play_sound(path, opts)
     local dist, vec, vol = get_placement(actor, opts.ch_min, opts.ch_max, height, opts.indoor, place_dist)
     vol = vol * opt_ambient_volume * vol_global
     xsound.play_at(path, { position = vec, volume = vol })
-    if as_debug.is_on() then
+    if dd_debug.is_on() then
         local d3d = math_sqrt(dist * dist + height * height)
         local prof = xsound.get_meta and xsound.get_meta(path)
         local dlv = prof and xsound.compute_delivered_loudness(prof, d3d)
-        as_debug.debug("[PLAY] %s dist=%.1f band=%.0f-%.0f h=%.0f dlv=%s vd=%s vol=%.2f dread=%.2f",
+        dd_debug.debug("[PLAY] %s dist=%.1f band=%.0f-%.0f h=%.0f dlv=%s vd=%s vol=%.2f dread=%.2f",
             path, dist, opts.ch_min or 0, opts.ch_max or 0, height,
             dlv and string_format("%.0f", dlv) or "-", _get_verdict(dlv), vol, opts.dread or 0)
     end
@@ -748,7 +748,7 @@ function play_visual_pulse()
     _visual.handle = handle
     if handle then
         xpp.set_target(handle, VIS_FACTOR, VIS_SMOOTH)
-        CreateTimeEvent("as_director", "vis_release", VIS_HOLD_S, function()
+        CreateTimeEvent("dd_director", "vis_release", VIS_HOLD_S, function()
             if xpp.is_active(handle) then xpp.release(handle) end
             if _visual.handle == handle then _visual.handle = nil end
             return true

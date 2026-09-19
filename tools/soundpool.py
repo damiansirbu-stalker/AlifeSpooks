@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""soundpool.py - probe + dedup primitives for the AlifeSpooks pipeline.
+"""soundpool.py - probe + dedup primitives for the DiegeticDread pipeline.
 
 `build.py` is the pipeline (plan/classify/loudness/deploy/ledger/provenance); this module holds only the
 shared low-level primitives it imports: external-tool resolution, a parallel map, ffprobe metadata, the
 Chromaprint fingerprint + similarity, the PCM cross-correlation same-recording decider, and the stereo->mono
 masterization. Standard library only; drives ffprobe, ffmpeg, and fpcalc (Chromaprint) as external CLIs.
 
-These primitives carry no AlifeSpooks concepts (no categories, routing, manifest, or veto), so any sound
+These primitives carry no DiegeticDread concepts (no categories, routing, manifest, or veto), so any sound
 pipeline can reuse them: probe/dedup a pool, fold stereo to mono, measure loudness. The project-specific
 driver (routing, scope, output layout) lives in build.py; this file is the reusable core.
 

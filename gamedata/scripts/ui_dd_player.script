@@ -1,4 +1,4 @@
---- ui_as_player: the AlifeSpooks review/curation tool - audition categories or a loaded logs-dir playlist, log notes.
+--- ui_dd_player: the DiegeticDread review/curation tool - audition categories or a loaded logs-dir playlist, log notes.
 
 local table_sort, string_format = table.sort, string.format
 local tostring, RegisterScriptCallback = tostring, RegisterScriptCallback
@@ -27,7 +27,7 @@ local MODES = {
     { label = "100m", kind = KIND_DIST, dist = 100 },
 }
 
--- The director's dread distance-pull, mirrored here for the mode label only (as_director DREAD_PULL).
+-- The director's dread distance-pull, mirrored here for the mode label only (dd_director DREAD_PULL).
 local DREAD_PULL = 0.20
 
 local _cats     = nil
@@ -53,7 +53,7 @@ local function _read_categories()
     table_sort(_cats)
 end
 
---- Scan a category's oggs (flat: zs\<cat>\<name>.ogg, no dread subdir - dread lives in as_spooks_metadata).
+--- Scan a category's oggs (flat: zs\<cat>\<name>.ogg, no dread subdir - dread lives in dd_spooks_metadata).
 local function _get_files(cat)
     if _files[cat] then return _files[cat] end
     local out = xfs.read_files("$game_sounds$", SND_ROOT .. "\\" .. cat .. "\\", ".ogg")
@@ -98,20 +98,20 @@ end
 
 local function _show_player()
     if _box and _box:IsShown() then return end
-    if not (db.actor and as_mcm and as_mcm.get_config and as_mcm.get_config("sound_player")) then return end
+    if not (db.actor and dd_mcm and dd_mcm.get_config and dd_mcm.get_config("sound_player")) then return end
     _cats = nil
-    _box = as_player_wnd()
+    _box = dd_player_wnd()
     _box:ShowDialog(true)
-    Register_UI("as_player_wnd", "ui_as_player", _box)
+    Register_UI("dd_player_wnd", "ui_dd_player", _box)
 end
 
 local function _on_key(key)
     if key == PGDN_KEY then _show_player() end
 end
 
-class "as_player_wnd" (CUIScriptWnd)
+class "dd_player_wnd" (CUIScriptWnd)
 
-function as_player_wnd:__init() super()
+function dd_player_wnd:__init() super()
     self:SetWndRect(Frect():set(0, 0, 1024, 768))
     self:SetAutoDelete(true)
     self:init_controls()
@@ -121,16 +121,16 @@ function as_player_wnd:__init() super()
     if not _cats then _read_categories() end
     self:build_list()
     self:render()
-    if as_director and as_director.set_muted then as_director.set_muted(true) end
+    if dd_director and dd_director.set_muted then dd_director.set_muted(true) end
 end
 
-function as_player_wnd:__finalize()
-    if as_director and as_director.set_muted then as_director.set_muted(false) end
+function dd_player_wnd:__finalize()
+    if dd_director and dd_director.set_muted then dd_director.set_muted(false) end
 end
 
-function as_player_wnd:init_controls()
+function dd_player_wnd:init_controls()
     local xml = CScriptXmlInit()
-    xml:ParseFile("ui_as_player.xml")
+    xml:ParseFile("ui_dd_player.xml")
     xml:InitStatic("background", self)
     xml:InitStatic("hdr_player", self)
     xml:InitStatic("line_player", self)
@@ -158,7 +158,7 @@ function as_player_wnd:init_controls()
     register_button("btn_note"); register_button("btn_rescan"); register_button("btn_probe")
 end
 
-function as_player_wnd:init_callbacks()
+function dd_player_wnd:init_callbacks()
     self:AddCallback("list",        ui_events.LIST_ITEM_CLICKED, self.select_row, self)
     self:AddCallback("btn_pos_down", ui_events.BUTTON_CLICKED,    self.select_prev_mode, self)
     self:AddCallback("btn_pos_up",   ui_events.BUTTON_CLICKED,    self.select_next_mode, self)
@@ -177,7 +177,7 @@ function as_player_wnd:init_callbacks()
 end
 
 --- FSDIR list entries in a fixed order: ".." then subfolders then .txt files, so the click index maps back deterministically.
-function as_player_wnd:read_fs_entries()
+function dd_player_wnd:read_fs_entries()
     local folders = (xfs and xfs.read_folders and xfs.read_folders(LOGS_MOUNT, _fs_dir)) or {}
     local files   = (xfs and xfs.read_files and xfs.read_files(LOGS_MOUNT, _fs_dir, ".txt")) or {}
     table_sort(folders)
@@ -185,8 +185,8 @@ function as_player_wnd:read_fs_entries()
     return folders, files
 end
 
-function as_player_wnd:build_list()
-    if xslice then xslice.stop_queue("as_player_fill") end
+function dd_player_wnd:build_list()
+    if xslice then xslice.stop_queue("dd_player_fill") end
     if _built then self.list:RemoveAll() end
     _built = true
     if _view == VIEW_ROOT then
@@ -204,7 +204,7 @@ end
 
 --- Fill one row's pool, frame-spread by xslice so xsound.length never builds them all at once.
 --- A playlist row also shows each entry's resolved category, so the sound's context stays visible.
-function as_player_wnd:add_pool_rows(row)
+function dd_player_wnd:add_pool_rows(row)
     if not row then return end
     self.list:AddTextItem("..")
     local list = self.list
@@ -217,7 +217,7 @@ function as_player_wnd:add_pool_rows(row)
         return string_format("%s    %.1fs", _get_tail(path), ms / 1000)
     end
     if xslice then
-        xslice.start("as_player_fill", row.pool, { step = 15, func = function(path)
+        xslice.start("dd_player_fill", row.pool, { step = 15, func = function(path)
             list:AddTextItem(format_label(path))
             return true
         end })
@@ -227,21 +227,21 @@ function as_player_wnd:add_pool_rows(row)
 end
 
 --- The dread a director mode plays at: its fixed preset, or the LIVE scene dread for the "now" entry.
-function as_player_wnd:_get_mode_dread(mode)
+function dd_player_wnd:_get_mode_dread(mode)
     if mode.dread then return mode.dread end
-    local board = as_director and as_director.get_board and as_director.get_board()
+    local board = dd_director and dd_director.get_board and dd_director.get_board()
     return board and board.dread or 0
 end
 
 --- The audition mode label. A director mode appends the dread it plays at and the resulting pull.
-function as_player_wnd:_get_mode_label()
+function dd_player_wnd:_get_mode_label()
     local mode = _get_mode()
     if mode.kind ~= KIND_DIRECTOR then return mode.label end
     local dread = self:_get_mode_dread(mode)
     return string_format("%s (dread %.2f, ~%.0f%% closer)", mode.label, dread, DREAD_PULL * dread * 100)
 end
 
-function as_player_wnd:render()
+function dd_player_wnd:render()
     if _view == VIEW_ROOT then
         self.lbl_path:SetText(string_format("sounds/    (%d categories)  -  [load playlist]", _cats and #_cats or 0))
         self.status:SetText("click a category, or [load playlist] to browse the logs dir")
@@ -259,18 +259,18 @@ function as_player_wnd:render()
     if self.insp_read then self.insp_read:SetText(self:_format_spot()) end
 end
 
-function as_player_wnd:_format_spot()
+function dd_player_wnd:_format_spot()
     local actor = db.actor
     if not actor then return "no actor" end
     local pos = actor:position()
-    local board = as_director and as_director.get_board and as_director.get_board()
+    local board = dd_director and dd_director.get_board and dd_director.get_board()
     return string_format("%s    dread %.2f    env %s    pos %.0f %.0f %.0f",
         level.name(), board and board.dread or 0, board and board.environment or "?", pos.x, pos.y, pos.z)
 end
 
 --- The loudness line: measured LUFS and base_volume from the profile, plus the delivered dB at the audition distance.
 --- Reads xsound.get_meta + compute_delivered_loudness; a director mode reads at the blob mid-range, a fixed mode at its distance.
-function as_player_wnd:format_loud()
+function dd_player_wnd:format_loud()
     if not _cur then return "loud:   (none)" end
     local prof = xsound and xsound.get_meta and xsound.get_meta(_cur.path)
     if not prof then return "loud:   -- (no profile; run build.py deploy)" end
@@ -287,31 +287,31 @@ function as_player_wnd:format_loud()
 end
 
 --- Load a sound into _cur from a pool path: a playlist entry resolves its category from the path, a category row carries it.
-function as_player_wnd:load_cur(row, path)
+function dd_player_wnd:load_cur(row, path)
     _cur = { cat = row.cat or _resolve_cat(path) or "?", name = _get_tail(path), path = path }
 end
 
 --- Director placement at the given dread: the sound placed exactly as the director would, including the pull.
-function as_player_wnd:_play_director(dread)
-    local cats = as_sound_metadata and as_sound_metadata.categories and as_sound_metadata.categories[_cur.cat]
+function dd_player_wnd:_play_director(dread)
+    local cats = dd_sound_metadata and dd_sound_metadata.categories and dd_sound_metadata.categories[_cur.cat]
     local row = _find_row(cats, _cur.path) or {}
-    as_director.play_sound(_cur.path, { min = row.mn or 2, max = row.mx or 100, height = row.h or 0,
+    dd_director.play_sound(_cur.path, { min = row.mn or 2, max = row.mx or 100, height = row.h or 0,
         ch_min = row.ch_min or 30, ch_max = row.ch_max or 100, indoor = row.indoor or false, dread = dread or 0 })
 end
 
-function as_player_wnd:_play_current()
+function dd_player_wnd:_play_current()
     if not (_cur and xsound) then return end
     local mode = _get_mode()
     if mode.kind == KIND_ATEAR then
         xsound.play_at(_cur.path, { s2d = true, volume = 1.0 })
     elseif mode.kind == KIND_DIST then
-        as_director.play_sound(_cur.path, { dist = mode.dist })
+        dd_director.play_sound(_cur.path, { dist = mode.dist })
     else
         self:_play_director(self:_get_mode_dread(mode))
     end
 end
 
-function as_player_wnd:select_row()
+function dd_player_wnd:select_row()
     local idx = self.list:GetSelectedIndex()
     if not idx or idx < 0 then return end
     if _view == VIEW_ROOT then self:select_root(idx)
@@ -320,7 +320,7 @@ function as_player_wnd:select_row()
 end
 
 --- ROOT click: index 0 opens the logs-dir browser; any other index drills into that category's pool.
-function as_player_wnd:select_root(idx)
+function dd_player_wnd:select_root(idx)
     if idx == 0 then
         _view, _fs_dir = VIEW_FSDIR, ""
         self:build_list(); self:render()
@@ -333,7 +333,7 @@ function as_player_wnd:select_root(idx)
 end
 
 --- FSDIR click: index 0 goes up (root, or drop the last segment), a folder descends, a .txt loads as a playlist.
-function as_player_wnd:select_fsdir(idx)
+function dd_player_wnd:select_fsdir(idx)
     if idx == 0 and _fs_dir == "" then
         _view = VIEW_ROOT
         self:build_list(); self:render()
@@ -359,7 +359,7 @@ function as_player_wnd:select_fsdir(idx)
 end
 
 --- POOL click: index 0 returns (to the logs browser if a playlist, else root); any other index plays.
-function as_player_wnd:select_pool(idx)
+function dd_player_wnd:select_pool(idx)
     if idx == 0 then
         _view = _from_fs and VIEW_FSDIR or VIEW_ROOT
         self:build_list(); self:render()
@@ -373,26 +373,26 @@ function as_player_wnd:select_pool(idx)
     self.status:SetText(string_format("playing:  %s/%s", _cur.cat, _cur.name))
 end
 
-function as_player_wnd:play() self:_play_current() end
+function dd_player_wnd:play() self:_play_current() end
 
-function as_player_wnd:stop()
+function dd_player_wnd:stop()
     if xsound then xsound.stop_shots() end
     self.status:SetText("stopped")
 end
 
 --- Mode steppers cycle the audition mode ONLY (they never play - Play/click is the one trigger).
-function as_player_wnd:select_prev_mode()
+function dd_player_wnd:select_prev_mode()
     _mode_i = _mode_i - 1
     if _mode_i < 1 then _mode_i = #MODES end
     self:render()
 end
-function as_player_wnd:select_next_mode()
+function dd_player_wnd:select_next_mode()
     _mode_i = _mode_i % #MODES + 1
     self:render()
 end
 
 --- The pool index of the loaded sound, or 1 when none is loaded.
-function as_player_wnd:find_pool_index()
+function dd_player_wnd:find_pool_index()
     if not (_cur and _row) then return 1 end
     for k = 1, #_row.pool do
         if _row.pool[k] == _cur.path then return k end
@@ -401,7 +401,7 @@ function as_player_wnd:find_pool_index()
 end
 
 --- Step the selection to a neighbouring pool entry, move only (silent) - Prev/Next never play; Play/click do.
-function as_player_wnd:_select_neighbor(delta)
+function dd_player_wnd:_select_neighbor(delta)
     if _view ~= VIEW_POOL or not (_row and #_row.pool > 0) then return end
     local at = (self:find_pool_index() - 1 + delta) % #_row.pool + 1
     self:load_cur(_row, _row.pool[at])
@@ -409,12 +409,12 @@ function as_player_wnd:_select_neighbor(delta)
     self:render()
 end
 
-function as_player_wnd:select_prev_sound() self:_select_neighbor(-1) end
-function as_player_wnd:select_next_sound()  self:_select_neighbor(1) end
+function dd_player_wnd:select_prev_sound() self:_select_neighbor(-1) end
+function dd_player_wnd:select_next_sound()  self:_select_neighbor(1) end
 
 --- Write a sound note for the current sound; a premade button passes preset text, the add-note button the typed field.
 --- A preset and a typed note combine; adding a note clears the field and never advances or plays.
-function as_player_wnd:add_note(premade)
+function dd_player_wnd:add_note(premade)
     if not _cur then return end
     local custom = self.snote:GetText()
     local text
@@ -422,21 +422,21 @@ function as_player_wnd:add_note(premade)
     elseif premade then text = premade
     else text = custom end
     if not text or text == "" then return end
-    if as_test and as_test.note_sound then as_test.note_sound(_cur.path, text) end
+    if dd_test and dd_test.note_sound then dd_test.note_sound(_cur.path, text) end
     self.snote:SetText("")
     self.status:SetText(string_format("NOTE %s :: %s", _cur.name, text))
 end
 
 --- Save the PROBE NOTE: a [PROBE] block (free text + the full ordered sensor dump) to the notes file.
-function as_player_wnd:save_probe()
+function dd_player_wnd:save_probe()
     local text = self.probe:GetText()
-    local ok = as_test and as_test.note_probe and as_test.note_probe(text)
+    local ok = dd_test and dd_test.note_probe and dd_test.note_probe(text)
     self.probe:SetText("")
-    self.status:SetText(ok and "probe note saved -> alifespooks_notes.txt" or "probe note FAILED (no actor/level?)")
+    self.status:SetText(ok and "probe note saved -> diegeticdread_notes.txt" or "probe note FAILED (no actor/level?)")
 end
 
 --- Re-read the category tree (after a build) and return to root.
-function as_player_wnd:reload()
+function dd_player_wnd:reload()
     _cats, _files = nil, {}
     _read_categories()
     _view, _row, _from_fs, _fs_dir = VIEW_ROOT, nil, false, ""
@@ -445,7 +445,7 @@ end
 
 --- The window owns the keyboard only so the text fields capture typing; there are NO command shortcuts.
 --- Esc closes the window when no edit box has focus.
-function as_player_wnd:OnKeyboard(dik, action)
+function dd_player_wnd:OnKeyboard(dik, action)
     local res = CUIScriptWnd.OnKeyboard(self, dik, action)
     if action ~= ui_events.WINDOW_KEY_PRESSED then return res end
     if res or dik ~= DIK_keys.DIK_ESCAPE then return res end
@@ -453,11 +453,11 @@ function as_player_wnd:OnKeyboard(dik, action)
     return true
 end
 
-function as_player_wnd:hide()
-    if xslice then xslice.stop_queue("as_player_fill") end
+function dd_player_wnd:hide()
+    if xslice then xslice.stop_queue("dd_player_fill") end
     if xsound then xsound.stop_shots() end
     self:HideDialog()
-    Unregister_UI("as_player_wnd")
+    Unregister_UI("dd_player_wnd")
 end
 
 function on_game_start()

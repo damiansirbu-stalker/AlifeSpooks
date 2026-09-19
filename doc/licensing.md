@@ -1,6 +1,6 @@
-# AlifeSpooks source licensing
+# DiegeticDread source licensing
 
-This record lists every source AlifeSpooks uses, with the basis for using it.
+This record lists every source DiegeticDread uses, with the basis for using it.
 The basis is the author's permission, the addon's license, or GSC-original game audio. The readme Credits section derives from this record.
 
 ## Permission

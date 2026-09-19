@@ -1,0 +1,61 @@
+--- dd_debug: trace primitives for DiegeticDread. One logger, one gate, refreshed from MCM.
+
+dd_debug = dd_debug or {}
+
+local DEBUG_LEVEL = 5
+local _lvl = 0
+
+if not xlog then
+    function dd_debug.update_config() end
+    function dd_debug.is_on() return false end
+    function dd_debug.debug() end
+    function dd_debug.info() end
+    function dd_debug.warn() end
+    function dd_debug.flush() end
+    function dd_debug.show(v) return v ~= nil and tostring(v) or "?" end
+    return
+end
+
+local tostring, RegisterScriptCallback = tostring, RegisterScriptCallback
+local log = xlog.get_logger("DD", { outfile = "diegeticdread.log" })
+local _levels = xlog.get_levels()
+
+--- Re-read the log level and flush setting from MCM.
+function dd_debug.update_config()
+    log.set_level(dd_mcm.get_config("log_level") or "WARN")
+    _lvl = log.get_level() or 0
+    log._logger.flush_on_level = dd_mcm.get_config("log_flush") and _levels.TRACE or _levels.ERROR
+end
+
+--- True when DEBUG tracing is live.
+function dd_debug.is_on()
+    return _lvl >= DEBUG_LEVEL
+end
+
+--- Log a DEBUG line; noop below DEBUG.
+function dd_debug.debug(template, ...)
+    if _lvl >= DEBUG_LEVEL then log.debug(template, ...) end
+end
+
+function dd_debug.info(template, ...)
+    log.info(template, ...)
+end
+
+function dd_debug.warn(template, ...)
+    log.warn(template, ...)
+end
+
+function dd_debug.flush()
+    log.flush()
+end
+
+--- A value, or "?" when nil.
+function dd_debug.show(v)
+    return v ~= nil and tostring(v) or "?"
+end
+
+function on_game_start()
+    RegisterScriptCallback("actor_on_first_update",      dd_debug.update_config)
+    RegisterScriptCallback("on_option_change",           dd_debug.update_config)
+    RegisterScriptCallback("mcm_option_restore_default", dd_debug.update_config)
+end

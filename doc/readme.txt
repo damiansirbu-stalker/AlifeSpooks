@@ -1,7 +1,7 @@
-AlifeSpooks: dark horror ambience for STALKER Anomaly, by Damian
+DiegeticDread: dark horror ambience for STALKER Anomaly, by Damian
 Version: 1.0.0-snapshot (xlibs 1.8.5, demonized 20250908)
-Changelog: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/changelog
-Read it in Russian / Na russkom: https://github.com/damiansirbu-stalker/AlifeSpooks/blob/main/doc/readme_ru.txt
+Changelog: https://github.com/damiansirbu-stalker/DiegeticDread/blob/main/doc/changelog
+Read it in Russian / Na russkom: https://github.com/damiansirbu-stalker/DiegeticDread/blob/main/doc/readme_ru.txt
 
 My work:
 GitHub: https://github.com/orgs/damiansirbu-stalker/repositories
@@ -15,14 +15,14 @@ Reset MCM settings to defaults after updating.
 
 The Zone used to be frightening.
 Modern soundscape mods traded that dread for realism.
-AlifeSpooks is my attempt to put the fear back without giving up the fidelity.
+DiegeticDread is my attempt to put the fear back without giving up the fidelity.
 
 It is a dread director, driven by where you stand and who is near. It answers the dread of the place with curated horror sounds.
 No random timers, no scripts. The soundscape follows the real state of the game around you.
 Some of its horror is interior audio Shrike made for Dark Signal and never released, given straight to this mod.
 
-AlifeAmbience is its companion.
-AlifeSpooks plays the horror and vetoes it from the base channels. AlifeAmbience owns the living nature-and-weather bed it leaves alone.
+DiegeticAmbience is its companion.
+DiegeticDread plays the horror and vetoes it from the base channels. DiegeticAmbience owns the living nature-and-weather bed it leaves alone.
 Run both and the Zone is real and frightening at once.
 
 Three parts.
@@ -75,7 +75,7 @@ A long drone or the radio signal plays as a spaced sound on a long period.
 2. The veto
 
 If you also run a soundscape pack it drew from, that pack's ambient plays the same sounds.
-AlifeSpooks removes its own sounds from the base's ambient channels, so only its curated version plays, under its director.
+DiegeticDread removes its own sounds from the base's ambient channels, so only its curated version plays, under its director.
 It does this statically at config load, with a generated overlay that strips each of the mod's sounds out of every base channel that lists it, at the path each source pack files it under.
 A sound can ship in more than one pack. The copies include exact reships and re-encodes. It removes every one. Whichever pack you run, the base loses its version.
 The base keeps everything else it plays.
@@ -155,7 +155,7 @@ The master volume balances the two when a base runs unusually loud or quiet.
 Tested against Anomaly 1.5.3, GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and Forgotten Zone.
 Tested with every source pack listed under Credits below.
 Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
-You can install or remove it mid-save. Weather sound stays the base ambience's job. AlifeSpooks adds no storm or rain.
+You can install or remove it mid-save. Weather sound stays the base ambience's job. DiegeticDread adds no storm or rain.
 
 How It's Built:
 
@@ -173,8 +173,8 @@ The mod avoids writing engine values, holding its own state in parallel. Any val
 The family runs on one rulebook through xlibs. Every rule, policy, and check is one shared implementation, the same protection, distances, faction logic, and combat reads in every mod.
 It depends on no other mod, not even my own. The only shared layers are X-Ray and xlibs.
 
-[Screenshot: AlifeSpooks under JitProfiler, a live CPU and allocation capture]
-Project Health: https://damiansirbu-stalker.github.io/AlifeSpooks/
+[Screenshot: DiegeticDread under JitProfiler, a live CPU and allocation capture]
+Project Health: https://damiansirbu-stalker.github.io/DiegeticDread/
 
 Credits:
 Most of the sounds come from the original S.T.A.L.K.E.R. games and the standalone builds that carry and rework that audio.
@@ -190,12 +190,12 @@ licensing.md records each source's license and the granting author's permission.
 
 Usage and License:
   Modpacks: allowed and encouraged. Keep the readme and license files.
-  Addons, patches, integrations: allowed. Credit "AlifeSpooks by Damian Sirbu" visibly on your mod page.
+  Addons, patches, integrations: allowed. Credit "DiegeticDread by Damian Sirbu" visibly on your mod page.
   Reproducing the implementation in other software: not allowed, even with credit.
   Full license in LICENSE file and on GitHub.
 
 Diagnostics and reporting:
-Development > Spook trace: set to DEBUG, reproduce, then back to WARN. Logs the spook score, grade, and each sound to alifespooks.log.
+Development > Spook trace: set to DEBUG, reproduce, then back to WARN. Logs the spook score, grade, and each sound to diegeticdread.log.
 Development > Spook HUD: pick a corner for a live breakdown of the dread calculation (grade, score, terms, gates); Off hides it.
 Development > Sound review player: enable to audition the spook sounds on PageDown, each with its measured loudness, and to load a logs-folder playlist for reviewing a flagged list.
-Report at https://github.com/damiansirbu-stalker/AlifeSpooks/issues/new/choose or the EFP, Anomaly, and Zona Discord. Include repro steps, engine build, modlist, load order, xray.log, and the debug log.
+Report at https://github.com/damiansirbu-stalker/DiegeticDread/issues/new/choose or the EFP, Anomaly, and Zona Discord. Include repro steps, engine build, modlist, load order, xray.log, and the debug log.

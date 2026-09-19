@@ -1,6 +1,6 @@
---- as_test: AlifeSpooks dev harness - console helpers, atmosphere probe collector, notes writer.
+--- dd_test: DiegeticDread dev harness - console helpers, atmosphere probe collector, notes writer.
 
-as_test = as_test or {}
+dd_test = dd_test or {}
 
 local pairs, tostring, ipairs, pcall, tonumber = pairs, tostring, ipairs, pcall, tonumber
 local table_concat, table_sort, string_format = table.concat, table.sort, string.format
@@ -20,7 +20,7 @@ local SMOKE_GAP_MS = 700
 local BAND_NEAR_M = 25
 local BAND_FAR_M = 50
 
-local NOTES_FILE = "alifespooks_notes.txt"
+local NOTES_FILE = "diegeticdread_notes.txt"
 
 local PGUP_KEY, PGDN_KEY, DELETE_KEY = 201, 209, 211
 
@@ -40,9 +40,9 @@ local function _show_tip(msg)
     if actor then news_manager.send_show_tip(actor, msg, nil, nil, 4000) end
 end
 
---- Flatten as_sound_metadata to a { cat, path } list in sorted-category order (optionally one category).
+--- Flatten dd_sound_metadata to a { cat, path } list in sorted-category order (optionally one category).
 local function _build_smoke_list(only_cat)
-    local out, cats = {}, (as_sound_metadata and as_sound_metadata.categories) or {}
+    local out, cats = {}, (dd_sound_metadata and dd_sound_metadata.categories) or {}
     local names = {}
     for cat in pairs(cats) do
         if not only_cat or cat == only_cat then names[#names + 1] = cat end
@@ -82,18 +82,18 @@ end
 
 --- Auto-advance step: play next, re-arm for its duration + a gap. Paused -> hold. Deregisters at end.
 local function _update_smoke()
-    if _smoke.paused then ResetTimeEvent("as_smoke", "step", 0.3); return false end
+    if _smoke.paused then ResetTimeEvent("dd_smoke", "step", 0.3); return false end
     local nexti = (_smoke.i or 0) + 1
     if not (_smoke.list and _smoke.list[nexti] and db.actor and xsound) then _show_tip("smoke: done"); return true end
     _play_index(nexti)
     local dur = (xsound.length and xsound.length(_smoke.list[nexti].path)) or 2000
-    ResetTimeEvent("as_smoke", "step", (dur + SMOKE_GAP_MS) / 1000)
+    ResetTimeEvent("dd_smoke", "step", (dur + SMOKE_GAP_MS) / 1000)
     return false
 end
 
 local function _get_logger()
     if not _log and xlog then
-        _log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+        _log = xlog.get_logger("DD_PROBE", { outfile = "diegeticdread_probe.log", buffer_size = 1 })
     end
     return _log
 end
@@ -269,9 +269,9 @@ end
 
 local function _on_key(key)
     if _smoke.list then
-        if key == PGDN_KEY then as_test.play_next()
-        elseif key == PGUP_KEY then as_test.play_prev()
-        elseif key == DELETE_KEY then as_test.log_suspect() end
+        if key == PGDN_KEY then dd_test.play_next()
+        elseif key == PGUP_KEY then dd_test.play_prev()
+        elseif key == DELETE_KEY then dd_test.log_suspect() end
     end
 end
 
@@ -285,14 +285,14 @@ local function _spawn_variant(sec, sim, pos, lvid, gvid, log)
 end
 
 --- Unlock all fast-travel waypoints.
-function as_test.enable_travel()
+function dd_test.enable_travel()
     ui_options.set("gameplay/fast_travel/state", 2)
     game_fast_travel.update_settings()
     _show_tip("fast travel: all waypoints unlocked")
 end
 
 --- Give money (default 100000).
-function as_test.give_money(amount)
+function dd_test.give_money(amount)
     local actor = db.actor
     if not actor then return end
     actor:give_money(amount or 100000)
@@ -300,7 +300,7 @@ function as_test.give_money(amount)
 end
 
 --- Disable the northern psy fields so Radar / Red Forest are walkable.
-function as_test.enable_north()
+function dd_test.enable_north()
     local actor = db.actor
     if not actor then return end
     actor:give_info_portion("bar_deactivate_radar_done")
@@ -309,18 +309,18 @@ function as_test.enable_north()
 end
 
 --- One-shot dev setup: travel, money, north.
-function as_test.init_dev()
-    as_test.enable_travel()
-    as_test.give_money(100000)
-    as_test.enable_north()
+function dd_test.init_dev()
+    dd_test.enable_travel()
+    dd_test.give_money(100000)
+    dd_test.enable_north()
 end
 
 --- Fire the test play 3s after the call so it lands during live gameplay; close the console after running.
-function as_test.play_sound(method, dist)
+function dd_test.play_sound(method, dist)
     dist = dist or DEFAULT_TEST_DIST_M
     local path = (method == 5) and SND_VANILLA or SND_OURS
-    RemoveTimeEvent("as_snd", "play")
-    CreateTimeEvent("as_snd", "play", 3, function()
+    RemoveTimeEvent("dd_snd", "play")
+    CreateTimeEvent("dd_snd", "play", 3, function()
         local actor = db.actor
         if not actor then return true end
         local pos = actor:position()
@@ -333,7 +333,7 @@ function as_test.play_sound(method, dist)
             snd:play_no_feedback(actor, sound_object.s3d, 0, vec, 1.0, 1.0)
         else
             snd:play_at_pos(actor, vec); snd.volume = 1.0
-            if method ~= 3 then as_test._kept = snd end
+            if method ~= 3 then dd_test._kept = snd end
         end
         _show_tip(string_format("PLAYED m%s  %s", tostring(method), path))
         return true
@@ -342,10 +342,10 @@ function as_test.play_sound(method, dist)
 end
 
 --- Manual audition: PgDn=next PgUp=prev DELETE=mark; dist gives a positioned stereo audit, omit for at-ear.
-function as_test.run_audit(only_cat, dist)
+function dd_test.run_audit(only_cat, dist)
     _smoke.list, _smoke.i, _smoke.last, _smoke.paused = _build_smoke_list(only_cat), 0, nil, false
     _smoke.dist = tonumber(dist)
-    RemoveTimeEvent("as_smoke", "step")
+    RemoveTimeEvent("dd_smoke", "step")
     if #_smoke.list == 0 then _show_tip("audit: no sounds"); return end
     _show_tip(string_format("audit: %d sounds%s  PgDn=next PgUp=prev DEL=mark", #_smoke.list,
         _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
@@ -353,36 +353,36 @@ function as_test.run_audit(only_cat, dist)
 end
 
 --- Step the manual audition (keys PgDn/PgUp map here; also callable from console). Each kills any auto timer.
-function as_test.play_next() RemoveTimeEvent("as_smoke", "step"); _play_index((_smoke.i or 0) + 1) end
-function as_test.play_prev() RemoveTimeEvent("as_smoke", "step"); _play_index((_smoke.i or 2) - 1) end
-function as_test.play_last() if _smoke.last then _play_smoke(_smoke.list[_smoke.last.i]) end end
+function dd_test.play_next() RemoveTimeEvent("dd_smoke", "step"); _play_index((_smoke.i or 0) + 1) end
+function dd_test.play_prev() RemoveTimeEvent("dd_smoke", "step"); _play_index((_smoke.i or 2) - 1) end
+function dd_test.play_last() if _smoke.last then _play_smoke(_smoke.list[_smoke.last.i]) end end
 
 --- Auto audition: play every sound spaced by its length; DELETE marks, PgDn/PgUp take over manually.
-function as_test.run_smoke(only_cat, dist)
+function dd_test.run_smoke(only_cat, dist)
     _smoke.list, _smoke.i, _smoke.paused, _smoke.dist = _build_smoke_list(only_cat), 0, false, tonumber(dist)
     if #_smoke.list == 0 then _show_tip("smoke: no sounds"); return end
     _show_tip(string_format("smoke: %d sounds%s - close the console; DELETE=mark", #_smoke.list,
         _smoke.dist and (" @" .. _smoke.dist .. "m") or ""))
-    RemoveTimeEvent("as_smoke", "step")
-    CreateTimeEvent("as_smoke", "step", 1, _update_smoke)
+    RemoveTimeEvent("dd_smoke", "step")
+    CreateTimeEvent("dd_smoke", "step", 1, _update_smoke)
 end
 
-function as_test.stop_smoke()
+function dd_test.stop_smoke()
     _smoke.list = nil
-    RemoveTimeEvent("as_smoke", "step")
+    RemoveTimeEvent("dd_smoke", "step")
     _show_tip("audit: stopped")
 end
 
 --- Pause / resume the auto audition.
-function as_test.disable_smoke()  _smoke.paused = true;  _show_tip("audit: paused")  end
-function as_test.enable_smoke() _smoke.paused = false; _show_tip("audit: resumed") end
+function dd_test.disable_smoke()  _smoke.paused = true;  _show_tip("audit: paused")  end
+function dd_test.enable_smoke() _smoke.paused = false; _show_tip("audit: resumed") end
 
---- Mark the current sound suspect to alifespooks_probe.log (tap DELETE or call with a note).
-function as_test.log_suspect(note)
+--- Mark the current sound suspect to diegeticdread_probe.log (tap DELETE or call with a note).
+function dd_test.log_suspect(note)
     local cur = _smoke.last
     if not cur then _show_tip("audit: nothing to mark"); return end
     if xlog then
-        local log = xlog.get_logger("AS_PROBE", { outfile = "alifespooks_probe.log", buffer_size = 1 })
+        local log = xlog.get_logger("DD_PROBE", { outfile = "diegeticdread_probe.log", buffer_size = 1 })
         log.info("SUSPECT %d/%d\t%s\t%s\t%s", cur.i, cur.total, cur.cat, cur.path, tostring(note or ""))
         log.flush()
     end
@@ -391,7 +391,7 @@ end
 
 --- Log one atmosphere snapshot with a note. Cheap; run on demand only, never per frame.
 --- @safety pcall: the per-check sink wraps string.format on diagnostic args, see doc/library/modding/pcall-safety.md
-function as_test.log_snapshot(note)
+function dd_test.log_snapshot(note)
     local log = _get_logger()
     local actor = db.actor
     if not (log and xcreature and xsmart and xlevel and xcombat and actor and level.present()) then return end
@@ -411,15 +411,15 @@ function as_test.log_snapshot(note)
     _run_timed(sink, "vertical",       function() _log_vertical(sink, actor, apos) end)
     log.flush()
     news_manager.send_show_tip(actor, string_format(
-        "SPOT  [%s]\nlevel   %s\npos     %.1f  %.1f  %.1f\nradius  ?\n(detail -> alifespooks_probe.log)",
+        "SPOT  [%s]\nlevel   %s\npos     %.1f  %.1f  %.1f\nradius  ?\n(detail -> diegeticdread_probe.log)",
         tostring(note or "?"), tostring(level.name()), apos.x, apos.y, apos.z), nil, nil, 20000)
 end
 
 --- Append one [SOUND] note line: path, live dread, level and coordinate, and the note text.
-function as_test.log_sound_note(path, text)
+function dd_test.log_sound_note(path, text)
     local actor = db.actor
     if not (actor and level.present()) then return false end
-    local board = as_director and as_director.get_board and as_director.get_board()
+    local board = dd_director and dd_director.get_board and dd_director.get_board()
     local apos = actor:position()
     return _add_notes({ string_format(
         "[SOUND] %s  dread=%.2f  level=%s  pos=%.1f,%.1f,%.1f  :: %s",
@@ -428,10 +428,10 @@ function as_test.log_sound_note(path, text)
 end
 
 --- Append a [PROBE] block: header then the full sensor board (environment, time, stalkers, monsters, anomalies) and the dread breakdown.
-function as_test.log_probe_note(text)
+function dd_test.log_probe_note(text)
     local actor = db.actor
     if not (actor and level.present()) then return false end
-    local board = as_director and as_director.get_board and as_director.get_board()
+    local board = dd_director and dd_director.get_board and dd_director.get_board()
     local apos = actor:position()
     local note = (text and text ~= "") and text or "-"
     local lines = { string_format("[PROBE] note=[%s]  level=%s  pos=%.1f,%.1f,%.1f",
@@ -453,7 +453,7 @@ function as_test.log_probe_note(text)
 end
 
 --- Spawn each ZOO variant that exists and log its runtime server rank + species.
-function as_test.spawn_zoo()
+function dd_test.spawn_zoo()
     local log = _get_logger()
     local actor = db.actor
     local sim = alife()
@@ -462,7 +462,7 @@ function as_test.spawn_zoo()
     log.info("=== ZOO RANK PROBE ===")
     for i = 1, #ZOO do _spawn_variant(ZOO[i], sim, pos, lvid, gvid, log) end
     log.flush()
-    _show_tip("zoo rank probe -> alifespooks_probe.log")
+    _show_tip("zoo rank probe -> diegeticdread_probe.log")
 end
 
 function on_game_start()

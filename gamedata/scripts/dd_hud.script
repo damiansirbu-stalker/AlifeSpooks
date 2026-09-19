@@ -1,4 +1,4 @@
---- as_hud: live debug HUD - the AlifeSpooks spook readout on a fixed two-column grid, mirrors at_hud.
+--- dd_hud: live debug HUD - the DiegeticDread spook readout on a fixed two-column grid, mirrors at_hud.
 
 local RegisterScriptCallback, math_floor, tostring = RegisterScriptCallback, math.floor, tostring
 
@@ -41,7 +41,7 @@ local function _get_row_color(style)
 end
 
 local function _get_pos_key()
-    return (as_mcm and as_mcm.get_config and as_mcm.get_config("hud_position")) or "off"
+    return (dd_mcm and dd_mcm.get_config and dd_mcm.get_config("hud_position")) or "off"
 end
 
 local function _get_position(key)
@@ -59,9 +59,9 @@ local function _get_position(key)
     return presets[key] or presets.top_left
 end
 
---- Log a [HUD] trace line via as_debug when tracing is on.
+--- Log a [HUD] trace line via dd_debug when tracing is on.
 local function _log_hud(template, ...)
-    if as_debug and as_debug.is_on and as_debug.is_on() then as_debug.debug("[HUD] " .. template, ...) end
+    if dd_debug and dd_debug.is_on and dd_debug.is_on() then dd_debug.debug("[HUD] " .. template, ...) end
 end
 
 local function _is_hud_wanted()
@@ -87,7 +87,7 @@ local function _render_hud()
     if not _is_hud_wanted() then _log_hud("_render_hud: not wanted, skip"); return end
     if not _hud then _hud = UISpookHUD(); _log_hud("_render_hud: built UISpookHUD") end
     if not _shown then get_hud():AddDialogToRender(_hud); _shown = true; _log_hud("_render_hud: AddDialogToRender, shown=true") end
-    local rows = (as_director and as_director.get_hud_rows and as_director.get_hud_rows()) or {}
+    local rows = (dd_director and dd_director.get_hud_rows and dd_director.get_hud_rows()) or {}
     _log_hud("_render_hud: rows=%d hud=%s shown=%s", #rows, tostring(_hud ~= nil), tostring(_shown))
     _hud:set_rows(rows)
 end
@@ -95,7 +95,7 @@ end
 --- Re-arm FIRST: an expired event that errored would re-fire every frame and starve all time events.
 local function _update_hud()
     if not _active then _log_hud("_update_hud: not active, hide"); _hide(); return true end
-    ResetTimeEvent("as_hud", "tick", REFRESH_SEC)
+    ResetTimeEvent("dd_hud", "tick", REFRESH_SEC)
     local vis = _is_visible()
     _log_hud("_update_hud: active=%s visible=%s main_hud=%s", tostring(_active), tostring(vis), tostring(main_hud_shown()))
     if vis then _render_hud() else _hide() end
@@ -105,14 +105,14 @@ end
 local function _start()
     if _active then _log_hud("_start: already active"); return end
     _active = true
-    RemoveTimeEvent("as_hud", "tick")
-    CreateTimeEvent("as_hud", "tick", REFRESH_SEC, _update_hud)
+    RemoveTimeEvent("dd_hud", "tick")
+    CreateTimeEvent("dd_hud", "tick", REFRESH_SEC, _update_hud)
     _log_hud("_start: armed tick")
 end
 
 local function _stop()
     _active = false
-    RemoveTimeEvent("as_hud", "tick")
+    RemoveTimeEvent("dd_hud", "tick")
     _destroy_hud()
     _log_hud("_stop")
 end
@@ -139,7 +139,7 @@ function UISpookHUD:__init() super()
     self:SetWndPos(vector2():set(pos[1], pos[2]))
     self:SetWndSize(vector2():set(PANEL_W, PANEL_H))
     local xml = CScriptXmlInit()
-    xml:ParseFile("ui_as_stats.xml")
+    xml:ParseFile("ui_dd_stats.xml")
     self.c1, self.c2, self.c3 = {}, {}, {}
     local x1 = PAD
     local x2 = x1 + COL1_W + COL_GAP

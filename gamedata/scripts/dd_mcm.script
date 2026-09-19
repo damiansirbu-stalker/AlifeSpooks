@@ -1,9 +1,9 @@
---- as_mcm: MCM config for AlifeSpooks. Three systems (Spooks, Visuals, Development), mirrors at_mcm.
+--- dd_mcm: MCM config for DiegeticDread. Three systems (Spooks, Visuals, Development), mirrors at_mcm.
 
-as_mcm = as_mcm or {}
+dd_mcm = dd_mcm or {}
 
 if not xmcm then
-    as_mcm.get_config = function() return nil end
+    dd_mcm.get_config = function() return nil end
     return
 end
 
@@ -26,11 +26,11 @@ local _key_to_tab = {
 local GREY = {255, 200, 200, 200}
 
 local function _build_mcm_path(key)
-    return "as/" .. (_key_to_tab[key] or "spooks") .. "/" .. key
+    return "dd/" .. (_key_to_tab[key] or "spooks") .. "/" .. key
 end
 
-cfg, get_config, load_config = xmcm.create_config("as", defaults, _build_mcm_path)
-as_mcm.get_config = get_config
+cfg, get_config, load_config = xmcm.create_config("dd", defaults, _build_mcm_path)
+dd_mcm.get_config = get_config
 
 --- Write every default to storage, save, reload, notify consumers, close the menu.
 local function _apply_defaults(gui, msg)
@@ -51,8 +51,8 @@ local function _apply_defaults(gui, msg)
 end
 
 local function _build_title()
-    return { id = "title", type = "slide", link = "as_mcm_banner",
-             text = "ui_mcm_as_title", size = {512, 50}, spacing = 20 }
+    return { id = "title", type = "slide", link = "dd_mcm_banner",
+             text = "ui_mcm_dd_title", size = {512, 50}, spacing = 20 }
 end
 
 --- Spooks: master volume for our sounds plus the rarity feel knob; the director mixes every category off the master.
@@ -61,16 +61,16 @@ local function _build_spooks_page()
         id = "spooks", sh = true,
         gr = {
             _build_title(),
-            { id = "desc", type = "desc", text = "ui_mcm_as_spooks_desc" },
-            { id = "vol_global", type = "track", val = 2, min = 0.0, max = 5.0, step = 0.05, def = 1.0, hint = "as_vol_global" },
+            { id = "desc", type = "desc", text = "ui_mcm_dd_spooks_desc" },
+            { id = "vol_global", type = "track", val = 2, min = 0.0, max = 5.0, step = 0.05, def = 1.0, hint = "dd_vol_global" },
 
             { id = "div_feel", type = "line" },
-            { id = "hdr_feel", type = "desc", text = "ui_mcm_as_hdr_feel", clr = GREY },
-            { id = "rarity",   type = "track", val = 2, min = 0.5, max = 3.0, step = 0.05, def = 1.0, hint = "as_rarity" },
+            { id = "hdr_feel", type = "desc", text = "ui_mcm_dd_hdr_feel", clr = GREY },
+            { id = "rarity",   type = "track", val = 2, min = 0.5, max = 3.0, step = 0.05, def = 1.0, hint = "dd_rarity" },
 
             { id = "div_footer", type = "line" },
             { id = "platform", type = "desc", text = "ui_mcm_xmcm_footer",
-              ui_hook_functor = { _as_init.get_platform_functor() }, clr = {255, 212, 201, 168} },
+              ui_hook_functor = { _dd_init.get_platform_functor() }, clr = {255, 212, 201, 168} },
         },
     }
 end
@@ -81,8 +81,8 @@ local function _build_visuals_page()
         id = "visuals", sh = true,
         gr = {
             _build_title(),
-            { id = "desc", type = "desc", text = "ui_mcm_as_visuals_page_desc" },
-            { id = "visuals", type = "check", val = 1, def = true, hint = "as_visuals" },
+            { id = "desc", type = "desc", text = "ui_mcm_dd_visuals_page_desc" },
+            { id = "visuals", type = "check", val = 1, def = true, hint = "dd_visuals" },
         },
     }
 end
@@ -93,38 +93,38 @@ local function _build_development_page()
         id = "development", sh = true,
         gr = {
             _build_title(),
-            { id = "dev_desc", type = "desc", text = "ui_mcm_as_development_desc" },
+            { id = "dev_desc", type = "desc", text = "ui_mcm_dd_development_desc" },
 
             { id = "div_logging", type = "line" },
-            { id = "hdr_logging", type = "desc", text = "ui_mcm_as_hdr_logging", clr = GREY },
-            { id = "log_level", type = "list", val = 0, def = "WARN", hint = "as_log_level", content = {
+            { id = "hdr_logging", type = "desc", text = "ui_mcm_dd_hdr_logging", clr = GREY },
+            { id = "log_level", type = "list", val = 0, def = "WARN", hint = "dd_log_level", content = {
                 {"ERROR", "error"}, {"WARN", "warn"}, {"INFO", "info"}, {"DEBUG", "debug"},
               } },
-            { id = "log_flush", type = "check", val = 1, def = false, hint = "as_log_flush" },
+            { id = "log_flush", type = "check", val = 1, def = false, hint = "dd_log_flush" },
 
             { id = "div_hud", type = "line" },
-            { id = "hdr_hud", type = "desc", text = "ui_mcm_as_hud_hdr", clr = GREY },
+            { id = "hdr_hud", type = "desc", text = "ui_mcm_dd_hud_hdr", clr = GREY },
             { id = "hud_position", type = "list", val = 0, def = "off", content = {
                 {"off", "off"}, {"top_left", "topleft"}, {"top_right", "topright"},
                 {"center_left", "centerleft"}, {"center_right", "centerright"},
                 {"bottom_left", "bottomleft"}, {"bottom_right", "bottomright"},
               } },
-            { id = "sound_player", type = "check", val = 1, def = false, hint = "as_sound_player" },
+            { id = "sound_player", type = "check", val = 1, def = false, hint = "dd_sound_player" },
 
             { id = "div_reset", type = "line" },
-            { id = "warn_reset", type = "desc", text = "ui_mcm_as_development_reset_warning", clr = {255, 240, 200, 80} },
+            { id = "warn_reset", type = "desc", text = "ui_mcm_dd_development_reset_warning", clr = {255, 240, 200, 80} },
             { id = "btn_reset_all", type = "button", functor_ui = { btn_reset_all } },
         },
     }
 end
 
 function btn_reset_all(gui)
-    _apply_defaults(gui, game.translate_string("st_as_reset_all_done"))
+    _apply_defaults(gui, game.translate_string("st_dd_reset_all_done"))
 end
 
 function on_mcm_load()
     return {
-        id = "as",
+        id = "dd",
         gr = {
             _build_spooks_page(),
             _build_visuals_page(),

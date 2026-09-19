@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="windows-1251"?>
 <string_table>
-  <string id="ui_mcm_menu_as">
-    <text>AlifeSpooks</text>
+  <string id="ui_mcm_menu_dd">
+    <text>DiegeticDread</text>
   </string>
   <string id="ui_mcm_menu_spooks">
     <text>Spooks</text>
@@ -12,118 +12,118 @@
   <string id="ui_mcm_menu_development">
     <text>Development</text>
   </string>
-  <string id="ui_mcm_as_title">
-    <text>AlifeSpooks</text>
+  <string id="ui_mcm_dd_title">
+    <text>DiegeticDread</text>
   </string>
-  <string id="ui_mcm_as_spooks_desc">
+  <string id="ui_mcm_dd_spooks_desc">
     <text>The spook layer. It stays silent in safe and mundane places and, only where a place is genuinely unsettling, fires curated spook one-shots that grow closer and denser the worse it gets. It plays nothing else - no weather, no nature - and never replaces the base ambience.</text>
   </string>
-  <string id="ui_mcm_as_vol_global">
+  <string id="ui_mcm_dd_vol_global">
     <text>Overall volume</text>
   </string>
-  <string id="ui_mcm_as_vol_global_desc">
+  <string id="ui_mcm_dd_vol_global_desc">
     <text>Volume multiplier for every spook one-shot.</text>
   </string>
-  <string id="ui_mcm_as_sensitivity">
+  <string id="ui_mcm_dd_sensitivity">
     <text>Spook sensitivity</text>
   </string>
-  <string id="ui_mcm_as_sensitivity_desc">
+  <string id="ui_mcm_dd_sensitivity_desc">
     <text>Scales the whole spook response. Higher makes places read as unsettling sooner and reach peak more often; lower keeps spooks rarer and milder.</text>
   </string>
-  <string id="ui_mcm_as_hdr_feel">
+  <string id="ui_mcm_dd_hdr_feel">
     <text>Frequency and distance</text>
   </string>
-  <string id="ui_mcm_as_rarity">
+  <string id="ui_mcm_dd_rarity">
     <text>Rarity</text>
   </string>
-  <string id="ui_mcm_as_rarity_desc">
+  <string id="ui_mcm_dd_rarity_desc">
     <text>Wait between one-shots. Higher plays them less often.</text>
   </string>
-  <string id="ui_mcm_as_visuals_page_desc">
+  <string id="ui_mcm_dd_visuals_page_desc">
     <text>At peak spook, in the worst places, a brief and subtle screen distortion.</text>
   </string>
-  <string id="ui_mcm_as_visuals">
+  <string id="ui_mcm_dd_visuals">
     <text>Distortion at peak spook</text>
   </string>
-  <string id="ui_mcm_as_visuals_desc">
+  <string id="ui_mcm_dd_visuals_desc">
     <text>In the worst places, a brief, subtle screen distortion that lasts a couple of seconds. Off disables the visual layer entirely; sound is unaffected.</text>
   </string>
-  <string id="ui_mcm_as_development_desc">
+  <string id="ui_mcm_dd_development_desc">
     <text>Tracing and the debug HUD for tuning the spook layer. No effect on gameplay.</text>
   </string>
-  <string id="ui_mcm_as_hdr_logging">
+  <string id="ui_mcm_dd_hdr_logging">
     <text>Logging</text>
   </string>
-  <string id="ui_mcm_as_log_level">
+  <string id="ui_mcm_dd_log_level">
     <text>Spook trace</text>
   </string>
-  <string id="ui_mcm_as_log_level_desc">
-    <text>Records the spook score, grade and each one-shot to alifespooks.log with place and context. Use to diagnose the soundscape.</text>
+  <string id="ui_mcm_dd_log_level_desc">
+    <text>Records the spook score, grade and each one-shot to diegeticdread.log with place and context. Use to diagnose the soundscape.</text>
   </string>
-  <string id="as_development_log_level_lst_error">
+  <string id="dd_development_log_level_lst_error">
     <text>Error</text>
   </string>
-  <string id="as_development_log_level_lst_warn">
+  <string id="dd_development_log_level_lst_warn">
     <text>Warn</text>
   </string>
-  <string id="as_development_log_level_lst_info">
+  <string id="dd_development_log_level_lst_info">
     <text>Info</text>
   </string>
-  <string id="as_development_log_level_lst_debug">
+  <string id="dd_development_log_level_lst_debug">
     <text>Debug</text>
   </string>
-  <string id="ui_mcm_as_log_flush">
+  <string id="ui_mcm_dd_log_flush">
     <text>Flush log each line</text>
   </string>
-  <string id="ui_mcm_as_log_flush_desc">
+  <string id="ui_mcm_dd_log_flush_desc">
     <text>Write every line immediately. Slower; use only when hunting a crash.</text>
   </string>
-  <string id="ui_mcm_as_hud_hdr">
+  <string id="ui_mcm_dd_hud_hdr">
     <text>Debug HUD</text>
   </string>
-  <string id="ui_mcm_as_sound_player">
+  <string id="ui_mcm_dd_sound_player">
     <text>Sound review player (PageDown)</text>
   </string>
-  <string id="ui_mcm_as_sound_player_desc">
-    <text>Opens a standalone review window with PageDown: browse every shipped sound off disk, audition each at the director's exact placement (or a fixed distance / at-ear), and log your judgment - premade one-word notes or a custom note, plus a full-sensor probe note - to alifespooks_notes.txt. A dev tool, off by default.</text>
+  <string id="ui_mcm_dd_sound_player_desc">
+    <text>Opens a standalone review window with PageDown: browse every shipped sound off disk, audition each at the director's exact placement (or a fixed distance / at-ear), and log your judgment - premade one-word notes or a custom note, plus a full-sensor probe note - to diegeticdread_notes.txt. A dev tool, off by default.</text>
   </string>
-  <string id="ui_mcm_as_development_hud_position">
+  <string id="ui_mcm_dd_development_hud_position">
     <text>Spook HUD</text>
   </string>
-  <string id="ui_mcm_as_development_hud_position_desc">
+  <string id="ui_mcm_dd_development_hud_position_desc">
     <text>A live on-screen breakdown of the spook calculation - grade, score, place, what is playing, each term and the gates - for tuning. Refreshes twice per second, hides while the PDA is open. Pick a corner to show it; Off hides it. Players never see it unless enabled here.</text>
   </string>
-  <string id="as_development_hud_position_lst_off">
+  <string id="dd_development_hud_position_lst_off">
     <text>Off</text>
   </string>
-  <string id="as_development_hud_position_lst_topleft">
+  <string id="dd_development_hud_position_lst_topleft">
     <text>Top Left</text>
   </string>
-  <string id="as_development_hud_position_lst_topright">
+  <string id="dd_development_hud_position_lst_topright">
     <text>Top Right</text>
   </string>
-  <string id="as_development_hud_position_lst_centerleft">
+  <string id="dd_development_hud_position_lst_centerleft">
     <text>Center Left</text>
   </string>
-  <string id="as_development_hud_position_lst_centerright">
+  <string id="dd_development_hud_position_lst_centerright">
     <text>Center Right</text>
   </string>
-  <string id="as_development_hud_position_lst_bottomleft">
+  <string id="dd_development_hud_position_lst_bottomleft">
     <text>Bottom Left</text>
   </string>
-  <string id="as_development_hud_position_lst_bottomright">
+  <string id="dd_development_hud_position_lst_bottomright">
     <text>Bottom Right</text>
   </string>
-  <string id="ui_mcm_as_development_btn_reset_all">
+  <string id="ui_mcm_dd_development_btn_reset_all">
     <text>Reset to defaults</text>
   </string>
-  <string id="ui_mcm_as_development_btn_reset_all_desc">
-    <text>Restore all AlifeSpooks MCM settings to defaults. Use after upgrading from a version with a different MCM structure.</text>
+  <string id="ui_mcm_dd_development_btn_reset_all_desc">
+    <text>Restore all DiegeticDread MCM settings to defaults. Use after upgrading from a version with a different MCM structure.</text>
   </string>
-  <string id="ui_mcm_as_development_reset_warning">
+  <string id="ui_mcm_dd_development_reset_warning">
     <text>Warning: save or discard pending MCM changes first, otherwise they override the reset on the next Accept.</text>
   </string>
-  <string id="st_as_reset_all_done">
-    <text>AlifeSpooks: all settings restored to defaults.</text>
+  <string id="st_dd_reset_all_done">
+    <text>DiegeticDread: all settings restored to defaults.</text>
   </string>
 </string_table>

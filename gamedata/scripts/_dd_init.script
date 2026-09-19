@@ -1,8 +1,8 @@
---- _as_init: dependency gate and platform status. Logic hash-locked identical across mods (deps.logic_hash); identity read from _as_manifest.
+--- _dd_init: dependency gate and platform status. Logic hash-locked identical across mods (deps.logic_hash); identity read from _dd_manifest.
 
 local assert, tostring, type, math_floor = assert, tostring, type, math.floor
 
-local manifest = _as_manifest.MANIFEST
+local manifest = _dd_manifest.MANIFEST
 
 -- Compatibility floor, YYYYMMDD (stalker-compatibility.md). @src xray/script_ini_file_script.cpp:95-125
 local MIN_DEMONIZED_VERSION = 20250908
@@ -26,12 +26,12 @@ end
 function get_platform_status()
     local xver = (xlibs and xlibs.get_version and xlibs.get_version()) or "?"
     local line = manifest.name .. " " .. manifest.version .. ", xlibs " .. xver
-    local has_build = type(get_modded_exes_version) == "function"
+    local hdd_build = type(get_modded_exes_version) == "function"
     if type(get_aoe_version) == "function" then
         line = line .. ", AOEngine " .. tostring(get_aoe_version())
-        if has_build then line = line .. ", xray-monolith " .. _build_tag(get_modded_exes_version()) end
+        if hdd_build then line = line .. ", xray-monolith " .. _build_tag(get_modded_exes_version()) end
         return line .. " (partially compatible)", "fallback"
-    elseif has_build then
+    elseif hdd_build then
         local build = get_modded_exes_version()
         line = line .. ", xray-monolith " .. _build_tag(build)
         if build < LATEST_DEMONIZED_VERSION then
@@ -80,18 +80,18 @@ function on_game_start()
         "! " .. XLIBS_URL .. "\n"
     )
 
-    local has_aoe       = type(get_aoe_version)         == "function"
-    local has_demonized = type(get_modded_exes_version) == "function"
+    local hdd_aoe       = type(get_aoe_version)         == "function"
+    local hdd_demonized = type(get_modded_exes_version) == "function"
 
-    assert(has_aoe or has_demonized,
+    assert(hdd_aoe or hdd_demonized,
         "\n\n! [" .. manifest.name .. "] modded exes not detected.\n"..
         "! " .. manifest.name .. " requires themrdemonized modded exes or AOEngine.\n"..
         "! demonized: " .. DEMONIZED_URL .. "\n"..
         "! AOEngine:  " .. AOENGINE_URL .. "\n"
     )
 
-    local demonized_build = has_demonized and get_modded_exes_version() or nil
-    if has_demonized and not has_aoe then
+    local demonized_build = hdd_demonized and get_modded_exes_version() or nil
+    if hdd_demonized and not hdd_aoe then
         assert(demonized_build >= MIN_DEMONIZED_VERSION,
             "\n\n! [" .. manifest.name .. "] demonized build " .. tostring(demonized_build) ..
             " is older than required.\n"..

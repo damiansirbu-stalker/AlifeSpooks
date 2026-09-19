@@ -1,4 +1,4 @@
-"""Source registry for the AlifeSpooks sound pipeline (n124).
+"""Source registry for the DiegeticDread sound pipeline (n124).
 
 One declarative entry per source pack. Sources are ALWAYS pulled locally by hand - the pipeline never
 downloads anything. `url` is a REFERENCE link only (the moddb / origin page), kept for credit and provenance
