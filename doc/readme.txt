@@ -1,4 +1,3 @@
-DiegeticDread: dark horror ambience for STALKER Anomaly, by Damian
 Version: 1.0.0-snapshot (xlibs 1.8.5, demonized 20250908)
 Changelog: https://github.com/damiansirbu-stalker/DiegeticDread/blob/main/doc/changelog
 Read it in Russian / Na russkom: https://github.com/damiansirbu-stalker/DiegeticDread/blob/main/doc/readme_ru.txt
