@@ -10,6 +10,8 @@ Nexus: https://www.nexusmods.com/profile/damiansirbu/mods
 My contributions:
 X-Ray Monolith: https://github.com/themrdemonized/xray-monolith
 
+[ HERO IMAGE: diegeticdread-hero.gif - reactive horror, driven by where you stand and who is near ]
+
 Reset MCM settings to defaults after updating.
 
 The Zone used to be frightening.

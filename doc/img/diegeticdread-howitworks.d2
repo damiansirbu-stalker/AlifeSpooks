@@ -1,0 +1,53 @@
+direction: down
+
+style.fill: "#1f2421"
+
+**.style.fill: "#262c27"
+**.style.stroke: "#ece7d8"
+**.style.font-color: "#ece7d8"
+**.style.stroke-width: 2
+
+title: "DiegeticDread - a dread director that answers the Zone" {
+  near: top-center
+  style: { stroke-width: 0; fill: "#1f2421"; font-color: "#ece7d8"; font-size: 28 }
+}
+
+board: "The board - sensed every 100ms" {
+  grid-columns: 5
+  grid-gap: 16
+  env: "environment\nin / out / underground / labs"
+  time: "time of day"
+  stalkers: "stalkers near\nwho and how strong"
+  monsters: "monsters near\nwho and how strong"
+  anomalies: "anomalies near"
+}
+
+select: "SELECT - which sounds can play" {
+  grid-columns: 3
+  grid-gap: 18
+  map: "map\nthe level's own list"
+  e: "enclosure\nindoor vs outdoor kinds"
+  need: "need\nmutant / gunfire / signal present"
+}
+
+apply: "APPLY - dread is one additive sum" {
+  style.stroke: "#c9d8b6"
+  grid-columns: 2
+  grid-gap: 18
+  sum: "lore + enclosure + hour\n+ threat - company + anomaly"
+  base: "allied base near -> silent"
+}
+
+out: "Play one positioned sound - author's band, mono, once" {
+  style.stroke: "#c9d8b6"
+}
+
+veto: "Veto - static overlay at load\nstrips our sounds from base channels" {
+  style.stroke: "#c9d8b6"
+}
+base_ambient: "Base ambience\nnever doubles the director"
+
+board -> select: "read" { style: { stroke: "#c9d8b6"; font-color: "#c9d8b6" } }
+select -> apply: "eligible set" { style: { stroke: "#c9d8b6"; font-color: "#c9d8b6" } }
+apply -> out: "dread -> gap 32s calm to 6.5s peak" { style: { stroke: "#c9d8b6"; font-color: "#c9d8b6" } }
+veto -> base_ambient: "at config load" { style: { stroke: "#c9d8b6"; font-color: "#c9d8b6" } }
