@@ -199,3 +199,5 @@ Development > Spook trace: set to DEBUG, reproduce, then back to WARN. Logs the 
 Development > Spook HUD: pick a corner for a live breakdown of the dread calculation (grade, score, terms, gates); Off hides it.
 Development > Sound review player: enable to audition the spook sounds on PageDown, each with its measured loudness, and to load a logs-folder playlist for reviewing a flagged list.
 Report at https://github.com/damiansirbu-stalker/DiegeticDread/issues/new/choose or the EFP, Anomaly, and Zona Discord. Include repro steps, engine build, modlist, load order, xray.log, and the debug log.
+
+Tags: engine-native, performance, save-safe, horror, dread-director, contextual-horror, audio-engineering, audio, soundscape, dark-ambient, 3d-sound, lossless, classic-audio, reactive, emergent, diegetic
