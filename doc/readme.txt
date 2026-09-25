@@ -196,9 +196,11 @@ Usage and License:
   Full license in LICENSE file and on GitHub.
 
 Diagnostics and reporting:
-Development > Spook trace: set to DEBUG, reproduce, then back to WARN. Logs the spook score, grade, and each sound to diegeticdread.log.
-Development > Spook HUD: pick a corner for a live breakdown of the dread calculation (grade, score, terms, gates); Off hides it.
-Development > Sound review player: enable to audition the spook sounds on PageDown, each with its measured loudness, and to load a logs-folder playlist for reviewing a flagged list.
-Report at https://github.com/damiansirbu-stalker/DiegeticDread/issues/new/choose or the EFP, Anomaly, and Zona Discord. Include repro steps, engine build, modlist, load order, xray.log, and the debug log.
+Every release goes through careful engineering and testing, but bugs can still slip through.
+To report one, reproduce with debug logging on, and the world log where the mod has one.
+First rule this mod out: reproduce with it off, then on. The cleanest test is this mod alone on vanilla and xlibs.
+Send the traces on the Anomaly Discord, or file a defect on GitHub with the same information.
+Attach xray.log, the mod log, the engine build, the modlist, and the load order.
+For deep technical details and mechanisms, check the architecture docs on GitHub.
 
 Tags: engine-native, performance, save-safe, horror, dread-director, contextual-horror, audio-engineering, audio, soundscape, dark-ambient, 3d-sound, lossless, classic-audio, reactive, emergent, diegetic
