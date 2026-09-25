@@ -36,7 +36,7 @@ local _log = nil
 
 local function _show_tip(msg)
     local actor = db.actor
-    if actor then news_manager.send_show_tip(actor, msg, nil, nil, 4000) end
+    if actor then news_manager.send_tip(actor, msg, nil, nil, 4000) end
 end
 
 --- Flatten dd_sound_metadata to a { cat, path } list in sorted-category order (optionally one category).
@@ -378,7 +378,7 @@ function dd_test.log_snapshot(note)
     _run_timed(sink, "presence-bands", function() _log_bands(sink, actor, apos) end)
     _run_timed(sink, "vertical",       function() _log_vertical(sink, actor, apos) end)
     log.flush()
-    news_manager.send_show_tip(actor, string_format(
+    news_manager.send_tip(actor, string_format(
         "SPOT  [%s]\nlevel   %s\npos     %.1f  %.1f  %.1f\nradius  ?\n(detail -> diegeticdread_probe.log)",
         tostring(note or "?"), tostring(level.name()), apos.x, apos.y, apos.z), nil, nil, 20000)
 end
