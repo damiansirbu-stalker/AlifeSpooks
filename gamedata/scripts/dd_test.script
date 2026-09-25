@@ -5,7 +5,6 @@ dd_test = dd_test or {}
 local pairs, tostring, ipairs, pcall, tonumber = pairs, tostring, ipairs, pcall, tonumber
 local table_concat, table_sort, string_format = table.concat, table.sort, string.format
 local RegisterScriptCallback, GetEvent, alife_object = RegisterScriptCallback, GetEvent, alife_object
-local news_manager, ui_options, game_fast_travel = news_manager, ui_options, game_fast_travel
 
 -- Metres from the actor a test spawn lands.
 local DEFAULT_TEST_DIST_M = 5
@@ -282,37 +281,6 @@ local function _spawn_variant(sec, sim, pos, lvid, gvid, log)
     log.info("sec=%s species=%s rank=%s", sec,
         tostring(se and xcreature.get_mutant_species(se.id) or "-"),
         tostring(se and se:rank() or "nil"))
-end
-
---- Unlock all fast-travel waypoints.
-function dd_test.enable_travel()
-    ui_options.set("gameplay/fast_travel/state", 2)
-    game_fast_travel.update_settings()
-    _show_tip("fast travel: all waypoints unlocked")
-end
-
---- Give money (default 100000).
-function dd_test.give_money(amount)
-    local actor = db.actor
-    if not actor then return end
-    actor:give_money(amount or 100000)
-    _show_tip("money given")
-end
-
---- Disable the northern psy fields so Radar / Red Forest are walkable.
-function dd_test.enable_north()
-    local actor = db.actor
-    if not actor then return end
-    actor:give_info_portion("bar_deactivate_radar_done")
-    actor:give_info_portion("yan_labx16_switcher_primary_off")
-    _show_tip("north opened: psy fields off (reload the level to apply)")
-end
-
---- One-shot dev setup: travel, money, north.
-function dd_test.init_dev()
-    dd_test.enable_travel()
-    dd_test.give_money(100000)
-    dd_test.enable_north()
 end
 
 --- Fire the test play 3s after the call so it lands during live gameplay; close the console after running.
