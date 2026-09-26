@@ -1,6 +1,5 @@
 Version: 1.0.0-snapshot (xlibs 1.8.5, demonized 20250908)
-Changelog: https://github.com/damiansirbu-stalker/DiegeticDread/blob/main/doc/changelog
-Read it in Russian / Na russkom: https://github.com/damiansirbu-stalker/DiegeticDread/blob/main/doc/readme_ru.txt
+Changelog: https://github.com/damiansirbu-stalker/DiegeticDread/blob/main/doc/changelog | Health: https://damiansirbu-stalker.github.io/DiegeticDread/health/ | JitProfiler: https://damiansirbu-stalker.github.io/DiegeticDread/jitprofiler/ | Bugs: https://github.com/damiansirbu-stalker/DiegeticDread/issues | Russian / На русском: https://github.com/damiansirbu-stalker/DiegeticDread/blob/main/doc/readme_ru.txt
 
 My work:
 GitHub: https://github.com/orgs/damiansirbu-stalker/repositories
@@ -137,26 +136,12 @@ Modded exes: themrdemonized 20250908 or newer, or AOEngine v0.55 or newer. The f
 xlibs (plays the sounds, https://www.moddb.com/mods/stalker-anomaly/addons/xlibs-1001)
 MCM (shows the settings and the trace)
 
-Install (MO2):
-1. Install xlibs
-2. Install this mod
-3. Load order does not matter
-4. Configure via MCM
-
-Uninstall (MO2):
-Disable or remove in MO2.
-
 Compatibility:
-It runs on vanilla Anomaly and alongside any soundscape mod.
-It removes only its own sounds from the base channels and adds nothing. It never doubles or collides with the base ambience.
-It runs as a self-contained layer. It plays its own sounds through its own director, so it never fights a soundscape mod.
-Its removal only takes sounds out, so it can never empty or break a base channel. It replays whatever base ambience wins, so those beds keep sounding.
-Its own sounds play at their authors' loudness and distances, so the horror sits within the base mix rather than over it.
-The master volume balances the two when a base runs unusually loud or quiet.
-Tested against Anomaly 1.5.3, GAMMA (installer definition 920, with Soundscape Overhaul and Dark Signal Weather and Ambiance active), and Forgotten Zone.
-Tested with every source pack listed under Credits below.
-Its Vanilla-weather edition is the same audio, credited under Amplified Soundscape.
-You can install or remove it mid-save. Weather sound stays the base ambience's job. DiegeticDread adds no storm or rain.
+Depends only on xlibs. Install and uninstall mid-save work. Tested: Anomaly 1.5.3, GAMMA, EFP, Zona, Forgotten Zone.
+Coexists:
+- Any soundscape pack (Soundscape Overhaul, Dark Signal, and the rest) - the veto strips DiegeticDread's own sounds from the base channels at load, so nothing doubles.
+- DiegeticAmbience - its companion: DiegeticDread plays the horror and vetoes it from the base, DiegeticAmbience owns the nature-and-weather bed.
+It coexists with everything else.
 
 How It's Built:
 
@@ -174,8 +159,7 @@ The mod avoids writing engine values, holding its own state in parallel. Any val
 The family runs on one rulebook through xlibs. Every rule, policy, and check is one shared implementation, the same protection, distances, faction logic, and combat reads in every mod.
 It depends on no other mod, not even my own. The only shared layers are X-Ray and xlibs.
 
-[Screenshot: DiegeticDread under JitProfiler, a live CPU and allocation capture]
-Project Health: https://damiansirbu-stalker.github.io/DiegeticDread/
+That pipeline runs on every commit and publishes what it finds. The header links a live health page and a JitProfiler capture of the mod's real CPU and allocation cost.
 
 Credits:
 Most of the sounds come from the original S.T.A.L.K.E.R. games and the standalone builds that carry and rework that audio.
